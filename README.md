@@ -141,6 +141,17 @@ Preview:
 It must never be committed. Without it the endpoint returns a clean 500 and the
 form shows its error state.
 
+**Setting the variable is not enough on its own.** Pages binds environment
+variables to a deployment when that deployment is built, so a secret added after
+the fact is invisible to everything already running. The form keeps reporting a
+failed send until a new deployment is created — push a commit, or use Retry
+deployment on the latest build. `GET /submit` reports `canSend: false` while the
+running deployment cannot see the key, which is the quickest way to tell this
+apart from a bad key.
+
+Check the variable is set for **Production** as well as Preview. They are
+separate environments and the custom domain serves Production.
+
 ### Before the form can deliver
 
 - `jurasolutions.sg` DNS pointed at Cloudflare Pages
