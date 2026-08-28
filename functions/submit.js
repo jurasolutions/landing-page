@@ -8,9 +8,11 @@
  * Responses the page knows how to handle:
  *   200  sent
  *   400  the enquiry did not validate
- *   405  wrong method
+ *   405  any method other than POST or GET
  *   500  the function is not configured (no API key)
  *   502  Resend refused or was unreachable
+ *
+ * GET /submit is a health check — see the bottom of this file.
  */
 
 const TO = "info@jurasolutions.sg";
@@ -135,4 +137,26 @@ export async function onRequestPost({ request, env }) {
   return json({ ok: true }, 200);
 }
 
-// Only POST is handled. Pages answers any other method on this route with 405.
+/**
+ * GET /submit — health check.
+ *
+ * Exists so it is possible to tell, from outside, whether this Function is
+ * actually running. Without it a missing Function is indistinguishable from a
+ * working one: an undeployed /submit falls through to the static handler, which
+ * serves index.html on GET and rejects POST with 405, and neither of those says
+ * what is wrong.
+ *
+ * A JSON reply here means the Function is live. HTML means it is not deployed.
+ *
+ * `canSend` reports whether RESEND_API_KEY is visible to this deployment. It
+ * reveals nothing a real submission would not already expose through the 500
+ * this returns when the key is absent, and it saves sending a test enquiry to
+ * the live inbox just to find out.
+ *
+ * Method-specific handlers sit alongside each other, so this does not shadow
+ * onRequestPost the way a catch-all onRequest would. Any other method still
+ * gets 405 from Pages.
+ */
+export async function onRequestGet({ env }) {
+  return json({ endpoint: "enquiry", ok: true, canSend: Boolean(env.RESEND_API_KEY) }, 200);
+}

@@ -98,12 +98,27 @@ field that needs attention. A failed send keeps everything the visitor typed.
 | --- | --- |
 | 200 | sent |
 | 400 | the enquiry did not validate |
-| 405 | wrong method |
+| 405 | any method other than POST or GET |
 | 500 | `RESEND_API_KEY` is not set on the Pages project |
 | 502 | Resend refused or was unreachable |
 
 Mail goes to `info@jurasolutions.sg` from `no_reply@jurasolutions.sg`, with
 `reply_to` set to the enquirer.
+
+### Checking the endpoint is live
+
+`GET /submit` is a health check:
+
+```bash
+curl https://jurasolutions.sg/submit
+```
+
+JSON back (`{"endpoint":"enquiry","ok":true,"canSend":true}`) means the Function
+is deployed, and `canSend` says whether `RESEND_API_KEY` is visible to that
+deployment. **HTML back means the Function is not deployed at all** — an absent
+`/submit` falls through to the static handler, which serves `index.html` on GET
+and rejects POST with 405. That is worth knowing, because a missing Function and
+a broken one otherwise look identical from the browser.
 
 ## Deploying to Cloudflare Pages
 
