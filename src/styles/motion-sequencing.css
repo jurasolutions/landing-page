@@ -1,0 +1,177 @@
+/* ---------------------------------------------------------------------------
+   Sequencing fixes for two design system motion graphics.
+
+   WHY THIS FILE EXISTS
+   --------------------
+   AutomationFlow and ApprovalTrack both intend to show one job walking through
+   its stages in order. Both currently show every stage moving at once, or out
+   of order. The design system is read-only, so the corrections live here rather
+   than being hand-edited into the components.
+
+   This is a stopgap. The real fix belongs upstream in the design system so that
+   every Jura surface gets it — each block below names the source change needed.
+   Delete this file once a corrected design system has been imported.
+
+   HOW THESE OVERRIDES WIN
+   -----------------------
+   The motion components inject their CSS as an inline style element inside the
+   React tree, which lands in the body — later in document order than this
+   stylesheet. Same-specificity rules would therefore lose. Every selector below
+   is deliberately more specific than the component's own.
+
+   Nothing here sets a colour or a width outside a keyframes block, so the
+   components' own reduced-motion rules (which use animation: none !important)
+   still win, and the frozen still frames are untouched.
+
+   Both blocks assume four stages, which is what this page uses. A fifth stage
+   would simply fall through to the component's existing behaviour.
+--------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   1. AutomationFlow — the travelling dots all move at once
+
+   The component sets the stagger on the wrong element. The delay goes on
+   .ju-flow-link, but the animation is on .ju-flow-link::after, and
+   animation-delay does not inherit onto a pseudo-element. So all three dots run
+   with delay 0 and travel in unison.
+
+   Upstream fix: hand the delay to the pseudo-element through a custom property
+   set on .ju-flow-link, and have ::after read it with
+   animation-delay: var(--ju-flow-link-delay, 0s).
+
+   Children of .ju-flow run step, link, step, link, step, link, step, so the
+   links are the 2nd, 4th and 6th. Link i starts half a stage after step i-1
+   lights: (i - 0.5) x duration / 4.
+--------------------------------------------------------------------------- */
+
+.ju-flow > .ju-flow-link:nth-child(2)::after { animation-delay: calc(var(--ju-flow-dur) * 0.125); }
+.ju-flow > .ju-flow-link:nth-child(4)::after { animation-delay: calc(var(--ju-flow-dur) * 0.375); }
+.ju-flow > .ju-flow-link:nth-child(6)::after { animation-delay: calc(var(--ju-flow-dur) * 0.625); }
+
+/* The dot has no resting opacity of its own, so during its delay it would sit
+   parked and fully visible at the start of its link. This was invisible while
+   every delay was 0. Filling backwards applies the 0% keyframe (opacity 0)
+   through the delay, so a dot appears only when its turn comes. */
+.ju-flow > .ju-flow-link::after { animation-fill-mode: backwards; }
+
+/* ---------------------------------------------------------------------------
+   2. AutomationFlow — the active step is hard to see
+
+   The stock highlight is a green-400 hairline plus a ring at 10% opacity, which
+   reads as almost nothing at a glance. The step currently running should be
+   obvious. Green on an active state is what the accent is for (README §4), and
+   only one card is ever lit.
+
+   The hold is widened to cover most of the stage's own slot, so the highlight
+   walks 1 to 2 to 3 to 4 with only a short gap at each handover.
+--------------------------------------------------------------------------- */
+
+.ju-flow > .ju-flow-step { animation-name: jura-flow-wake; }
+
+@keyframes jura-flow-wake {
+  0%, 20% {
+    border-color: var(--green-600);
+    background: var(--green-50);
+    box-shadow: 0 0 0 3px var(--green-100);
+  }
+  26%, 100% {
+    border-color: var(--border-subtle);
+    background: var(--white);
+    box-shadow: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   3. ApprovalTrack — the stages desynchronise and light out of order
+
+   Every dot runs the same keyframes on its own animation-delay. Four dots, one
+   period, four different delays. The first pass looks right, then each dot
+   resets at its own delay rather than with the others, so they drift apart
+   permanently. By the third cycle Submitted is grey while Checked, Approved and
+   Filed are green, which says the opposite of what the diagram is for.
+
+   The fix is to put every dot on one shared timeline — delay 0 for all of them
+   — and let each light at its own percentage within that single cycle. They
+   then reset together at 0% and always read in order.
+
+   Upstream fix: generate per-stage keyframes, or drive the whole track from one
+   custom property, instead of staggering delays.
+
+   Children of .ju-track-rail run fill, stage, stage, stage, stage.
+--------------------------------------------------------------------------- */
+
+/* The component sets animationDelay as an inline style on each dot and label.
+   Inline styles beat any stylesheet selector however specific, so clearing the
+   stagger needs !important — it is the one place here that does.
+
+   The !important goes on animation-delay ONLY, never on animation-name. The
+   component disables these graphics under reduced motion with
+   `animation: none !important`, and that has to keep winning. A non-important
+   animation-name loses to it, so the still frame survives; the delay is then
+   irrelevant because nothing is running. */
+.ju-track-rail > .ju-track-stage > .ju-track-dot,
+.ju-track-rail > .ju-track-stage > .ju-track-name { animation-delay: 0s !important; }
+
+.ju-track-rail > .ju-track-stage:nth-child(2) > .ju-track-dot { animation-name: jura-track-dot-1; }
+.ju-track-rail > .ju-track-stage:nth-child(3) > .ju-track-dot { animation-name: jura-track-dot-2; }
+.ju-track-rail > .ju-track-stage:nth-child(4) > .ju-track-dot { animation-name: jura-track-dot-3; }
+.ju-track-rail > .ju-track-stage:nth-child(5) > .ju-track-dot { animation-name: jura-track-dot-4; }
+
+.ju-track-rail > .ju-track-stage:nth-child(2) > .ju-track-name { animation-name: jura-track-name-1; }
+.ju-track-rail > .ju-track-stage:nth-child(3) > .ju-track-name { animation-name: jura-track-name-2; }
+.ju-track-rail > .ju-track-stage:nth-child(4) > .ju-track-name { animation-name: jura-track-name-3; }
+.ju-track-rail > .ju-track-stage:nth-child(5) > .ju-track-name { animation-name: jura-track-name-4; }
+
+@keyframes jura-track-dot-1 {
+  0%, 8% { border-color: var(--neutral-300); background: var(--white); }
+  12%, 100% { border-color: var(--green-600); background: var(--green-600); }
+}
+@keyframes jura-track-dot-2 {
+  0%, 30% { border-color: var(--neutral-300); background: var(--white); }
+  34%, 100% { border-color: var(--green-600); background: var(--green-600); }
+}
+@keyframes jura-track-dot-3 {
+  0%, 52% { border-color: var(--neutral-300); background: var(--white); }
+  56%, 100% { border-color: var(--green-600); background: var(--green-600); }
+}
+@keyframes jura-track-dot-4 {
+  0%, 74% { border-color: var(--neutral-300); background: var(--white); }
+  78%, 100% { border-color: var(--green-600); background: var(--green-600); }
+}
+
+@keyframes jura-track-name-1 {
+  0%, 8% { color: var(--text-muted); }
+  12%, 100% { color: var(--text-strong); }
+}
+@keyframes jura-track-name-2 {
+  0%, 30% { color: var(--text-muted); }
+  34%, 100% { color: var(--text-strong); }
+}
+@keyframes jura-track-name-3 {
+  0%, 52% { color: var(--text-muted); }
+  56%, 100% { color: var(--text-strong); }
+}
+@keyframes jura-track-name-4 {
+  0%, 74% { color: var(--text-muted); }
+  78%, 100% { color: var(--text-strong); }
+}
+
+/* The rail fill has to arrive at each dot as that dot lights, or the line runs
+   ahead of the sequence. Stages are equal width, so the dot centres sit at
+   12.5% / 37.5% / 62.5% / 87.5% of the rail. The fill starts 12px in, so its
+   width is that centre minus 12px. Linear between stops, because the stops are
+   themselves the rhythm. */
+
+.ju-track-rail > .ju-track-fill {
+  animation-name: jura-track-fill;
+  animation-delay: 0s;
+  animation-timing-function: linear;
+}
+
+@keyframes jura-track-fill {
+  0% { width: 0; }
+  12% { width: calc(12.5% - 12px); }
+  34% { width: calc(37.5% - 12px); }
+  56% { width: calc(62.5% - 12px); }
+  78%, 100% { width: calc(87.5% - 12px); }
+}
