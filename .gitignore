@@ -7,6 +7,10 @@ dist/
 .env.*
 !.env.example
 
+# Wrangler reads local secrets from here when running Pages Functions locally.
+.dev.vars
+.dev.vars.*
+
 .DS_Store
 Thumbs.db
 *.log
