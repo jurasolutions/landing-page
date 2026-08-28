@@ -1,0 +1,7 @@
+# Normalise line endings so the repo is the same on Windows, macOS and the
+# Cloudflare Pages build image.
+* text=auto eol=lf
+*.svg text eol=lf
+*.png binary
+*.jpg binary
+*.woff2 binary

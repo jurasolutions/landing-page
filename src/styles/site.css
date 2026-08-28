@@ -1,0 +1,442 @@
+/* ---------------------------------------------------------------------------
+   Page layout for the Jura Solutions marketing site.
+
+   Everything here is composition: containers, grids, and the spine that runs
+   down the left of the page. Colour, type, spacing and radii come from the
+   design system tokens — there are no raw values below.
+
+   The spine is the one structural device this page adds. A hairline runs from
+   the hero claim to the closing conversation, with a node at each section, so
+   the page reads the way Jura describes its work: one process, written down,
+   with a beginning and a handover. Below 1024px the rail drops away and each
+   node becomes the ordinary eyebrow above its heading.
+--------------------------------------------------------------------------- */
+
+:root {
+  --spine-col: 132px;
+  --spine-gap: var(--space-6);
+  --spine-node: 9px;
+  /* Distance from the top of a band down to the centre of its node. */
+  --spine-node-top: calc(var(--section-y) + 10px);
+  /* Left edge of the container's content box, wherever the viewport puts it. */
+  --spine-x: calc(max(0px, (100% - var(--container-max)) / 2) + var(--gutter) + 4px);
+}
+
+/* ---- Containers and bands ---- */
+
+.wrap {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.band {
+  position: relative;
+  padding-block: var(--section-y);
+}
+
+.band--sunken { background: var(--surface-sunken); }
+.band--wash { background: var(--wash-brand); }
+.band--dark { background: var(--surface-inverse); }
+
+/* ---- The spine ---- */
+
+.band::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--spine-x);
+  width: 1px;
+  background: var(--border-subtle);
+}
+
+/* The hero opens the spine: the rail starts at its node. */
+.band--spine-start::before { top: var(--spine-node-top); }
+
+/* The closing band ends it: the rail stops at its node. */
+.band--spine-end::before {
+  bottom: auto;
+  height: var(--spine-node-top);
+  background: var(--green-800);
+}
+
+.band-grid {
+  display: grid;
+  grid-template-columns: var(--spine-col) minmax(0, 1fr);
+  gap: var(--spine-gap);
+  align-items: start;
+}
+
+.spine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: 6px;
+}
+
+.spine-node {
+  width: var(--spine-node);
+  height: var(--spine-node);
+  border-radius: var(--radius-full);
+  background: var(--green-600);
+  flex: 0 0 auto;
+}
+
+.band--dark .spine-node { background: var(--green-400); }
+
+/* Indented so the rail passes to the left of the words rather than through
+   them: the node sits on the line, the label hangs off it. */
+.spine-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-overline);
+  letter-spacing: var(--tracking-overline);
+  text-transform: uppercase;
+  color: var(--text-brand);
+  line-height: var(--leading-normal);
+  padding-left: var(--space-4);
+}
+
+.band--dark .spine-label { color: var(--green-300); }
+
+/* ---- Shared blocks ---- */
+
+.stack-3 { display: flex; flex-direction: column; gap: var(--space-3); }
+.stack-4 { display: flex; flex-direction: column; gap: var(--space-4); }
+.stack-5 { display: flex; flex-direction: column; gap: var(--space-5); }
+.stack-6 { display: flex; flex-direction: column; gap: var(--space-6); }
+
+.split {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: var(--space-8);
+  align-items: center;
+}
+
+.split--top { align-items: start; }
+
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+
+.heading-1 { font-size: var(--text-h1); }
+.heading-2 { font-size: var(--text-h3); }
+
+.lede {
+  font-size: var(--text-body-lg);
+  color: var(--text-body);
+  max-width: var(--measure-prose);
+}
+
+.prose {
+  font-size: var(--text-body-sm);
+  color: var(--text-body);
+  max-width: var(--measure-prose);
+}
+
+.note {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+/* ---- Nav ---- */
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-height: 72px;
+}
+
+.brand-lockup { display: inline-flex; }
+.brand-mark { display: none; }
+
+.navlinks { display: flex; gap: var(--space-6); align-items: center; }
+
+.navlink {
+  font-size: var(--text-body-sm);
+  color: var(--text-body);
+  text-decoration: none;
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+}
+
+.navlink:hover { color: var(--text-brand); text-decoration: none; }
+
+.nav-menu-button { display: none; }
+
+.nav-sheet {
+  position: fixed;
+  inset: 72px 0 0 0;
+  z-index: 40;
+  background: var(--surface-page);
+  border-top: 1px solid var(--border-subtle);
+  padding: var(--space-6) 0;
+  overflow-y: auto;
+}
+
+.nav-sheet-links { display: flex; flex-direction: column; }
+
+.nav-sheet-link {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-display);
+  font-size: var(--text-h3);
+  font-weight: var(--weight-medium);
+  color: var(--text-strong);
+  text-decoration: none;
+}
+
+.nav-sheet-link:hover { color: var(--text-brand); text-decoration: none; }
+
+/* ---- Problem statements ---- */
+
+.reality-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--space-8);
+}
+
+.reality-item {
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-body-lg);
+  color: var(--text-strong);
+  text-wrap: pretty;
+}
+
+/* ---- Services ---- */
+
+.service-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--brand-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.service-gets {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.service-gets strong {
+  color: var(--text-brand);
+  font-weight: var(--weight-medium);
+}
+
+/* ---- How we work ---- */
+
+.step {
+  display: flex;
+  gap: var(--space-5);
+  padding-block: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.step:first-child { padding-top: 0; }
+
+.step-n {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  color: var(--text-brand);
+  padding-top: 4px;
+  flex: 0 0 auto;
+}
+
+/* ---- Trust ---- */
+
+.trust-item { display: flex; gap: var(--space-4); align-items: flex-start; }
+
+.trust-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--brand-border);
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Hero ---- */
+
+.hero-copy {
+  max-width: var(--measure-prose);
+  align-items: flex-start;
+}
+
+.assurances {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+.assurance {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+/* ---- Contact ---- */
+
+.contact-heading {
+  font-size: var(--text-display-2);
+  color: var(--white);
+  letter-spacing: var(--tracking-display);
+}
+
+.contact-lede {
+  font-size: var(--text-body-lg);
+  color: var(--green-100);
+  max-width: var(--measure-narrow);
+}
+
+.contact-detail {
+  font-size: var(--text-body-sm);
+  color: var(--green-200);
+}
+
+.contact-detail a { color: var(--green-100); text-decoration: underline; text-underline-offset: 3px; }
+.contact-detail a:hover { color: var(--white); }
+
+/* ---- Footer ---- */
+
+.footer {
+  background: var(--surface-inverse);
+  border-top: 1px solid var(--green-800);
+  padding-block: var(--space-8);
+}
+
+.footer-top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.footer-col { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.footer-head {
+  font-family: var(--font-mono);
+  font-size: var(--text-overline);
+  letter-spacing: var(--tracking-overline);
+  text-transform: uppercase;
+  color: var(--green-300);
+}
+
+.footer-link {
+  font-size: var(--text-body-sm);
+  color: var(--green-100);
+  text-decoration: none;
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+}
+
+.footer-link:hover { color: var(--white); text-decoration: underline; text-underline-offset: 3px; }
+
+.footer-base {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--green-800);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: var(--text-caption);
+  color: var(--green-300);
+}
+
+/* ---- Skip link ---- */
+
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: calc(var(--space-4) * -6);
+  z-index: 60;
+  background: var(--white);
+  color: var(--text-brand);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-semibold);
+  transition: top var(--dur-fast) var(--ease-standard);
+}
+
+.skip-link:focus { top: var(--space-4); text-decoration: none; }
+
+/* ---- Responsive ---------------------------------------------------------- */
+
+/* Below the desktop breakpoint the spine folds into the page: the rail goes,
+   and each node sits beside its label as an ordinary eyebrow. */
+@media (max-width: 1023px) {
+  .band::before { display: none; }
+
+  .band-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+  }
+
+  .spine {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-3);
+    padding-top: 0;
+  }
+
+  .spine-label { padding-left: 0; }
+}
+
+@media (max-width: 900px) {
+  .split { grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+  .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .reality-list { grid-template-columns: minmax(0, 1fr); }
+  .navlinks { display: none; }
+  .nav-menu-button { display: inline-flex; }
+}
+
+@media (max-width: 560px) {
+  .assurances { gap: var(--space-3); }
+  .step { gap: var(--space-4); }
+  .brand-lockup { display: none; }
+  .brand-mark { display: inline-flex; }
+}
+
+/* ---- Reduced motion ------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .skip-link { transition: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+/* The sticky bar must not cover the heading of a section jumped to by anchor. */
+[id] { scroll-margin-top: 88px; }
