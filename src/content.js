@@ -269,7 +269,7 @@ export const HOW = {
   label: "How we work",
   heading: "Slowly at the start, so the rest is quick",
   lede:
-    "Most automation fails because nobody agreed what the process was. We spend our first days watching the work, not writing code.",
+    "Most automation fails because nobody agreed what the process was. We spend our first days watching the work. The code comes later.",
   motionCaption: "Approvals stop waiting in inboxes",
   steps: [
     {
@@ -282,7 +282,7 @@ export const HOW = {
       n: "02",
       title: "Discovery",
       body:
-        'We follow one process end to end and agree what "done" looks like before anything is built.',
+        'We follow one process from start to finish and agree what "done" looks like before anything is built.',
     },
     {
       n: "03",
