@@ -132,6 +132,26 @@ describe("a tool page", () => {
   });
 });
 
+describe("the privacy and unsubscribe pages", () => {
+  it("render, and the privacy page covers the toolbox AI tools and the outreach emails", async () => {
+    const { Privacy } = await import("../src/pages/Privacy.jsx");
+    const { Unsubscribed } = await import("../src/pages/Unsubscribed.jsx");
+    const privacy = renderToStaticMarkup(React.createElement(Privacy));
+    expect(privacy).toContain("Tools that use AI");
+    expect(privacy).toContain("Anthropic");
+    expect(privacy).toContain("Emails we send to businesses");
+    expect(privacy).toContain('href="mailto:info@jurasolutions.sg"');
+    const done = renderToStaticMarkup(React.createElement(Unsubscribed));
+    expect(done).toContain("unsubscribed");
+  });
+
+  it("are linked from the footer and every tool page's privacy note", async () => {
+    const { FOOTER, APP_SHELL } = await import("../src/content.js");
+    expect(FOOTER.columns.flatMap((c) => c.links).some((l) => l.href === "/privacy")).toBe(true);
+    expect(APP_SHELL.privacyHref).toBe("/privacy");
+  });
+});
+
 describe("prerendered route heads", () => {
   const index = fs.readFileSync("index.html", "utf8");
 

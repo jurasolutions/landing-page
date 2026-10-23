@@ -71,7 +71,11 @@ name it cannot find.
 ```
 functions/               Cloudflare Pages Functions (each file is a route)
   submit.js              POST /submit → Resend, GET /submit health check
+  unsubscribe.js         GET and POST /unsubscribe?t=<token> → D1 suppression
+  api/resend-webhook.js  POST bounces and complaints → D1 suppression, GET health check
   api/apps/usage.js      POST /api/apps/usage, anonymous open/complete counts
+  api/apps/limit.js      GET /api/apps/limit, AI tries left today
+  api/apps/receipt-reader.js  POST, APP-002
 server/                  code the Functions share; outside functions/ so it is never a route
 migrations/              D1 schema, wrangler migrations format
 scripts/                 design system sync, per-route <head> prerender
@@ -79,7 +83,8 @@ src/
   App.jsx                the router shell: nav, the current page, footer
   content.js             every word on the site pages (tools keep theirs in copy.js)
   ds.js                  design system import point
-  pages/                 Home (the nine house sections, unchanged), AppsIndex, AppPage, NotFound
+  pages/                 Home (the nine house sections, unchanged), AppsIndex, AppPage,
+                         Privacy, Unsubscribed, NotFound
   apps/                  the toolbox: registry, shared components, one folder per tool
   components/Section.jsx the page band and its node on the spine
   sections/              hero, problem, services, how, proof, trust, faq, contact, footer
@@ -97,6 +102,8 @@ tests/                   Vitest: Functions against an in-memory D1, plus shell t
 | `/` | the marketing page, as before |
 | `/apps` | the toolbox index, from the registry, filterable by category |
 | `/apps/<slug>` | one tool, its code loaded only on that page |
+| `/privacy` | the privacy notice (linked from the footer, every tool and every outreach email) |
+| `/unsubscribed` | where `/unsubscribe` sends people afterwards (`?status=invalid` or `?status=error` for the failure states); `noindex` |
 
 Routing is a small history-API router (`src/lib/router.js`); there is no
 routing library. It intercepts clicks on same-origin links to these paths, so
@@ -106,8 +113,8 @@ page they point to `/#section`.
 
 Cloudflare Pages serves `index.html` for any path that is not a file, because
 there is no top-level `404.html`. After `vite build`,
-`scripts/prerender-routes.mjs` writes `dist/apps.html` and
-`dist/apps/<slug>.html` for each live tool: the same SPA with that route's
+`scripts/prerender-routes.mjs` writes `dist/apps.html`, `dist/privacy.html`,
+`dist/unsubscribed.html` and `dist/apps/<slug>.html` for each live tool: the same SPA with that route's
 title, description, canonical and Open Graph tags, so a shared link previews as
 the tool. They are `.html` files rather than `<route>/index.html` because Pages
 serves `apps.html` at `/apps`, whereas `apps/index.html` would answer at
@@ -263,6 +270,56 @@ safe for as long as nobody added a handler to it.
 - The registry entry is `draft` until Ting Yu has run his own receipts
   through the real model (`src/apps/receipt-reader/__fixtures__/README.md`).
 
+## Unsubscribe and bounces (scout PRD §5.5, §5.9)
+
+The growth CLI (`repos/growth`) sends the outreach emails; this site holds the
+pieces that must answer on jurasolutions.sg. Both sides keep to one contract.
+
+**The unsubscribe token**
+
+```
+email_hash = lowercase hex SHA-256 of email.trim().toLowerCase()
+sig        = base64url, no padding, of HMAC-SHA256(key = UNSUBSCRIBE_SECRET as UTF-8,
+                                                    message = email_hash as UTF-8)
+token      = email_hash + "." + sig
+link       = https://jurasolutions.sg/unsubscribe?t=<token>
+```
+
+Test vector: secret `test-unsubscribe-secret-not-real`, email
+`  Ada.Tan@Example.COM ` →
+`276a4cb89c2b449b7444fa94ad0b36ab8b07c8172f1605dd809ba1fd7e1bb4c1.lm_oAchTzYpC45_b6R-ExhHfUM-kMyDxnIHIisNbKpo`.
+
+- `GET /unsubscribe?t=` (the link in the email) checks the signature in
+  constant time, adds `suppression(reason='unsubscribe',
+  source='unsubscribe-link', email=NULL)`, and 303s to `/unsubscribed`. A
+  bad token goes to `/unsubscribed?status=invalid` and writes nothing; a
+  missing secret or D1 goes to `?status=error`. Unsubscribing twice changes
+  nothing.
+- `POST /unsubscribe?t=` is RFC 8058 one-click (the email carries
+  `List-Unsubscribe: <https://jurasolutions.sg/unsubscribe?t=...>` and
+  `List-Unsubscribe-Post: List-Unsubscribe=One-Click`): same write with
+  `source='unsubscribe-post'`, 200 with no body, or 400 for a bad token.
+- Because the GET unsubscribes on the first request, a mail security scanner
+  that opens every link would unsubscribe the address. That is what the
+  contract asks for (one click, no confirmation step), and it errs on the
+  side of not emailing someone.
+
+**The Resend webhook**, `POST /api/resend-webhook`: Svix-signed (`svix-id`,
+`svix-timestamp`, `svix-signature`; content `${id}.${timestamp}.${body}`,
+HMAC-SHA256 with the base64 part of `RESEND_WEBHOOK_SECRET` after `whsec_`;
+any `v1,` entry may match; timestamps over 5 minutes off are refused).
+`email.bounced` and `email.complained` add each address in `data.to`, with
+`resend_email_id = data.email_id`; other events get a 200 and are ignored. A
+bad signature is a 401; a missing secret or D1 is a 503 so Resend retries.
+Event names and payload fields were checked against Resend's docs on
+2026-10-24.
+
+**One row per address, never weakened.** If an address comes in again, a
+stronger reason replaces a weaker one: a complaint replaces anything, a bounce
+replaces an unsubscribe or a manual entry. So a complaint is always visible
+(the scout's auto-pause depends on it) even after an earlier unsubscribe.
+`created_at` stays the first time the address was suppressed.
+
 ## Environment variables
 
 Set on the Pages project for **Production and Preview**, then redeploy (see
@@ -322,7 +379,9 @@ built on sql.js with the real migrations.
 | `src/apps/receipt-reader/receipts.test.js` | the add-up check, CSV/XLSX/TSV exports, resize rules |
 | `tests/limiter.test.js` | the try limit, site cap, refunds, upload checks, Turnstile |
 | `tests/receipt-reader.test.js` | the Claude request, the injection fixture, logs, storage |
-| `tests/usage.test.js`, `tests/enquiry.test.js`, `tests/shell.test.js` | counter, `from` value, registry and routes |
+| `tests/unsubscribe.test.js` | the token contract (with a fixed vector), GET and one-click POST |
+| `tests/resend-webhook.test.js` | Svix verification, bounces, complaints, precedence, retries |
+| `tests/usage.test.js`, `tests/enquiry.test.js`, `tests/shell.test.js` | counter, `from` value, registry, routes, pages, prerendered heads |
 
 ## The enquiry form
 
@@ -379,28 +438,38 @@ a broken one otherwise look identical from the browser.
 | Build output directory | `dist` |
 | Node version | 20 or later |
 
-`functions/` is picked up automatically and served at `/submit`.
+`functions/` is picked up automatically; Pages generates `_routes.json` so
+only the Function paths (`/submit`, `/unsubscribe`, `/api/*`) invoke a
+Function and everything else is served as static files.
 
-Set one environment variable on the Pages project, for both Production and
-Preview:
+The Functions need the D1 binding `DB` and the variables in "Environment
+variables" above, on **Production and Preview**. None of them is ever
+committed. The full setup, click by click, is in
+`jurasolutions/outputs/growth/setup/toolbox-ai.md`.
 
-| Name | Value |
-| --- | --- |
-| `RESEND_API_KEY` | the Resend API key |
+There is deliberately no `wrangler.toml`. With one that has
+`pages_build_output_dir`, Pages would take bindings from the file instead of
+the dashboard; `wrangler.local.toml` is for local commands only.
 
-It must never be committed. Without it the endpoint returns a clean 500 and the
-form shows its error state.
-
-**Setting the variable is not enough on its own.** Pages binds environment
+**Setting a variable is not enough on its own.** Pages binds environment
 variables to a deployment when that deployment is built, so a secret added after
 the fact is invisible to everything already running. The form keeps reporting a
 failed send until a new deployment is created — push a commit, or use Retry
-deployment on the latest build. `GET /submit` reports `canSend: false` while the
-running deployment cannot see the key, which is the quickest way to tell this
-apart from a bad key.
+deployment on the latest build. The health checks tell this apart from a bad
+key:
 
-Check the variable is set for **Production** as well as Preview. They are
+| Check | Means |
+| --- | --- |
+| `GET /submit` → `canSend: false` | `RESEND_API_KEY` not visible to this deployment |
+| `GET /api/apps/limit` → `ready: false` | `DB`, `ANTHROPIC_API_KEY`, `TURNSTILE_SECRET` or `VISITOR_SALT` missing |
+| `GET /api/resend-webhook` → `canVerify` / `canStore: false` | `RESEND_WEBHOOK_SECRET` / `DB` missing |
+| HTML instead of JSON from any of them | the Functions are not deployed at all |
+
+Check each variable is set for **Production** as well as Preview. They are
 separate environments and the custom domain serves Production.
+
+`VITE_TURNSTILE_SITE_KEY` is read at **build** time, so it must be set before
+the build that should use it.
 
 ### Before the form can deliver
 
@@ -419,14 +488,24 @@ Both come from `design-system/README.md` §3 and apply to every change:
 2. **Warm and plain-spoken.** Sentence case, second person, short declaratives. No
    buzzwords, no manufactured urgency, no emoji, no exclamation marks.
 
-Copy lives in one file, `src/content.js`, so it can be read end to end against
-those rules.
+Copy lives in content files so it can be read end to end against those rules
+(and run through `jura-growth check` once it exists):
+
+- `src/content.js`: the home page, nav, footer, toolbox index, tool page shell,
+  shared components, privacy page, unsubscribe page, not-found page
+- `src/apps/quote-builder/copy.js`: the quote builder, including its PDF
+- `src/apps/receipt-reader/copy.js`: the receipt reader, including its exports
+
+The Functions return codes, never wording; the pages own every word.
 
 ## Not done yet
 
 - **Open Graph image.** The page has OG and Twitter tags but no `og:image`. That
   needs a real 1200×630 asset, and Jura has no photography yet. Add the file to
   `public/` and the tag to `index.html` when one exists.
-- **Spam handling.** The endpoint has no rate limit or honeypot. Cloudflare Turnstile
-  is the natural fit if the inbox starts collecting noise.
-- **Privacy and terms pages.** Not linked, because they do not exist.
+- **Spam handling on the enquiry form.** `/submit` has no rate limit or honeypot.
+  Turnstile is now set up for the AI tools and could be added to the form if the
+  inbox starts collecting noise.
+- **Terms page.** There is a privacy notice but no terms page.
+- **The receipt reader is `draft`** until Ting Yu's own receipts have been run
+  through the real model (see its `__fixtures__/README.md`).

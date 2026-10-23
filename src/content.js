@@ -48,6 +48,18 @@ export const ROUTE_META = {
     description:
       "Free tools for quotes, receipts and other everyday paperwork. No sign-up. Open one and use it straight away.",
   },
+  privacy: {
+    path: "/privacy",
+    title: "Privacy | Jura Solutions",
+    description:
+      "What Jura Solutions collects through this site, its free tools and its emails, why, and how to stop it.",
+  },
+  unsubscribed: {
+    path: "/unsubscribed",
+    title: "Unsubscribe | Jura Solutions",
+    description: "Unsubscribe from emails sent by Jura Solutions.",
+    noindex: true,
+  },
   notfound: {
     path: "/404",
     title: "Page not found | Jura Solutions",
@@ -83,6 +95,7 @@ export const APP_SHELL = {
   loadFailedBody: "Check your connection, then refresh the page.",
   talkEyebrow: "The full version",
   privacyLink: "How we handle your data",
+  privacyHref: "/privacy",
   tierLabel: {
     browser: "Runs in your browser",
     ai: "Uses AI",
@@ -102,6 +115,82 @@ export const FILE_DROP = {
 export const EXPORTS = {
   groupLabel: "Download or copy",
   copied: "Copied",
+};
+
+/**
+ * /privacy. Covers the enquiry form, the toolbox (including the paragraph on
+ * AI tools that APP-002 asks for) and the outreach emails the scout sends
+ * (scout PRD §5.9: what it collects, why, how to opt out). Every statement
+ * here must stay true of the code: change one, change the other.
+ */
+export const PRIVACY = {
+  label: "Privacy",
+  heading: "How we handle your data",
+  lede: "What this site, its free tools and our emails collect, why, and how to stop it. If anything here is unclear, ask us.",
+  updated: "Last updated 24 October 2026",
+  sections: [
+    {
+      heading: "Who we are",
+      paragraphs: [
+        `Jura Solutions is an automation consultancy in Singapore. For anything about your data, including a request to see, correct or delete what we hold, email ${CONTACT_EMAIL}.`,
+      ],
+    },
+    {
+      heading: "The enquiry form",
+      paragraphs: [
+        "When you send the form, we receive your name, work email and whatever else you choose to add. It reaches our inbox by email, delivered by Resend. We use it to reply to you and for nothing else, and we do not add you to a mailing list.",
+        "If you came to the form from one of our free tools, the enquiry also says which tool, so we know what you were looking at.",
+      ],
+    },
+    {
+      heading: "Tools that run in your browser",
+      paragraphs: [
+        "Tools marked “Runs in your browser” do all their work on your device. What you type, and any logo you add, is not sent to us.",
+        "If you tick “Remember my business details on this device”, those details are kept in your browser's storage on that device until you untick it. We never see them.",
+      ],
+    },
+    {
+      heading: "Tools that use AI",
+      paragraphs: [
+        "Tools marked “Uses AI” send what you give them, such as photos of receipts, over an encrypted connection to Anthropic's Claude API to be read. Anthropic processes it under its commercial terms and returns the result, which we pass straight back to your browser. We do not store your images, your files or the results, and we do not log what is in them.",
+        "To keep the free tries fair, we count how many you have used today. The count is kept against a scrambled code made from your connection's IP address and a random cookie, never the address itself. The cookie is called jura_vid, holds nothing but that random code, is only sent with the tools' own requests, and expires after a year.",
+        "Before a try is sent, Cloudflare Turnstile checks that you are a person and not a bot. It runs on the AI tool pages only.",
+      ],
+    },
+    {
+      heading: "Counting visits",
+      paragraphs: [
+        "We count how many times each tool is opened and used each day, with nothing about who you are. We also count visits to the site with Cloudflare Web Analytics, which does not use cookies.",
+        "The site's fonts come from Google Fonts, so your browser connects to Google to fetch them.",
+      ],
+    },
+    {
+      heading: "Emails we send to businesses",
+      paragraphs: [
+        "We send a small number of short, personal emails to Singapore businesses whose work involves a lot of paperwork, to tell them about our free tools. We only write to the enquiry address a business publishes on its own website. We do not buy lists, guess addresses or write to personal addresses.",
+        "To choose who to write to, we note the business's name, website, industry and a few things its own website says about how it works, with the pages we read. We contact each business at most twice.",
+        "Every email has a one-click unsubscribe link, or you can reply “unsubscribe”. Either way the address goes on our do-not-email list straight away and stays there. Addresses that bounce or report an email as spam go on the same list.",
+        "Details of businesses that never reply are deleted after 24 months. We keep the website's domain so we never contact that business again.",
+      ],
+    },
+  ],
+};
+
+export const UNSUBSCRIBED = {
+  ok: {
+    heading: "You're unsubscribed",
+    body: `We won't email this address again. If you change your mind, write to ${CONTACT_EMAIL}.`,
+  },
+  invalid: {
+    heading: "That link didn't work",
+    body: "It may have been cut short when it was copied. Reply “unsubscribe” to the email instead and we'll take you off our list by hand.",
+  },
+  error: {
+    heading: "That didn't go through",
+    body: "Something went wrong on our side. Reply “unsubscribe” to the email and we'll take you off our list by hand.",
+  },
+  privacy: "How we handle your data",
+  home: "Go to the home page",
 };
 
 export const NOT_FOUND = {
@@ -325,6 +414,7 @@ export const FOOTER = {
         { href: "#trust", label: "Working with us" },
         { href: "#faq", label: "Questions" },
         { href: "/apps", label: "Toolbox" },
+        { href: "/privacy", label: "Privacy" },
       ],
     },
     {

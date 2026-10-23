@@ -12,6 +12,8 @@ import { useMeta } from "./lib/meta.js";
 const AppsIndex = React.lazy(() => import("./pages/AppsIndex.jsx"));
 const AppPage = React.lazy(() => import("./pages/AppPage.jsx"));
 const NotFound = React.lazy(() => import("./pages/NotFound.jsx"));
+const Privacy = React.lazy(() => import("./pages/Privacy.jsx"));
+const Unsubscribed = React.lazy(() => import("./pages/Unsubscribed.jsx"));
 
 function Route({ route }) {
   switch (route.name) {
@@ -21,6 +23,10 @@ function Route({ route }) {
       return <AppsIndex />;
     case "app":
       return <AppPage slug={route.slug} />;
+    case "privacy":
+      return <Privacy />;
+    case "unsubscribed":
+      return <Unsubscribed />;
     default:
       return <NotFound />;
   }
