@@ -1,0 +1,269 @@
+/* ---------------------------------------------------------------------------
+   Toolbox pages: /apps, /apps/<slug>, /privacy and /unsubscribed.
+
+   Loaded only with those pages' chunks, and every class is prefixed `tb-`,
+   so nothing here reaches the home page. Composition only: colour, type,
+   spacing and radii are design system tokens.
+
+   Tool pages do not carry the home page's spine. They are white, with the
+   brand wash behind the heading and the sunken grey behind the closing
+   card, which keeps to the two-background rule.
+--------------------------------------------------------------------------- */
+
+.tb-page { display: block; }
+
+/* The shared nav marks the toolbox as the current section on these pages. */
+.navlink[aria-current="page"],
+.nav-sheet-link[aria-current="page"] { color: var(--text-brand); }
+
+.tb-band { padding-block: var(--section-y-tight); }
+
+.tb-head {
+  background: var(--wash-brand);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tb-head--tall { padding-block: var(--section-y); border-bottom: 0; }
+
+.tb-after {
+  background: var(--surface-sunken);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.tb-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-min);
+  align-self: flex-start;
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-medium);
+}
+
+.tb-badges { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.tb-title {
+  font-size: var(--text-h1);
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-snug);
+}
+
+.tb-subtitle {
+  font-size: var(--text-body-lg);
+  color: var(--text-body);
+  max-width: var(--measure-prose);
+}
+
+.tb-loading {
+  font-size: var(--text-body-sm);
+  color: var(--text-muted);
+  min-height: var(--tap-min);
+}
+
+.tb-visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- /apps index ---- */
+
+.tb-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tb-filters-label {
+  font-size: var(--text-body-sm);
+  color: var(--text-muted);
+  margin-right: var(--space-2);
+}
+
+.tb-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.tb-grid > li { display: flex; }
+
+.tb-card-link {
+  display: flex;
+  flex: 1;
+  color: inherit;
+  border-radius: var(--radius-lg);
+}
+
+.tb-card-link:hover { text-decoration: none; color: inherit; }
+
+.tb-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.tb-card-name { font-size: var(--text-h4); }
+
+.tb-card-desc {
+  font-size: var(--text-body-sm);
+  color: var(--text-body);
+}
+
+.tb-card-foot {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-caption);
+}
+
+.tb-card-tier { color: var(--text-muted); }
+
+.tb-card-open {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-brand);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-body-sm);
+}
+
+.tb-empty { max-width: var(--container-narrow); }
+.tb-empty-heading { font-size: var(--text-h3); }
+
+/* ---- Shared tool pieces ---- */
+
+.tb-privacy {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  max-width: var(--measure-prose);
+}
+
+.tb-privacy-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--brand-border);
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tb-privacy-text {
+  font-size: var(--text-body-sm);
+  color: var(--text-body);
+  padding-top: var(--space-2);
+}
+
+.tb-privacy-text a { text-decoration: underline; text-underline-offset: 3px; }
+
+.tb-talk { max-width: var(--container-narrow); }
+
+.tb-talk-heading { font-size: var(--text-h2); }
+
+.tb-talk-body {
+  font-size: var(--text-body);
+  color: var(--text-body);
+  max-width: var(--measure-prose);
+}
+
+.tb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* The drop zone: a dashed hairline, which is a border and not decoration. */
+.tb-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  transition: border-color var(--dur-fast) var(--ease-standard),
+    background var(--dur-fast) var(--ease-standard);
+}
+
+.tb-drop--over {
+  border-color: var(--brand);
+  background: var(--brand-subtle);
+}
+
+.tb-drop--disabled { opacity: 0.6; }
+
+.tb-drop-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--brand-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tb-drop-label {
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.tb-drop-hint {
+  font-size: var(--text-body-sm);
+  color: var(--text-muted);
+  max-width: var(--measure-narrow);
+}
+
+.tb-drop-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.tb-drop-or {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+/* The camera button only earns its place where there is a camera to hand. */
+@media (hover: hover) and (pointer: fine) {
+  .tb-camera { display: none !important; }
+}
+
+/* ---- Responsive ---- */
+
+@media (max-width: 1023px) {
+  .tb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+  .tb-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .tb-actions > * { flex: 1 1 100%; }
+  .tb-drop-buttons > * { flex: 1 1 100%; }
+  .tb-drop { padding: var(--space-5) var(--space-4); }
+}

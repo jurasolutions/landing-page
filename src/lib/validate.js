@@ -57,3 +57,17 @@ export function validateEnquiry(values) {
 
 /** Field order, so the error summary and focus follow the visual order. */
 export const FIELD_ORDER = ["name", "email", "phone", "company", "message"];
+
+/**
+ * Where an enquiry came from. Toolbox pages link to the form with
+ * `?from=apps/<slug>`, and the form passes that on so the email says which
+ * tool brought the visitor in. Anything that does not match is dropped
+ * quietly; it is a label, not an answer the visitor gave.
+ * `functions/submit.js` applies the same pattern.
+ */
+export const FROM_PATTERN = /^apps\/[a-z0-9-]{1,60}$/;
+
+export function readFrom(search) {
+  const value = new URLSearchParams(search ?? "").get("from");
+  return value && FROM_PATTERN.test(value) ? value : "";
+}

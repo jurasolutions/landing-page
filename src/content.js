@@ -11,14 +11,105 @@
  */
 
 export const CONTACT_EMAIL = "info@jurasolutions.sg";
+export const SITE_ORIGIN = "https://jurasolutions.sg";
 
+/** Hash links point at sections of the home page; elsewhere they become /#hash. */
 export const NAV_LINKS = [
   { href: "#services", label: "Services" },
   { href: "#how", label: "How we work" },
   { href: "#proof", label: "What it looks like" },
   { href: "#trust", label: "Working with us" },
   { href: "#faq", label: "Questions" },
+  { href: "/apps", label: "Toolbox" },
 ];
+
+export const NAV = {
+  cta: "Book a call",
+  menuOpen: "Open menu",
+  menuClose: "Close menu",
+  skip: "Skip to content",
+};
+
+/**
+ * Title and description for each route, used in the browser and by
+ * `scripts/prerender-routes.mjs` for the copies of index.html it writes.
+ * The home entry matches index.html exactly.
+ */
+export const ROUTE_META = {
+  home: {
+    path: "/",
+    title: "Jura Solutions — automate the work nobody should be doing",
+    description:
+      "Jura Solutions is an automation consultancy. We map the repetitive parts of how your business runs, then hand them to software. You keep the judgement, the credentials and the off-switch.",
+  },
+  apps: {
+    path: "/apps",
+    title: "Free business tools | Jura Solutions",
+    description:
+      "Free tools for quotes, receipts and other everyday paperwork. No sign-up. Open one and use it straight away.",
+  },
+  notfound: {
+    path: "/404",
+    title: "Page not found | Jura Solutions",
+    description: "That page is not on jurasolutions.sg.",
+    noindex: true,
+  },
+};
+
+/** The /apps index. */
+export const TOOLBOX = {
+  label: "Toolbox",
+  heading: "Free tools for the paperwork",
+  lede:
+    "Small tools for the jobs that come round every week. No sign-up. Each one is a small version of something we can build into your own systems.",
+  filterLabel: "Show tools for",
+  allLabel: "All",
+  emptyHeading: "The first tools are on the way",
+  emptyBody: "Nothing is listed yet. If there is a job you would like a tool for, tell us about it.",
+  emptyButton: "Tell us about it",
+  noneInCategory: "No tools in this category yet.",
+  tierLabel: {
+    browser: "Runs in your browser",
+    ai: "Uses AI, with free tries each day",
+  },
+  open: "Open",
+};
+
+/** Words the page shell around every tool uses. Each tool's own copy is in its copy.js. */
+export const APP_SHELL = {
+  back: "All tools",
+  loading: "Loading the tool",
+  loadFailedTitle: "The tool did not load",
+  loadFailedBody: "Check your connection, then refresh the page.",
+  talkEyebrow: "The full version",
+  privacyLink: "How we handle your data",
+  tierLabel: {
+    browser: "Runs in your browser",
+    ai: "Uses AI",
+  },
+  metaTitle: (name) => `${name} | Free tool from Jura Solutions`,
+};
+
+/** The shared file picker used by tools that take uploads. */
+export const FILE_DROP = {
+  choose: "Choose files",
+  chooseOne: "Choose a file",
+  camera: "Take a photo",
+  drop: "or drop them here",
+  dropOne: "or drop it here",
+};
+
+export const EXPORTS = {
+  groupLabel: "Download or copy",
+  copied: "Copied",
+};
+
+export const NOT_FOUND = {
+  heading: "That page is not here",
+  body: "The link may be out of date. The toolbox and the home page are both one click away.",
+  toToolbox: "Go to the toolbox",
+  toHome: "Go to the home page",
+};
 
 export const HERO = {
   label: "Automation consultancy",
@@ -233,6 +324,7 @@ export const FOOTER = {
         { href: "#how", label: "How we work" },
         { href: "#trust", label: "Working with us" },
         { href: "#faq", label: "Questions" },
+        { href: "/apps", label: "Toolbox" },
       ],
     },
     {

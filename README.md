@@ -1,9 +1,12 @@
 # Jura Solutions — marketing site
 
-The public one-page site for Jura Solutions, built from the Jura Solutions design
+The public site for Jura Solutions, built from the Jura Solutions design
 system. React + Vite, deployed to Cloudflare Pages on `jurasolutions.sg`.
 
-Built against `jurasolutions/prd/pending/prd-jura-website-2026-08-27.md`.
+Built against `jurasolutions/prd/done/prd-jura-website-2026-08-27.md`, with the
+toolbox from `jurasolutions/prd/pending/prd-jura-app-factory-2026-10-24.md`
+(blocks 1 to 3) and the website pieces of
+`jurasolutions/prd/pending/prd-jura-scout-2026-10-24.md` (§5.5 and §5.9).
 
 ---
 
@@ -11,19 +14,29 @@ Built against `jurasolutions/prd/pending/prd-jura-website-2026-08-27.md`.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # production bundle into dist/
-npm run preview    # serve the built bundle
+npm run dev              # http://localhost:5173, the pages only
+npm test                 # unit tests (Vitest), no network
+npm run build            # production bundle into dist/, plus per-route heads
+npm run preview          # serve the built bundle
+npm run db:migrate:local # create the local D1 tables (once, and after new migrations)
+npm run dev:functions    # build, then serve dist/ with the Functions and local D1
 ```
 
-`npm run dev` and `npm run preview` serve the page but **not** the enquiry
-endpoint — Vite does not run Cloudflare Pages Functions. Submitting the form
-locally will show the form's error state, which is correct behaviour. To
-exercise the real endpoint:
+`npm run dev` and `npm run preview` serve the pages but **not** the Functions
+(the enquiry endpoint, the toolbox APIs, unsubscribe) — Vite does not run
+Cloudflare Pages Functions. Submitting the form there shows the form's error
+state, which is correct behaviour.
+
+`npm run dev:functions` runs everything with `wrangler pages dev` on
+http://localhost:8788. It uses wrangler 4.86.0 through `npx`, the last release
+that runs on Node 20, and a local D1 database in `.wrangler/state`.
+`wrangler.local.toml` exists only so the local commands can find the
+migrations; Cloudflare Pages never reads it (it only looks for
+`wrangler.toml`/`wrangler.json`), so it cannot touch the production bindings.
+Secrets for local runs go in `.dev.vars` (git-ignored), for example:
 
 ```bash
-npm run build
-npx wrangler pages dev dist                  # add --binding RESEND_API_KEY=... to send for real
+RESEND_API_KEY=re_...            # only if you want the form to send for real
 ```
 
 ## The design system
@@ -56,21 +69,50 @@ name it cannot find.
 ## Layout
 
 ```
-functions/submit.js      Cloudflare Pages Function: POST /submit → Resend
-scripts/                 design system sync
+functions/               Cloudflare Pages Functions (each file is a route)
+  submit.js              POST /submit → Resend, GET /submit health check
+  api/apps/usage.js      POST /api/apps/usage, anonymous open/complete counts
+server/                  code the Functions share; outside functions/ so it is never a route
+migrations/              D1 schema, wrangler migrations format
+scripts/                 design system sync, per-route <head> prerender
 src/
-  App.jsx                the nine house sections, in order
-  content.js             every word on the page
+  App.jsx                the router shell: nav, the current page, footer
+  content.js             every word on the site pages (tools keep theirs in copy.js)
   ds.js                  design system import point
+  pages/                 Home (the nine house sections, unchanged), AppsIndex, AppPage, NotFound
+  apps/                  the toolbox: registry, shared components, one folder per tool
   components/Section.jsx the page band and its node on the spine
   sections/              hero, problem, services, how, proof, trust, faq, contact, footer
-  lib/                   icon registration, enquiry validation
+  lib/                   icons, enquiry validation, router, per-route meta
   styles/site.css        page composition only — tokens do the rest
+  styles/toolbox.css     toolbox pages only, every class prefixed tb-
   design-system/         synced copy, read-only
+tests/                   Vitest: Functions against an in-memory D1, plus shell tests
 ```
 
-Sections are separate components and copy is separate from markup, so the client
-portal (a later PRD) can be added alongside without restructuring.
+### Routes
+
+| Path | Page |
+| --- | --- |
+| `/` | the marketing page, as before |
+| `/apps` | the toolbox index, from the registry, filterable by category |
+| `/apps/<slug>` | one tool, its code loaded only on that page |
+
+Routing is a small history-API router (`src/lib/router.js`); there is no
+routing library. It intercepts clicks on same-origin links to these paths, so
+the design system's `Button href` works unchanged. On the home page the nav and
+footer links stay plain `#section` anchors exactly as before; on every other
+page they point to `/#section`.
+
+Cloudflare Pages serves `index.html` for any path that is not a file, because
+there is no top-level `404.html`. After `vite build`,
+`scripts/prerender-routes.mjs` writes `dist/apps.html` and
+`dist/apps/<slug>.html` for each live tool: the same SPA with that route's
+title, description, canonical and Open Graph tags, so a shared link previews as
+the tool. They are `.html` files rather than `<route>/index.html` because Pages
+serves `apps.html` at `/apps`, whereas `apps/index.html` would answer at
+`/apps/` and 308 `/apps` there (checked with `wrangler pages dev`: `/apps` is
+200, `/apps/` and `/apps.html` 308 to `/apps`).
 
 ### The spine
 
@@ -80,6 +122,43 @@ with a node at each section. The page reads the way Jura describes its work — 
 process, written down, with a beginning and a handover. Below 1024px the rail is
 hidden and each node becomes the ordinary eyebrow above its heading, so nothing is
 lost on a phone.
+
+## The toolbox
+
+`src/apps/registry.json` is the single list of tools. It is data, not code,
+because the Functions and the growth CLI (`repos/growth`) read it too:
+
+```json
+{ "slug": "quote-builder", "name": "Quote builder",
+  "description": "Professional PDF quotes with your logo, in minutes.",
+  "category": "Sales", "tier": "browser", "status": "live",
+  "added": "2026-10-24", "prd": "APP-001" }
+```
+
+`category` is one of Sales, Finance, Admin, HR, Marketing, Documents. `tier`
+is `browser` or `ai`. Only `live` tools are listed on `/apps` or prerendered; a
+`draft` tool's page opens on the local dev server only.
+
+**Adding a tool is one folder and one registry entry.** The folder is
+`src/apps/<slug>/` with an `index.jsx` (default export: the tool) and a
+`copy.js` (default export: its words). `src/apps/loaders.js` finds both by
+folder name, so nothing else needs wiring. Every tool page gets the same shell
+(`src/apps/_shared/AppShell.jsx`): the one-line promise, the tool, a privacy
+note, then a talk-to-us card linking to `/?from=apps/<slug>#contact`.
+
+Shared pieces in `src/apps/_shared/`: `AppShell`, `FileDrop`, `ExportButtons`,
+`TryLimitNotice`, `TalkToUsCard`, `PrivacyNote`, plus `usage.js` (the
+fire-and-forget counter), `storage.js` (localStorage that never throws) and
+`download.js`.
+
+### Usage counts
+
+Each tool page counts one anonymous `open`, and each tool counts a `complete`
+when the visitor gets the result (a PDF downloaded, receipts read). The browser
+sends `POST /api/apps/usage` with `{ slug, event }` by `navigator.sendBeacon`
+and never waits for it. The Function checks the slug against the registry and
+adds one to `app_usage` for that SGT day. Nothing personal is stored: no IP, no
+cookie, no content.
 
 ## The enquiry form
 
@@ -104,6 +183,13 @@ field that needs attention. A failed send keeps everything the visitor typed.
 
 Mail goes to `info@jurasolutions.sg` from `no_reply@jurasolutions.sg`, with
 `reply_to` set to the enquirer.
+
+**Where the enquiry came from.** Toolbox pages link to the form as
+`/?from=apps/<slug>#contact`. The form reads `from` when it sends and passes it
+on; the Function accepts it only if it matches `^apps/[a-z0-9-]{1,60}$` and
+adds a line `Came from: apps/<slug>` to the text and HTML email. Anything else
+is dropped silently and the enquiry still sends, so an odd link never costs an
+enquiry.
 
 ### Checking the endpoint is live
 

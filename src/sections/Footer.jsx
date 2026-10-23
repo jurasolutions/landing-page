@@ -1,8 +1,12 @@
 import React from "react";
 import { Logo } from "../ds.js";
 import { FOOTER } from "../content.js";
+import { useLocation, homeAnchor, normalisePath } from "../lib/router.js";
 
 export function Footer() {
+  const onHome = normalisePath(useLocation().pathname) === "/";
+  const hrefFor = (href) => (href.startsWith("#") ? homeAnchor(href, onHome) : href);
+
   return (
     <footer className="footer">
       <div className="wrap footer-top">
@@ -16,7 +20,7 @@ export function Footer() {
             <div className="footer-col" key={column.head}>
               <span className="footer-head">{column.head}</span>
               {column.links.map((link) => (
-                <a className="footer-link" href={link.href} key={link.label}>
+                <a className="footer-link" href={hrefFor(link.href)} key={link.label}>
                   {link.label}
                 </a>
               ))}

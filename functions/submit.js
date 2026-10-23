@@ -23,6 +23,12 @@ const LIMITS = { name: 120, email: 200, phone: 40, company: 160, message: 2000 }
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PHONE = /^[+(]?[\d\s()+.-]{6,}$/;
 
+// Which toolbox page sent the visitor, as `apps/<slug>`. The same pattern as
+// FROM_PATTERN in src/lib/validate.js. Anything else is dropped without
+// failing the enquiry: it is a label for us, not an answer from the visitor.
+const CAME_FROM = /^apps\/[a-z0-9-]{1,60}$/;
+const cleanFrom = (value) => (typeof value === "string" && CAME_FROM.test(value) ? value : "");
+
 const json = (body, status) =>
   new Response(JSON.stringify(body), {
     status,
@@ -57,8 +63,11 @@ function body(enquiry) {
     ["Company", enquiry.company || "not given"],
   ];
 
+  const cameFrom = enquiry.from ? `Came from: ${enquiry.from}` : "";
+
   const text = [
     ...rows.map(([label, value]) => `${label}: ${value}`),
+    ...(cameFrom ? [cameFrom] : []),
     "",
     "What they would like to automate:",
     enquiry.message,
@@ -72,6 +81,7 @@ function body(enquiry) {
         `<tr><td style='color:#6f7973'>${label}</td><td><strong>${escapeHtml(value)}</strong></td></tr>`
     ),
     "</table>",
+    ...(cameFrom ? [`<p style='color:#6f7973'>${escapeHtml(cameFrom)}</p>`] : []),
     "<p style='color:#6f7973'>What they would like to automate</p>",
     `<p>${escapeHtml(enquiry.message).replace(/\n/g, "<br>")}</p>`,
   ].join("");
@@ -93,6 +103,7 @@ export async function onRequestPost({ request, env }) {
     phone: clean(payload.phone, LIMITS.phone),
     company: clean(payload.company, LIMITS.company),
     message: clean(payload.message, LIMITS.message),
+    from: cleanFrom(payload.from),
   };
 
   const problems = validate(enquiry);

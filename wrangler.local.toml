@@ -1,0 +1,15 @@
+# Local development only. NOT read by Cloudflare Pages, which only looks for
+# wrangler.toml / wrangler.json(c). The production D1 binding is set in the
+# Pages dashboard (Settings > Bindings), so this file never touches it.
+#
+# It exists so `wrangler d1 migrations apply` can find the migrations and a
+# local database for `wrangler pages dev`. See README.md, "Run the Functions
+# locally".
+name = "jura-landing-page-local"
+compatibility_date = "2026-05-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "jura-toolbox-local"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"

@@ -2,7 +2,7 @@ import React from "react";
 import { Card, Field, Input, Textarea, Button, Alert, Icon } from "../ds.js";
 import { Section } from "../components/Section.jsx";
 import { CONTACT, CONTACT_EMAIL } from "../content.js";
-import { validateEnquiry, EMPTY_ENQUIRY, FIELD_ORDER, LIMITS } from "../lib/validate.js";
+import { validateEnquiry, EMPTY_ENQUIRY, FIELD_ORDER, LIMITS, readFrom } from "../lib/validate.js";
 
 const ENDPOINT = import.meta.env.VITE_ENQUIRY_ENDPOINT || "/submit";
 
@@ -52,11 +52,14 @@ export function Contact() {
     }
 
     setStatus("sending");
+    // A toolbox page links here with ?from=apps/<slug>. Read it at send time
+    // so it reflects the page the visitor actually arrived from.
+    const from = readFrom(window.location.search);
     try {
       const response = await fetch(ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(from ? { ...values, from } : values),
       });
       if (!response.ok) throw new Error(`Enquiry failed with status ${response.status}`);
       setStatus("sent");
