@@ -160,6 +160,44 @@ and never waits for it. The Function checks the slug against the registry and
 adds one to `app_usage` for that SGT day. Nothing personal is stored: no IP, no
 cookie, no content.
 
+### APP-001 Quote builder (`src/apps/quote-builder/`)
+
+Browser tier: nothing leaves the visitor's browser except the anonymous open
+and download counts.
+
+| File | Does |
+| --- | --- |
+| `calc.js` | the money maths, pure functions, tested in `calc.test.js` |
+| `model.js` | the quote's shape, defaults, quote numbers and dates, the GST default |
+| `quoteFile.js` | the saved quote file: `{ format: "jura-quote-builder", version: 1, quote }` |
+| `pdf.js` | the A4 PDF, with pdf-lib, loaded only when a PDF is wanted |
+| `winansi.js` | which characters the PDF can print |
+| `logo.js` | reading the logo, and rasterising SVG for the PDF |
+| `QuoteForm.jsx`, `QuotePreview.jsx`, `index.jsx` | the page |
+| `copy.js` | every word, including the PDF's |
+
+- **Money** is integer cents, quantities are thousandths and percentages are
+  hundredths of a percent, multiplied as BigInt. Rounding is half up, once at
+  each line total and once at GST (and the overall percentage discount, which
+  is an amount of money too). GST is on the subtotal after discounts.
+- **GST** is off by default. The rate defaults to 9%, checked on the IRAS site
+  on 2026-10-24 (the URL is in a comment beside `DEFAULT_GST_RATE`), and stays
+  editable. The document is always titled "Quotation", never a tax invoice.
+- **The PDF uses Helvetica**, which every PDF reader has built in. It keeps the
+  visitor's document in neutral type rather than Jura's typefaces and costs
+  nothing to download. Helvetica only covers WinAnsi (Latin letters, common
+  punctuation, €), so the form lists any character that will not print (for
+  example Chinese) and the PDF leaves it out. A font covering Chinese would
+  add megabytes, and a Latin TTF would not fix the case that matters.
+- **The logo** (PNG, JPG or SVG, under 1 MB) prints inside a 170 × 56 pt box,
+  keeping its shape. SVG is drawn on a canvas at four times print size first.
+- **Remember** keeps the business details and GST setting in localStorage
+  only while ticked; unticking deletes them. Every storage call is wrapped, so
+  the tool works the same when storage is blocked, with a note that nothing
+  will be remembered.
+- **pdf-lib** is in its own chunk (about 180 KB gzipped), warmed up when the
+  page is idle and never loaded on any other page.
+
 ## The enquiry form
 
 Fields: name, work email, contact number, company, and what they would like to

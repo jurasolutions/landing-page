@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "slug": "quote-builder",
+    "name": "Quote builder",
+    "description": "Professional PDF quotes with your logo, in minutes.",
+    "category": "Sales",
+    "tier": "browser",
+    "status": "live",
+    "added": "2026-10-24",
+    "prd": "APP-001"
+  }
+]

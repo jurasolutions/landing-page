@@ -72,6 +72,14 @@
   border: 0;
 }
 
+/* The design system's Checkbox and Switch hide the real input, so a keyboard
+   user would see no focus. Ring the label that wraps it instead. */
+.tb-page label:has(> input:focus-visible) {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
 /* ---- /apps index ---- */
 
 .tb-filters {
@@ -263,6 +271,18 @@
 }
 
 @media (max-width: 560px) {
+  /* Card and Button set these inline, hence the !important. A long button
+     label wraps onto two lines at full width instead of running off the card. */
+  .tb-talk { padding: var(--space-5) !important; }
+  .tb-talk a,
+  .tb-actions > a,
+  .tb-actions > button {
+    width: 100%;
+    white-space: normal !important;
+    text-align: center;
+    line-height: var(--leading-snug) !important;
+    padding-block: var(--space-3) !important;
+  }
   .tb-actions > * { flex: 1 1 100%; }
   .tb-drop-buttons > * { flex: 1 1 100%; }
   .tb-drop { padding: var(--space-5) var(--space-4); }

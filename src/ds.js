@@ -23,6 +23,7 @@ export { Checkbox, Radio, Switch } from "./design-system/components/forms/Choice
 
 export { Alert } from "./design-system/components/feedback/Alert.jsx";
 export { Toast } from "./design-system/components/feedback/Toast.jsx";
+export { Dialog } from "./design-system/components/feedback/Dialog.jsx";
 
 export { Tabs } from "./design-system/components/navigation/Tabs.jsx";
 export { Accordion } from "./design-system/components/navigation/Accordion.jsx";
