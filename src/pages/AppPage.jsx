@@ -49,10 +49,14 @@ function Loading() {
 
 /**
  * /apps/<slug>. A tool is shown when it is in the registry, has a folder with
- * an index.jsx, and is live. Drafts open only on the local dev server, so a
- * tool can be built and checked before its registry entry says live.
+ * an index.jsx, and is live. Drafts open only on the local dev server, or in
+ * a build made with VITE_SHOW_DRAFTS=1 (for checking a draft under
+ * `npm run dev:functions`), so a tool can be built and checked before its
+ * registry entry says live. Never set VITE_SHOW_DRAFTS on Cloudflare Pages.
  */
-export function AppPage({ slug, registry = REGISTRY, allowDrafts = import.meta.env.DEV }) {
+const SHOW_DRAFTS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DRAFTS === "1";
+
+export function AppPage({ slug, registry = REGISTRY, allowDrafts = SHOW_DRAFTS }) {
   const app = findApp(slug, registry);
   const visible = app && (app.status === "live" || allowDrafts);
   const copy = visible ? (copyFor(slug) ?? { title: app.name, subtitle: app.description }) : null;

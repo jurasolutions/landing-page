@@ -198,6 +198,132 @@ and download counts.
 - **pdf-lib** is in its own chunk (about 180 KB gzipped), warmed up when the
   page is idle and never loaded on any other page.
 
+### AI tools: the shared limiter
+
+AI-tier tools call Claude from a Pages Function, so each try costs money. The
+rules (app factory PRD §5.4), in `server/limit.js`:
+
+- **2 tries per visitor per SGT day** (`AI_TRIES_PER_DAY`), shared across all
+  AI tools (`AI_LIMIT_SCOPE=all`) or counted per tool (`per-tool`).
+- **A site-wide cap of 200 AI calls a day** (`AI_SITE_CAP`). When it is
+  reached every AI tool shows its "used up for today" message.
+- **The visitor** is a salted SHA-256 of `CF-Connecting-IP` and a random
+  `jura_vid` cookie (HttpOnly, `Path=/api/apps`). Only the hash is stored.
+  Cookie-less requests from one IP share one bucket, so refusing the cookie is
+  not a way round the limit.
+- **Atomic.** Each counter is one upsert that only increments while under the
+  limit and reads the count back:
+  `INSERT ... ON CONFLICT DO UPDATE SET count = count + 1 WHERE count < ? RETURNING count`.
+  D1 runs writes one at a time, so a burst of clicks cannot pass the limit
+  (tested: 5 at once, exactly 2 get through). D1, not KV, because KV is
+  eventually consistent.
+- **Order:** Turnstile → size and type → take the try → Claude → validate the
+  output (one free repair) → respond. A failure on our side after the try is
+  taken gives it back. A billing error from the API (spend limit reached)
+  closes the AI tools for the rest of the day; a rate limit shows the used-up
+  message for that request (both fail closed).
+- **Logs** are one JSON line per call: day, tool, ok, reason, receipt count,
+  tokens, latency. Never content. The SDK's own logging is off.
+
+`GET /api/apps/limit?tool=<slug>` answers `{ triesLeft, triesPerDay,
+capReached, ready }` and issues the cookie. `ready: false` means the
+deployment is missing `DB`, `ANTHROPIC_API_KEY`, `TURNSTILE_SECRET` or
+`VISITOR_SALT`, which makes it a useful health check too.
+
+Shared server code lives in `server/`, not `functions/`. Pages turns any file
+in `functions/` that exports an `onRequest*` handler into a public route, and
+an underscore prefix means nothing to it except `_middleware` (checked in
+wrangler's file-tree routing), so `functions/api/apps/_limit.js` would only be
+safe for as long as nobody added a handler to it.
+
+### APP-002 Receipt reader (`src/apps/receipt-reader/`, `server/receipt-reader.js`)
+
+- The browser resizes photos to a 1600 px long edge at JPEG quality 0.8 and
+  renders a PDF's first page with pdf.js (fetched only when a PDF is added).
+  HEIC gets "Please share the photo as a JPG." Up to 3 files per try.
+- The Function checks Turnstile, then each file's real type by its first bytes
+  (JPG, PNG, WEBP) and size (4 MB), before the counter or the API is touched.
+- **The Claude call** uses the official SDK (`@anthropic-ai/sdk` v1, API
+  version 2026-10-21): `claude-haiku-5-5`, the PRD's fixed system prompt,
+  images as base64 blocks, no tools, and structured outputs
+  (`output_config.format`, JSON schema) at `effort: "low"`. There is no
+  `temperature`: API version 2026-10-21 rejects sampling parameters on every
+  model, and Haiku 5.5 never accepted non-default values. The schema does the
+  job the PRD's "temperature 0" was for. `max_tokens` is 4096 rather than the
+  PRD's 2000, because Haiku 5.5 thinks by default and thinking counts towards
+  `max_tokens`.
+- The output is validated field by field on the server (`server/receipts.js`).
+  If it does not validate, one repair call (text only, no images) asks for the
+  same values in the right shape; it does not cost the visitor a try.
+- Results are an editable list with each receipt's line items, an add-up
+  check, and a Category field with suggestions. CSV (UTF-8 with BOM), Excel
+  (two sheets, via `write-excel-file`, loaded on click) and copy as
+  tab-separated text all happen in the browser. Text from a receipt that
+  would start a spreadsheet formula is prefixed with an apostrophe.
+- The registry entry is `draft` until Ting Yu has run his own receipts
+  through the real model (`src/apps/receipt-reader/__fixtures__/README.md`).
+
+## Environment variables
+
+Set on the Pages project for **Production and Preview**, then redeploy (see
+"Deploying" below for why the redeploy matters). The full click-by-click
+setup is in `jurasolutions/outputs/growth/setup/toolbox-ai.md`.
+
+| Name | Kind | Used by | Default |
+| --- | --- | --- | --- |
+| `RESEND_API_KEY` | secret | `/submit` | none: the form cannot send |
+| `ANTHROPIC_API_KEY` | secret | AI tools | none: AI tools unavailable |
+| `TURNSTILE_SECRET` | secret | AI tools | none: AI tools unavailable |
+| `VITE_TURNSTILE_SITE_KEY` | plain, **build time** | the AI tool pages | none in production; the dev server uses Cloudflare's test key |
+| `VISITOR_SALT` | secret | AI tools | none: AI tools unavailable |
+| `AI_TRIES_PER_DAY` | plain | AI tools | `2` |
+| `AI_SITE_CAP` | plain | AI tools | `200` |
+| `AI_LIMIT_SCOPE` | plain | AI tools | `all` (or `per-tool`) |
+| `UNSUBSCRIBE_SECRET` | secret | `/unsubscribe` (same value as the growth CLI) | none: links do not verify |
+| `RESEND_WEBHOOK_SECRET` | secret | `/api/resend-webhook` | none: webhooks refused |
+
+Local testing only, **never set on Pages**: `ANTHROPIC_BASE_URL` and
+`TURNSTILE_VERIFY_URL` (point the Functions at stand-ins), and
+`VITE_SHOW_DRAFTS=1` (a production build that still opens draft tools).
+
+For local runs, Cloudflare's Turnstile test keys: site key
+`1x00000000000000000000BB` (invisible, always passes) or
+`2x00000000000000000000BB` (always fails); secret
+`1x0000000000000000000000000000000AA` (always passes) or
+`2x0000000000000000000000000000000AA` (always fails).
+
+## D1
+
+One database, bound as `DB`. The schema is `migrations/0001_toolbox.sql`
+(wrangler's migrations format); every `day` is the SGT date:
+
+| Table | Holds |
+| --- | --- |
+| `app_tries(day, visitor_hash, tool, count)` | AI tries per visitor; `tool` is `*` when shared |
+| `app_calls(day, count)` | AI calls per day, for the site cap |
+| `app_usage(day, app_slug, opens, completions)` | anonymous counts |
+| `suppression(email_hash, email, reason, source, resend_email_id, created_at)` | addresses never to email |
+
+Locally, `npm run db:migrate:local` creates the tables in `.wrangler/state`,
+and `npm run dev:functions` serves the built site with that database. To look
+inside: `npx wrangler@4.86.0 d1 execute jura-toolbox-local --local -c wrangler.local.toml --persist-to .wrangler/state --command "SELECT * FROM app_usage"`.
+
+## Tests
+
+`npm test` runs Vitest. Nothing in the suite touches the network: every
+`fetch` is stubbed, and an unstubbed request fails the test. The Functions are
+called directly (`onRequestPost({ request, env })`) against an in-memory D1
+built on sql.js with the real migrations.
+
+| File | Covers |
+| --- | --- |
+| `src/apps/quote-builder/calc.test.js` | every money case in APP-001, rounding, float artefacts |
+| `src/apps/quote-builder/quote.test.js` | quote file round trip, PDF pagination and logos, WinAnsi |
+| `src/apps/receipt-reader/receipts.test.js` | the add-up check, CSV/XLSX/TSV exports, resize rules |
+| `tests/limiter.test.js` | the try limit, site cap, refunds, upload checks, Turnstile |
+| `tests/receipt-reader.test.js` | the Claude request, the injection fixture, logs, storage |
+| `tests/usage.test.js`, `tests/enquiry.test.js`, `tests/shell.test.js` | counter, `from` value, registry and routes |
+
 ## The enquiry form
 
 Fields: name, work email, contact number, company, and what they would like to

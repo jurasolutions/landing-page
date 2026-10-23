@@ -1,0 +1,145 @@
+/* ---------------------------------------------------------------------------
+   Receipt reader. Loaded with the tool's own chunk; classes prefixed rr-.
+   Tokens only.
+--------------------------------------------------------------------------- */
+
+.rr-upload { max-width: var(--container-narrow); }
+
+.rr-hint {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.rr-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rr-file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+}
+
+.rr-thumb {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.rr-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: var(--surface-sunken);
+}
+
+.rr-file-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.rr-file-name {
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.rr-file-status {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rr-file-status--error { color: var(--danger-fg); white-space: normal; }
+
+.rr-turnstile:empty { display: none; }
+
+.rr-results-heading { font-size: var(--text-h2); }
+.rr-results-heading:focus { outline: none; }
+
+.rr-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rr-card { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.rr-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.rr-card-title {
+  font-size: var(--text-h4);
+  overflow-wrap: anywhere;
+}
+
+.rr-card-tools { display: flex; align-items: center; gap: var(--space-2); }
+
+.rr-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.rr-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.rr-item {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.rr-toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translateX(-50%);
+  z-index: 50;
+  width: min(420px, calc(100% - 2 * var(--gutter)));
+}
+
+@media (max-width: 1023px) {
+  .rr-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .rr-fields { grid-template-columns: minmax(0, 1fr); }
+  .rr-item {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .rr-item > :first-child { grid-column: 1 / -1; }
+  .rr-send button { width: 100%; }
+}

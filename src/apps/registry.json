@@ -8,5 +8,15 @@
     "status": "live",
     "added": "2026-10-24",
     "prd": "APP-001"
+  },
+  {
+    "slug": "receipt-reader",
+    "name": "Receipt reader",
+    "description": "Receipt photos to a clean table for Excel or your accounts.",
+    "category": "Finance",
+    "tier": "ai",
+    "status": "draft",
+    "added": "2026-10-24",
+    "prd": "APP-002"
   }
 ]

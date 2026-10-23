@@ -4,6 +4,7 @@ import { ExportButtons } from "../_shared/ExportButtons.jsx";
 import { readStored, removeStored, writeStored } from "../_shared/storage.js";
 import { safeFilename, saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
+import { useToast } from "../_shared/useToast.js";
 import { quoteTotals } from "./calc.js";
 import { newQuote } from "./model.js";
 import { parseQuoteFile, readBusiness, serialiseQuote } from "./quoteFile.js";
@@ -53,7 +54,7 @@ export default function QuoteBuilder({ app, copy }) {
   const [logoError, setLogoError] = React.useState("");
   const [fileError, setFileError] = React.useState("");
   const [pdfState, setPdfState] = React.useState("idle"); // idle | working | failed
-  const [toast, setToast] = React.useState("");
+  const [toast, setToast] = useToast();
   const [confirmNew, setConfirmNew] = React.useState(false);
   const openRef = React.useRef(null);
   const newRef = React.useRef(null);
@@ -264,7 +265,7 @@ export default function QuoteBuilder({ app, copy }) {
       />
 
       <div className="qb-toast" aria-live="polite">
-        {toast && <Toast message={toast} onClose={() => setToast("")} />}
+        {toast && <Toast message={toast} />}
       </div>
     </div>
   );
