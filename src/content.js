@@ -168,9 +168,9 @@ export const PRIVACY = {
       heading: "Emails we send to businesses",
       paragraphs: [
         "We send a small number of short, personal emails to Singapore businesses whose work involves a lot of paperwork, to tell them about our free tools. We only write to the enquiry address a business publishes on its own website. We do not buy lists, guess addresses or write to personal addresses.",
-        "To choose who to write to, we note the business's name, website, industry and a few things its own website says about how it works, with the pages we read. We contact each business at most twice.",
+        "To choose who to write to, we note the business's name, website, industry and a few things its own website says about how it works, with the pages we read. We send each business one email and, at most, one follow-up.",
         "Every email has a one-click unsubscribe link, or you can reply “unsubscribe”. Either way the address goes on our do-not-email list straight away and stays there. Addresses that bounce or report an email as spam go on the same list.",
-        "Details of businesses that never reply are deleted after 24 months. We keep the website's domain so we never contact that business again.",
+        "If a business never replies, we delete its details after two years. We keep the website's domain so we never contact that business again.",
       ],
     },
   ],
