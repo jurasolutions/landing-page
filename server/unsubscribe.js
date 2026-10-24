@@ -17,6 +17,7 @@
  *                        200 with no body, 400 for a bad token
  */
 import { base64UrlDecode, base64UrlEncode, hmacKey, hmacSign, hmacVerify, utf8 } from "./crypto.js";
+import { empty } from "./http.js";
 import { emailHash, suppressHash } from "./suppression.js";
 
 const TOKEN = /^([0-9a-f]{64})\.([A-Za-z0-9_-]{43})$/;
@@ -45,7 +46,7 @@ const HEADERS = {
 };
 
 const redirect = (request, path) =>
-  new Response(null, { status: 303, headers: { ...HEADERS, Location: new URL(path, request.url).toString() } });
+  empty(303, { ...HEADERS, Location: new URL(path, request.url).toString() });
 
 export async function handleUnsubscribeGet({ request, env, now }) {
   const token = new URL(request.url).searchParams.get("t");
@@ -67,14 +68,14 @@ export async function handleUnsubscribeGet({ request, env, now }) {
 
 export async function handleUnsubscribePost({ request, env, now }) {
   const token = new URL(request.url).searchParams.get("t");
-  if (!env.UNSUBSCRIBE_SECRET || !env.DB) return new Response(null, { status: 503, headers: HEADERS });
+  if (!env.UNSUBSCRIBE_SECRET || !env.DB) return empty(503, HEADERS);
   const hash = await verifyUnsubscribeToken(token, env.UNSUBSCRIBE_SECRET);
-  if (!hash) return new Response(null, { status: 400, headers: HEADERS });
+  if (!hash) return empty(400, HEADERS);
   try {
     await suppressHash(env.DB, { hash, source: "unsubscribe-post", now });
   } catch {
-    return new Response(null, { status: 503, headers: HEADERS });
+    return empty(503, HEADERS);
   }
   console.log(JSON.stringify({ at: "unsubscribe", ok: true, source: "unsubscribe-post" }));
-  return new Response(null, { status: 200, headers: HEADERS });
+  return empty(200, HEADERS);
 }

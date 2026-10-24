@@ -1,14 +1,13 @@
 /**
- * The Functions' view of the toolbox registry. They import the same JSON the
- * site renders from, so a slug is valid on the server exactly when it is in
+ * The Functions' view of the toolbox registry. They use the same registry module
+ * the site renders from, so a slug is valid on the server exactly when it is in
  * `src/apps/registry.json`.
  */
-import entries from "../src/apps/registry.json";
+import { REGISTRY, findApp } from "../src/apps/registry.js";
 
-export function isKnownSlug(slug, list = entries) {
-  return typeof slug === "string" && list.some((entry) => entry.slug === slug);
+export function isKnownSlug(slug, list = REGISTRY) {
+  return typeof slug === "string" && findApp(slug, list) !== null;
 }
 
-export function findEntry(slug, list = entries) {
-  return list.find((entry) => entry.slug === slug) ?? null;
-}
+/** The site's own lookup: one registry entry, or null. */
+export const findEntry = findApp;
