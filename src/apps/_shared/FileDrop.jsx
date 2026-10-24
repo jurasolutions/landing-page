@@ -8,6 +8,8 @@ import { FILE_DROP } from "../../content.js";
  * phone's camera directly (`capture="environment"`).
  *
  * Files are handed to `onFiles` as an array and never leave the browser here.
+ * `dropNote={false}` leaves out the "or drop them here" line, for a label
+ * that already says so.
  */
 export function FileDrop({
   id,
@@ -17,6 +19,7 @@ export function FileDrop({
   multiple = false,
   camera = false,
   disabled = false,
+  dropNote = true,
   onFiles,
 }) {
   const pickerRef = React.useRef(null);
@@ -93,7 +96,7 @@ export function FileDrop({
           </Button>
         )}
       </div>
-      <span className="tb-drop-or">{multiple ? FILE_DROP.drop : FILE_DROP.dropOne}</span>
+      {dropNote && <span className="tb-drop-or">{multiple ? FILE_DROP.drop : FILE_DROP.dropOne}</span>}
 
       <input
         ref={pickerRef}
