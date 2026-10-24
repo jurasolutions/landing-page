@@ -4,7 +4,7 @@ import { Nav } from "./sections/Nav.jsx";
 import { Footer } from "./sections/Footer.jsx";
 import { Home } from "./pages/Home.jsx";
 import { NAV, ROUTE_META } from "./content.js";
-import { matchRoute, useLocation, interceptLinks } from "./lib/router.js";
+import { matchRoute, useLocation, interceptLinks, manageHistory } from "./lib/router.js";
 import { useMeta } from "./lib/meta.js";
 
 // Everything except the home page is loaded on demand, so the marketing page
@@ -45,6 +45,7 @@ export default function App() {
   useShellMeta(route);
 
   React.useEffect(() => interceptLinks(), []);
+  React.useEffect(() => manageHistory(), []);
 
   return (
     <>
