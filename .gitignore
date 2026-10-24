@@ -17,3 +17,6 @@ Thumbs.db
 npm-debug.log*
 .vscode/
 .idea/
+
+# Developer agents work in git worktrees here.
+.claude/worktrees/
