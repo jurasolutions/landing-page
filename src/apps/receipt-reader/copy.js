@@ -29,7 +29,7 @@ export default {
   oneTry: "One try reads every receipt you have added.",
   // Why the read button is off. Only the reasons nothing else on the page explains.
   readWhy: {
-    loading: "Checking your free tries for today.",
+    loading: "Checking your free tries for today…",
     preparing: "Your receipts are still getting ready.",
     noFiles: "Add at least one receipt first.",
   },
