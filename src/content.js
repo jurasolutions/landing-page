@@ -127,7 +127,7 @@ export const PRIVACY = {
   label: "Privacy",
   heading: "How we handle your data",
   lede: "What this site, its free tools and our emails collect, why, and how to stop it. If anything here is unclear, ask us.",
-  updated: "Last updated 24 October 2026",
+  updated: "Last updated 25 October 2026",
   sections: [
     {
       heading: "Who we are",
@@ -153,23 +153,23 @@ export const PRIVACY = {
       heading: "Tools that use AI",
       paragraphs: [
         "Tools marked “Uses AI” send what you give them, such as photos of receipts, over an encrypted connection to Anthropic's Claude API to be read. Anthropic processes it under its commercial terms and returns the result, which we pass straight back to your browser. We do not store your images, your files or the results, and we do not log what is in them.",
-        "To keep the free tries fair, we count how many you have used today. The count is kept against a scrambled code made from your connection's IP address and a random cookie, never the address itself. The cookie is called jura_vid, holds nothing but that random code, is only sent with the tools' own requests, and expires after a year.",
+        "To keep the free tries fair, we count how many you have used today. The count is kept against two scrambled codes, one made from your connection's IP address and a random cookie and one from the IP address alone, never against the address itself. The cookie is called jura_vid, holds nothing but that random code, is only sent with the tools' own requests, and expires after a year.",
         "Before a try is sent, Cloudflare Turnstile checks that you are a person and not a bot. It runs on the AI tool pages only.",
       ],
     },
     {
       heading: "Counting visits",
       paragraphs: [
-        "We count how many times each tool is opened and used each day, with nothing about who you are. We also count visits to the site with Cloudflare Web Analytics, which does not use cookies.",
+        "We count how many times each tool is opened and used each day, with nothing about who you are.",
         "The site's fonts come from Google Fonts, so your browser connects to Google to fetch them.",
       ],
     },
     {
       heading: "Emails we send to businesses",
       paragraphs: [
-        "We send a small number of short, personal emails to Singapore businesses whose work involves a lot of paperwork, to tell them about our free tools. We only write to the enquiry address a business publishes on its own website. We do not buy lists, guess addresses or write to personal addresses.",
+        "We send a small number of short, personal emails to Singapore businesses whose work involves a lot of paperwork, to tell them about our free tools. We only write to an address a business publishes for enquiries on its own website, such as info@ or hello@, and to a named person's address only when the business lists it there for enquiries. We do not buy lists or guess addresses.",
         "To choose who to write to, we note the business's name, website, industry and a few things its own website says about how it works, with the pages we read. We send each business one email and, at most, one follow-up.",
-        "Every email has a one-click unsubscribe link, or you can reply “unsubscribe”. Either way the address goes on our do-not-email list straight away and stays there. Addresses that bounce or report an email as spam go on the same list.",
+        "Every email has a one-click unsubscribe link, which puts the address on our do-not-email list straight away. You can also reply “unsubscribe”, and we'll add the address by hand as soon as we read your reply. Either way it stays on the list. Addresses that bounce or report an email as spam go on the same list.",
         "If a business never replies, we delete its details after two years. We keep the website's domain so we never contact that business again.",
       ],
     },
