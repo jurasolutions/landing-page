@@ -17,10 +17,39 @@
 
 .qb-switch { display: none; margin-bottom: var(--space-5); }
 
-/* Tabs set their padding inline with no sides; give each a 44px target. */
-.qb-switch [role="tab"] {
+/* Edit and Preview are two toggle buttons (aria-pressed), not tabs: there is
+   no tab panel to move between. They keep the design system's Tabs look, a
+   hairline with the chosen view underlined in brand green, at 44px. */
+.qb-views {
+  display: flex;
+  gap: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.qb-view {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  min-height: var(--tap-min);
   min-width: var(--tap-min);
-  padding-inline: var(--space-3) !important;
+  padding: 0 var(--space-3);
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-regular);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard);
+}
+
+.qb-view[aria-pressed="true"] {
+  border-bottom-color: var(--brand);
+  color: var(--text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qb-view { transition: none; }
 }
 .qb-actions-mobile { display: none; }
 
@@ -60,6 +89,14 @@
   color: var(--text-muted);
   margin-top: var(--space-1);
 }
+
+/* A field's hint or error, styled as the design system's Field styles its own. */
+.qb-note {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.qb-note--error { color: var(--danger-fg); }
 
 .qb-logo { display: flex; flex-direction: column; gap: var(--space-2); }
 

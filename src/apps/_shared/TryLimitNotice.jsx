@@ -8,8 +8,20 @@ import { Alert, Badge, Icon } from "../../ds.js";
  *   { triesLeft, capReached }  or  null while it is loading or unknown.
  * `copy` is the tool's own wording (each AI tool's PRD sets it):
  *   { triesLeft(n), limitReached, capReached }
+ *
+ * One live region holds whichever message applies and stays in the page
+ * while the limit loads, so the count and the move to "used up" after a
+ * read are both announced.
  */
 export function TryLimitNotice({ limit, copy }) {
+  return (
+    <div className="tb-live" aria-live="polite">
+      <Message limit={limit} copy={copy} />
+    </div>
+  );
+}
+
+function Message({ limit, copy }) {
   if (!limit) return null;
 
   if (limit.capReached) {
@@ -29,7 +41,7 @@ export function TryLimitNotice({ limit, copy }) {
   }
 
   return (
-    <p aria-live="polite" style={{ margin: 0 }}>
+    <p style={{ margin: 0 }}>
       <Badge tone="brand" dot>
         {copy.triesLeft(limit.triesLeft)}
       </Badge>
