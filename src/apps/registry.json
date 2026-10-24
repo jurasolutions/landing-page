@@ -18,5 +18,15 @@
     "status": "draft",
     "added": "2026-10-24",
     "prd": "APP-002"
+  },
+  {
+    "slug": "pdf-merge-and-split",
+    "name": "PDF merge and split",
+    "description": "Join PDFs or pull out pages, right in your browser.",
+    "category": "Documents",
+    "tier": "browser",
+    "status": "live",
+    "added": "2026-10-24",
+    "prd": "APP-003"
   }
 ]

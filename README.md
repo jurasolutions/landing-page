@@ -270,6 +270,51 @@ safe for as long as nobody added a handler to it.
 - The registry entry is `draft` until Ting Yu has run his own receipts
   through the real model (`src/apps/receipt-reader/__fixtures__/README.md`).
 
+### APP-003 PDF merge and split (`src/apps/pdf-merge-and-split/`)
+
+Browser tier: the PDFs never leave the visitor's browser. The only requests
+are the anonymous open and download counts.
+
+| File | Does |
+| --- | --- |
+| `ranges.js` | the "Pages to keep" parser and its messages, pure, tested in `ranges.test.js` |
+| `order.js` | Move up, Move down and drag-to-place, pure, tested in `order.test.js` |
+| `files.js` | the 20-file and 50 MB limits, checked from sizes before anything is read |
+| `names.js` | the names of the files handed back |
+| `pdf.js` | read, merge, keep pages and split, with pdf-lib, zipped with fflate |
+| `thumbs.js`, `Thumbnails.jsx` | page thumbnails for Split, drawn with pdf.js as they scroll into view |
+| `MergePanel.jsx`, `SplitPanel.jsx`, `Outcome.jsx`, `index.jsx` | the page: two tabs, both kept mounted |
+| `copy.js` | every word |
+| `__fixtures__/` | test PDFs: `fixtures.js` builds them, `make-fixtures.mjs` writes them out for trying by hand |
+
+- **Nothing of Jura's goes into the files.** New documents are created
+  without pdf-lib's producer, creator or dates. The source title is kept
+  only when one file is involved (a merge of one file, kept pages, split
+  pages); a merge of several has no title.
+- **Pages copy as they are**, with their size, rotation, fonts and text, so
+  text stays selectable. Kept pages come out in the file's own order, once
+  each: "Pages to keep" picks pages, it does not rearrange them.
+- **Problems are per file.** A file is checked as it is added: no `%PDF-`
+  in its first 1024 bytes is "not a PDF", a pdf-lib encryption error is
+  "password protected", any other failure (or no pages) is "damaged". The
+  file keeps its place with its message and is left out of the merge; the
+  rest of the list is untouched. Encrypted files are never opened with
+  `ignoreEncryption`. pdf-lib's errors are ES5 classes, so `instanceof
+  EncryptedPDFError` is false at run time; the check also reads the
+  message, and `pdf.test.js` holds both libraries to the same answer on a
+  hand-built `/Encrypt` fixture.
+- **Limits are checked from `File.size`** before a byte is read. A batch
+  that would pass 20 files or 50 MB in total is refused whole.
+- **Split ZIPs** name each page `<original name>-page-01.pdf`, padded to
+  the widest page number (`-page-001.pdf` for a file of 100 pages or
+  more), stored without recompression because PDFs are already compressed.
+- **Thumbnails** start as placeholders of the right shape. A page is drawn
+  only when it nears the screen, one at a time, and kept as a small JPEG,
+  so a 200-page file opens as quickly as a short one.
+- **Loading.** `pdf.js` (with pdf-lib and fflate) is fetched when the page
+  is idle or the first file is added; pdf.js the library only for Split.
+  None of it reaches any other page.
+
 ## Unsubscribe and bounces (scout PRD §5.5, §5.9)
 
 The growth CLI (`repos/growth`) sends the outreach emails; this site holds the
@@ -377,6 +422,10 @@ built on sql.js with the real migrations.
 | `src/apps/quote-builder/calc.test.js` | every money case in APP-001, rounding, float artefacts |
 | `src/apps/quote-builder/quote.test.js` | quote file round trip, PDF pagination and logos, WinAnsi |
 | `src/apps/receipt-reader/receipts.test.js` | the add-up check, CSV/XLSX/TSV exports, resize rules |
+| `src/apps/pdf-merge-and-split/ranges.test.js`, `order.test.js` | the page range parser and its messages; reordering by buttons and drag |
+| `src/apps/pdf-merge-and-split/pdf.test.js` | merging the three fixture page sizes, kept pages, split ZIPs, metadata, password, damaged and non-PDF files |
+| `src/apps/pdf-merge-and-split/files.test.js`, `names.test.js` | the 20-file and 50 MB limits before reading, per-file messages, output names |
+| `src/apps/pdf-merge-and-split/offline.test.js`, `page.test.js` | no requests from the tool's code; the registry entry and the page as it opens |
 | `tests/limiter.test.js` | the try limit, site cap, refunds, upload checks, Turnstile |
 | `tests/receipt-reader.test.js` | the Claude request, the injection fixture, logs, storage |
 | `tests/unsubscribe.test.js` | the token contract (with a fixed vector), GET and one-click POST |
@@ -495,6 +544,7 @@ Copy lives in content files so it can be read end to end against those rules
   shared components, privacy page, unsubscribe page, not-found page
 - `src/apps/quote-builder/copy.js`: the quote builder, including its PDF
 - `src/apps/receipt-reader/copy.js`: the receipt reader, including its exports
+- `src/apps/pdf-merge-and-split/copy.js`: PDF merge and split
 
 The Functions return codes, never wording; the pages own every word.
 
