@@ -76,7 +76,9 @@ export async function buildQuotePdf(quote, totals, copy, { logo = null } = {}) {
   const doc = await PDFDocument.create();
   doc.setTitle(toPrintable(`${P.title} ${quote.details.number}`.trim()));
   doc.setAuthor(toPrintable(quote.business.name));
-  doc.setCreator(P.madeWith);
+  // The document is the visitor's: Jura is named in its metadata only when
+  // they leave the "Made with" line on.
+  doc.setCreator(quote.madeWith ? P.madeWith : "pdf-lib");
   doc.setProducer("pdf-lib");
 
   const regular = await doc.embedFont(StandardFonts.Helvetica);
