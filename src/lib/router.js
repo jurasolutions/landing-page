@@ -18,12 +18,18 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 const listeners = new Set();
 const notify = () => listeners.forEach((listener) => listener());
 
+// One popstate handler for the whole router. It plans focus and scroll
+// before telling React, because React renders the new page (and runs its
+// heading effect) as soon as it is told.
 function subscribe(listener) {
+  if (listeners.size === 0) {
+    current = here();
+    window.addEventListener("popstate", onPopState);
+  }
   listeners.add(listener);
-  window.addEventListener("popstate", listener);
   return () => {
     listeners.delete(listener);
-    window.removeEventListener("popstate", listener);
+    if (listeners.size === 0) window.removeEventListener("popstate", onPopState);
   };
 }
 
@@ -163,23 +169,21 @@ export function navigate(to, { replace = false } = {}) {
 }
 
 /**
- * Back and forward between the router's pages: restores the scroll position
- * once the page has rendered and moves focus to its heading. Call once, from
- * the app's root. Returns the clean-up.
+ * Back and forward. Between the router's pages, the heading of the page that
+ * appears takes focus and the scroll position is restored once the page has
+ * rendered. Within one page (section links) the browser handles it.
  */
-export function manageHistory() {
-  current = here();
-  const onPop = (event) => {
-    const to = here();
-    const plan = planHistoryStep(current ?? to, to, event.state);
-    current = to;
-    if (!plan) return;
+function onPopState(event) {
+  const to = here();
+  const plan = planHistoryStep(current ?? to, to, event.state);
+  current = to;
+  if (plan) {
+    restoring += 1;
     requestHeadingFocus(plan.focus ? to.pathname : null);
-    if (plan.scroll === "hash") requestAnimationFrame(() => scrollToHash(to.hash));
-    else restoreScroll(plan.scrollY);
-  };
-  window.addEventListener("popstate", onPop);
-  return () => window.removeEventListener("popstate", onPop);
+  }
+  notify();
+  if (plan?.scroll === "hash") requestAnimationFrame(() => scrollToHash(to.hash));
+  else if (plan) restoreScroll(plan.scrollY);
 }
 
 /**
