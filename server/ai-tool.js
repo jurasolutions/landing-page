@@ -4,7 +4,7 @@
  * its input checks and its model call between `takeTry` and the response.
  */
 import { json, sgtDay } from "./http.js";
-import { identifyVisitor } from "./visitor.js";
+import { hashIp, identifyVisitor } from "./visitor.js";
 import { limitConfig, limitKey } from "./limit.js";
 import { findEntry } from "./registry.js";
 
@@ -24,6 +24,7 @@ export async function visitorContext(request, env, tool, now) {
     db: env.DB,
     day: sgtDay(now),
     visitorHash: visitor.hash,
+    ipHash: await hashIp(request, env.VISITOR_SALT),
     setCookie: visitor.setCookie,
     key: limitKey(config, tool),
     config,

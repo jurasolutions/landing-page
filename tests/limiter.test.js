@@ -17,7 +17,7 @@ async function setup(extra = {}) {
 const tries = (DB) => DB.rows("app_tries").filter((r) => !r.tool.startsWith("#ip")).map((r) => r.count);
 
 const counts = (DB) => ({
-  tries: DB.rows("app_tries").map((r) => r.count),
+  tries: tries(DB),
   calls: DB.rows("app_calls").map((r) => r.count),
 });
 
@@ -101,9 +101,12 @@ describe("the try limit", () => {
   });
 
   it("is shared across AI tools by default, and per tool when configured", async () => {
-    expect(limitConfig({})).toEqual({ triesPerDay: 2, siteCap: 200, scope: "all" });
-    expect(limitConfig({ AI_TRIES_PER_DAY: "5", AI_SITE_CAP: "50", AI_LIMIT_SCOPE: "per-tool" })).toEqual({
+    expect(limitConfig({})).toEqual({ triesPerDay: 2, triesPerIp: 6, siteCap: 200, scope: "all" });
+    expect(
+      limitConfig({ AI_TRIES_PER_DAY: "5", AI_TRIES_PER_IP: "10", AI_SITE_CAP: "50", AI_LIMIT_SCOPE: "per-tool" })
+    ).toEqual({
       triesPerDay: 5,
+      triesPerIp: 10,
       siteCap: 50,
       scope: "per-tool",
     });
@@ -111,12 +114,59 @@ describe("the try limit", () => {
     const { DB, env } = await setup({ AI_LIMIT_SCOPE: "per-tool" });
     installNetwork({ anthropic: [good()] });
     await readReceipts({ request: receiptRequest(), env });
-    expect(DB.rows("app_tries")[0].tool).toBe("receipt-reader");
+    expect(DB.rows("app_tries").map((r) => r.tool).sort()).toEqual(["#ip:receipt-reader", "receipt-reader"]);
 
     const shared = await setup();
     installNetwork({ anthropic: [good()] });
     await readReceipts({ request: receiptRequest(), env: shared.env });
-    expect(shared.DB.rows("app_tries")[0].tool).toBe("*");
+    expect(shared.DB.rows("app_tries").map((r) => r.tool).sort()).toEqual(["#ip", "*"]);
+  });
+});
+
+describe("the per-IP ceiling", () => {
+  it("stops fresh cookies from one IP at 6 calls a day", async () => {
+    const { DB, env } = await setup();
+    const net = installNetwork({ anthropic: Array.from({ length: 12 }, good) });
+    const statuses = [];
+    for (let v = 0; v < 4; v += 1) {
+      const cookie = `jura_vid=${crypto.randomUUID()}`;
+      for (let i = 0; i < 3; i += 1) statuses.push((await readReceipts({ request: receiptRequest({ cookie }), env })).status);
+    }
+    expect(statuses.filter((s) => s === 200)).toHaveLength(6);
+    expect(net.anthropic).toHaveLength(6);
+    expect(counts(DB).calls).toEqual([6]);
+
+    const fresh = `jura_vid=${crypto.randomUUID()}`;
+    const refused = await readReceipts({ request: receiptRequest({ cookie: fresh }), env });
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toEqual({ error: "limit", triesLeft: 0 });
+    const left = await getLimit({ request: limitRequest({ cookie: fresh }), env });
+    expect(await left.json()).toMatchObject({ triesLeft: 0, capReached: false });
+
+    // Another IP is unaffected.
+    installNetwork({ anthropic: [good()] });
+    expect((await readReceipts({ request: receiptRequest({ ip: "198.51.100.7" }), env })).status).toBe(200);
+  });
+
+  it("stores the IP only as a salted hash", async () => {
+    const { DB, env } = await setup();
+    installNetwork({ anthropic: [good()] });
+    await readReceipts({ request: receiptRequest({ ip: "203.0.113.77" }), env });
+    const stored = JSON.stringify(DB.rows("app_tries"));
+    expect(stored).not.toContain("203.0.113.77");
+    expect(DB.rows("app_tries").map((r) => r.tool).sort()).toEqual(["#ip", "*"]);
+  });
+
+  it("is configurable with AI_TRIES_PER_IP and gives its try back on a refund", async () => {
+    const { DB, env } = await setup({ AI_TRIES_PER_IP: "1" });
+    installNetwork({ anthropic: ["network", good()] });
+    const first = await readReceipts({ request: receiptRequest({ cookie: `jura_vid=${crypto.randomUUID()}` }), env });
+    expect(first.status).toBe(503);
+    const second = await readReceipts({ request: receiptRequest({ cookie: `jura_vid=${crypto.randomUUID()}` }), env });
+    expect(second.status).toBe(200);
+    const third = await readReceipts({ request: receiptRequest({ cookie: `jura_vid=${crypto.randomUUID()}` }), env });
+    expect(third.status).toBe(429);
+    expect(DB.rows("app_tries").find((r) => r.tool === "#ip").count).toBe(1);
   });
 });
 
@@ -132,9 +182,9 @@ describe("the site-wide cap", () => {
     expect(await fourth.json()).toEqual({ error: "cap", triesLeft: 0 });
     expect(net.anthropic).toHaveLength(3);
     expect(counts(DB).calls).toEqual([3]);
-    // The refused visitor keeps their own tries for when the cap resets.
-    const fourthVisitor = DB.rows("app_tries").filter((r) => r.count > 0);
-    expect(fourthVisitor).toHaveLength(3);
+    // The refused visitor keeps their own tries (and their IP's) for when the cap resets.
+    expect(DB.rows("app_tries").filter((r) => r.count > 0)).toHaveLength(6);
+    expect(tries(DB).filter((n) => n > 0)).toHaveLength(3);
 
     const someoneNew = await getLimit({ request: limitRequest({ ip: "192.0.2.9" }), env });
     expect(await someoneNew.json()).toMatchObject({ triesLeft: 2, capReached: true });
@@ -226,6 +276,7 @@ describe("refunds", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
     expect(counts(DB)).toEqual({ tries: [0], calls: [1] });
+    expect(DB.rows("app_tries").find((r) => r.tool === "#ip").count).toBe(0);
   });
 
   it("give the try back when the output cannot be repaired", async () => {
@@ -354,19 +405,43 @@ describe("checks before the counter", () => {
 describe("takeTry on its own", () => {
   it("never stores a count above the limit", async () => {
     const { DB } = await createD1().then((DB) => ({ DB }));
-    const config = { triesPerDay: 2, siteCap: 200, scope: "all" };
-    const args = { day: "2026-10-24", visitorHash: "h", key: "*", config };
+    const config = { triesPerDay: 2, triesPerIp: 6, siteCap: 200, scope: "all" };
+    const args = { day: "2026-10-24", visitorHash: "h", ipHash: "i", key: "*", config };
     expect(await takeTry(DB, args)).toEqual({ ok: true, triesLeft: 1 });
     expect(await takeTry(DB, args)).toEqual({ ok: true, triesLeft: 0 });
     expect(await takeTry(DB, args)).toEqual({ ok: false, reason: "limit" });
     expect(await takeTry(DB, args)).toEqual({ ok: false, reason: "limit" });
-    expect(DB.rows("app_tries")).toEqual([{ day: "2026-10-24", visitor_hash: "h", tool: "*", count: 2 }]);
+    expect(DB.rows("app_tries")).toEqual([
+      { day: "2026-10-24", visitor_hash: "h", tool: "*", count: 2 },
+      { day: "2026-10-24", visitor_hash: "i", tool: "#ip", count: 2 },
+    ]);
     expect(DB.rows("app_calls")).toEqual([{ day: "2026-10-24", count: 2 }]);
+  });
+
+  it("never stores an IP count above the ceiling", async () => {
+    const DB = await createD1();
+    const config = { triesPerDay: 2, triesPerIp: 3, siteCap: 200, scope: "all" };
+    const as = (visitorHash) => ({ day: "2026-10-24", visitorHash, ipHash: "i", key: "*", config });
+    expect(await takeTry(DB, as("a"))).toEqual({ ok: true, triesLeft: 1 });
+    expect(await takeTry(DB, as("a"))).toEqual({ ok: true, triesLeft: 0 });
+    expect(await takeTry(DB, as("b"))).toEqual({ ok: true, triesLeft: 0 }); // the IP's last one
+    expect(await takeTry(DB, as("b"))).toEqual({ ok: false, reason: "limit" });
+    expect(DB.rows("app_tries").map((r) => [r.visitor_hash, r.count])).toEqual([
+      ["a", 2],
+      ["i", 3],
+      ["b", 1],
+    ]);
+    expect(DB.rows("app_calls")).toEqual([{ day: "2026-10-24", count: 3 }]);
   });
 
   it("refuses everything when the limit is set to 0", async () => {
     const DB = await createD1();
-    const config = { triesPerDay: 0, siteCap: 200, scope: "all" };
-    expect(await takeTry(DB, { day: "d", visitorHash: "h", key: "*", config })).toEqual({ ok: false, reason: "limit" });
+    const config = { triesPerDay: 0, triesPerIp: 6, siteCap: 200, scope: "all" };
+    const args = { day: "d", visitorHash: "h", ipHash: "i", key: "*", config };
+    expect(await takeTry(DB, args)).toEqual({ ok: false, reason: "limit" });
+    expect(await takeTry(DB, { ...args, config: { ...config, triesPerDay: 2, triesPerIp: 0 } })).toEqual({
+      ok: false,
+      reason: "limit",
+    });
   });
 });

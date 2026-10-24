@@ -3,7 +3,13 @@
  *
  * - Each visitor gets AI_TRIES_PER_DAY tries (default 2) per SGT day. With
  *   AI_LIMIT_SCOPE=all (default) that is across every AI tool; with
- *   AI_LIMIT_SCOPE=per-tool, each tool has its own count.
+ *   AI_LIMIT_SCOPE=per-tool, each tool has its own count. A visitor is a
+ *   salted hash of the IP and a random cookie (server/visitor.js).
+ * - Each IP gets AI_TRIES_PER_IP tries (default 6) per SGT day on top of
+ *   that, counted against a salted hash of the IP alone, so a fresh cookie
+ *   (a private window, cleared cookies) does not mean fresh tries. Six lets a
+ *   shared office in three people's worth. Its rows sit in app_tries with
+ *   `tool` '#ip' (or '#ip:<slug>' per tool), so no extra table is needed.
  * - The whole site makes at most AI_SITE_CAP AI calls a day (default 200).
  *   Every request sent to the API counts, a repair request included, and a
  *   counted call is never given back, so the cap holds whatever the API or
@@ -25,6 +31,7 @@ const positiveInt = (value, fallback) => {
 export function limitConfig(env) {
   return {
     triesPerDay: positiveInt(env.AI_TRIES_PER_DAY, 2),
+    triesPerIp: positiveInt(env.AI_TRIES_PER_IP, 6),
     siteCap: positiveInt(env.AI_SITE_CAP, 200),
     scope: env.AI_LIMIT_SCOPE === "per-tool" ? "per-tool" : "all",
   };
@@ -33,14 +40,25 @@ export function limitConfig(env) {
 /** The `tool` column value: '*' when the limit is shared across tools. */
 export const limitKey = (config, tool) => (config.scope === "per-tool" ? tool : "*");
 
-export async function remaining(db, { day, visitorHash, key, config }) {
-  const tries = await db
+/**
+ * The `tool` column value for the per-IP ceiling's rows, which share
+ * app_tries with the visitor rows: '#ip', or '#ip:<slug>' per tool.
+ */
+export const ipKey = (key) => (key === "*" ? "#ip" : `#ip:${key}`);
+
+function countOf(db, { day, hash, key }) {
+  return db
     .prepare("SELECT count FROM app_tries WHERE day = ?1 AND visitor_hash = ?2 AND tool = ?3")
-    .bind(day, visitorHash, key)
+    .bind(day, hash, key)
     .first("count");
+}
+
+export async function remaining(db, { day, visitorHash, ipHash, key, config }) {
+  const tries = await countOf(db, { day, hash: visitorHash, key });
+  const ipTries = await countOf(db, { day, hash: ipHash, key: ipKey(key) });
   const calls = await db.prepare("SELECT count FROM app_calls WHERE day = ?1").bind(day).first("count");
   return {
-    triesLeft: Math.max(0, config.triesPerDay - (tries ?? 0)),
+    triesLeft: Math.max(0, Math.min(config.triesPerDay - (tries ?? 0), config.triesPerIp - (ipTries ?? 0))),
     capReached: (calls ?? 0) >= config.siteCap,
   };
 }
@@ -65,22 +83,34 @@ function giveBack(db, { day, hash, key }) {
 }
 
 /**
- * Takes one try for the visitor and one call from the site's daily cap.
+ * Takes one try for the visitor (IP and cookie), one from their IP's ceiling,
+ * and one call from the site's daily cap. If a later one is refused, the
+ * earlier ones are given back.
  * Returns { ok: true, triesLeft } or { ok: false, reason: "limit" | "cap" }.
  */
-export async function takeTry(db, { day, visitorHash, key, config }) {
-  if (config.triesPerDay <= 0) return { ok: false, reason: "limit" };
+export async function takeTry(db, { day, visitorHash, ipHash, key, config }) {
+  if (config.triesPerDay <= 0 || config.triesPerIp <= 0) return { ok: false, reason: "limit" };
+  const visitor = { day, hash: visitorHash, key };
+  const ip = { day, hash: ipHash, key: ipKey(key) };
 
-  const count = await takeFrom(db, { day, hash: visitorHash, key, limit: config.triesPerDay });
+  const count = await takeFrom(db, { ...visitor, limit: config.triesPerDay });
   if (count == null) return { ok: false, reason: "limit" };
+
+  const ipCount = await takeFrom(db, { ...ip, limit: config.triesPerIp });
+  if (ipCount == null) {
+    // Another cookie on this IP has used the IP's tries for today.
+    await giveBack(db, visitor);
+    return { ok: false, reason: "limit" };
+  }
 
   if (!(await takeCall(db, { day, config }))) {
     // The site is at its cap. Give the visitor their try back.
-    await giveBack(db, { day, hash: visitorHash, key });
+    await giveBack(db, visitor);
+    await giveBack(db, ip);
     return { ok: false, reason: "cap" };
   }
 
-  return { ok: true, triesLeft: Math.max(0, config.triesPerDay - count) };
+  return { ok: true, triesLeft: Math.max(0, Math.min(config.triesPerDay - count, config.triesPerIp - ipCount)) };
 }
 
 /**
@@ -106,8 +136,9 @@ export async function takeCall(db, { day, config }) {
  * call count is left alone: the cap counts calls made, and a call that was
  * sent was paid for.
  */
-export async function refundTry(db, { day, visitorHash, key }) {
+export async function refundTry(db, { day, visitorHash, ipHash, key }) {
   await giveBack(db, { day, hash: visitorHash, key });
+  await giveBack(db, { day, hash: ipHash, key: ipKey(key) });
 }
 
 /**

@@ -212,8 +212,17 @@ rules (app factory PRD §5.4), in `server/limit.js`:
 
 - **2 tries per visitor per SGT day** (`AI_TRIES_PER_DAY`), shared across all
   AI tools (`AI_LIMIT_SCOPE=all`) or counted per tool (`per-tool`).
-- **A site-wide cap of 200 AI calls a day** (`AI_SITE_CAP`). When it is
-  reached every AI tool shows its "used up for today" message.
+- **6 tries per IP per SGT day** (`AI_TRIES_PER_IP`) on top of that, counted
+  against a salted hash of the IP alone, so a private window or cleared
+  cookies do not mean fresh tries. Six lets a shared office in three people's
+  worth. Its rows live in `app_tries` with `tool` `#ip` (or `#ip:<slug>` per
+  tool), so it needed no new table.
+- **A site-wide cap of 200 AI calls a day** (`AI_SITE_CAP`). Every request
+  actually sent to Anthropic takes a call first, the repair request included,
+  and a counted call is never given back, so the cap holds whatever the API or
+  the model answers. The SDK runs with `maxRetries: 0`, so nothing is sent
+  that was not counted. When the cap is reached every AI tool shows its "used
+  up for today" message.
 - **The visitor** is a salted SHA-256 of `CF-Connecting-IP` and a random
   `jura_vid` cookie (HttpOnly, `Path=/api/apps`). Only the hash is stored.
   Cookie-less requests from one IP share one bucket, so refusing the cookie is
@@ -225,10 +234,13 @@ rules (app factory PRD §5.4), in `server/limit.js`:
   (tested: 5 at once, exactly 2 get through). D1, not KV, because KV is
   eventually consistent.
 - **Order:** Turnstile → size and type → take the try → Claude → validate the
-  output (one free repair) → respond. A failure on our side after the try is
-  taken gives it back. A billing error from the API (spend limit reached)
-  closes the AI tools for the rest of the day; a rate limit shows the used-up
-  message for that request (both fail closed).
+  output (one repair, free to the visitor, skipped if the cap is reached) →
+  respond. An API or network failure, output that cannot be repaired, or
+  anything unexpected after the try is taken gives the visitor's try back
+  (never the site's call). A refusal (`stop_reason: "refusal"`) does not: it
+  comes from what was uploaded. A billing error from the API (spend limit
+  reached) closes the AI tools for the rest of the day; a rate limit shows the
+  used-up message for that request (both fail closed).
 - **Logs** are one JSON line per call: day, tool, ok, reason, receipt count,
   tokens, latency. Never content. The SDK's own logging is off.
 
@@ -334,6 +346,7 @@ setup is in `jurasolutions/outputs/growth/setup/toolbox-ai.md`.
 | `VITE_TURNSTILE_SITE_KEY` | plain, **build time** | the AI tool pages | none in production; the dev server uses Cloudflare's test key |
 | `VISITOR_SALT` | secret | AI tools | none: AI tools unavailable |
 | `AI_TRIES_PER_DAY` | plain | AI tools | `2` |
+| `AI_TRIES_PER_IP` | plain | AI tools | `6` |
 | `AI_SITE_CAP` | plain | AI tools | `200` |
 | `AI_LIMIT_SCOPE` | plain | AI tools | `all` (or `per-tool`) |
 | `UNSUBSCRIBE_SECRET` | secret | `/unsubscribe` (same value as the growth CLI) | none: links do not verify |
