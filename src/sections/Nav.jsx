@@ -82,7 +82,10 @@ export function Nav() {
           </nav>
 
           <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
-            <Button size="sm" href={homeAnchor("#contact", onHome)}>
+            {/* The small button is 34px tall. The bar's action keeps the
+                44px tap target (design system §6); the component sets its
+                height inline, so the override goes through its style prop. */}
+            <Button size="sm" href={homeAnchor("#contact", onHome)} style={{ minHeight: "var(--tap-min)" }}>
               {NAV.cta}
             </Button>
             <span className="nav-menu-button" ref={triggerRef}>

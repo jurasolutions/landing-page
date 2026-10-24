@@ -12,10 +12,6 @@
 
 .tb-page { display: block; }
 
-/* The shared nav marks the toolbox as the current section on these pages. */
-.navlink[aria-current="page"],
-.nav-sheet-link[aria-current="page"] { color: var(--text-brand); }
-
 .tb-band { padding-block: var(--section-y-tight); }
 
 .tb-head {
