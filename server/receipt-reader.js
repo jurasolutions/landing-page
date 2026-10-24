@@ -10,9 +10,13 @@
  *   2. check the files' number, size and real type
  *   3. take a try from the visitor and a call from the site cap (atomic)
  *   4. call Claude
- *   5. validate the output, with one free repair attempt
+ *   5. validate the output, with one repair attempt that is free to the
+ *      visitor but takes its own call from the site cap (skipped at the cap)
  *   6. respond
- * Anything that goes wrong on our side after step 3 gives the try back.
+ * An API or network failure, output that cannot be repaired, or anything
+ * unexpected after step 3 gives the visitor's try back. A refusal does not:
+ * it comes from what was uploaded. No call counted against the site cap is
+ * ever given back.
  * Nothing uploaded is stored anywhere: the images live in this request's
  * memory and go to Anthropic's API, and the result goes back to the browser.
  *
@@ -25,7 +29,7 @@
  */
 import { json } from "./http.js";
 import { MAX_BODY_BYTES, checkUploads } from "./images.js";
-import { closeForToday, refundTry, takeTry } from "./limit.js";
+import { closeForToday, refundTry, takeCall, takeTry } from "./limit.js";
 import { verifyTurnstile } from "./turnstile.js";
 import { clientIp } from "./visitor.js";
 import { bytesToBase64 } from "./crypto.js";
@@ -103,9 +107,33 @@ export async function handleReceiptRead({ request: incoming, env, now }) {
   const uploads = await checkUploads(form.getAll("files"));
   if (!uploads.ok) return json({ error: uploads.error }, uploads.status);
 
-  // 3. The try.
+  // Steps 3 to 6 run inside one guard: anything unexpected (a D1 binding
+  // with no tables, say) gives back a try that was taken and answers 503.
+  const state = { ctx: null, taken: null, refunded: false };
+  try {
+    return await readWithTry({ incoming, env, now, images: uploads.images, started, state });
+  } catch (error) {
+    const { ctx, taken } = state;
+    const owed = taken?.ok && !state.refunded;
+    if (owed) {
+      try {
+        await refundTry(ctx.db, ctx);
+      } catch {
+        // Nothing more to do: the count resets at midnight SGT.
+      }
+    }
+    console.error(JSON.stringify({ at: "ai-tool", tool: TOOL, ok: false, reason: "error", error: String(error?.name ?? "error") }));
+    const triesLeft = taken?.ok ? { triesLeft: taken.triesLeft + 1 } : {};
+    return reply(ctx, { error: "unavailable", ...triesLeft }, 503);
+  }
+}
+
+async function readWithTry({ incoming, env, now, images, started, state }) {
+  // 3. The try, and the first call from the site cap.
   const ctx = await visitorContext(incoming, env, TOOL, now);
+  state.ctx = ctx;
   const taken = await takeTry(ctx.db, ctx);
+  state.taken = taken;
   if (!taken.ok) {
     logCall({ day: ctx.day, tool: TOOL, ok: false, reason: taken.reason, receipts: 0, latency_ms: Date.now() - started });
     return reply(ctx, { error: taken.reason, triesLeft: 0 }, 429);
@@ -117,58 +145,62 @@ export async function handleReceiptRead({ request: incoming, env, now }) {
     tokens.input_tokens += usage.input_tokens;
     tokens.output_tokens += usage.output_tokens;
   };
+  const log = (fields) => logCall({ day: ctx.day, tool: TOOL, receipts: 0, ...fields, ...tokens, latency_ms: Date.now() - started });
+
+  // A failure on our side, or output we could not use: the try comes back.
   const fail = async (reason, status, error) => {
     await refundTry(ctx.db, ctx);
-    logCall({ day: ctx.day, tool: TOOL, ok: false, reason, receipts: 0, ...tokens, latency_ms: Date.now() - started });
+    state.refunded = true;
+    log({ ok: false, reason });
     return reply(ctx, { error, triesLeft: taken.triesLeft + 1 }, status);
   };
-
-  // 4. Claude.
-  const client = anthropicClient(env);
-  let message;
-  try {
-    message = await client.messages.create(request(uploads.images));
-    add(message);
-  } catch (error) {
+  // The model declined what was uploaded: the try was used.
+  const refused = () => {
+    log({ ok: false, reason: "refusal" });
+    return reply(ctx, { error: "unreadable", triesLeft: taken.triesLeft }, 502);
+  };
+  const apiFailure = async (error) => {
     const kind = classifyApiError(error);
     if (kind === "billing") {
-      // Refund first, then close the day: the close must be the last write.
       const response = await fail("billing", 429, "cap");
       await closeForToday(ctx.db, ctx);
       return response;
     }
     if (kind === "rate") return fail("rate", 429, "cap");
     return fail(`api_${error?.status ?? "network"}`, 503, "unavailable");
+  };
+
+  // 4. Claude. takeTry has already counted this call against the cap.
+  const client = anthropicClient(env);
+  let message;
+  try {
+    message = await client.messages.create(request(images));
+    add(message);
+  } catch (error) {
+    return apiFailure(error);
   }
+  if (message.stop_reason === "refusal") return refused();
 
-  if (message.stop_reason === "refusal") return fail("refusal", 502, "unreadable");
-
-  // 5. Validate, with one repair attempt that costs the visitor nothing.
-  let text = responseText(message);
-  let result = readModelOutput(text);
+  // 5. Validate, with one repair attempt that costs the visitor nothing but
+  // still counts against the site cap.
+  let result = readModelOutput(responseText(message));
   let repaired = false;
   if (!result.ok) {
     repaired = true;
+    if (!(await takeCall(ctx.db, ctx))) return fail("cap_before_repair", 503, "unavailable");
+    let second;
     try {
-      const second = await client.messages.create(repairRequest(result.problems, text));
+      second = await client.messages.create(repairRequest(result.problems, responseText(message)));
       add(second);
-      text = responseText(second);
-      result = second.stop_reason === "refusal" ? { ok: false } : readModelOutput(text);
-    } catch {
-      result = { ok: false };
+    } catch (error) {
+      return apiFailure(error);
     }
+    if (second.stop_reason === "refusal") return refused();
+    result = readModelOutput(responseText(second));
   }
   if (!result.ok) return fail("invalid_output", 502, "unreadable");
 
   // 6. Respond.
-  logCall({
-    day: ctx.day,
-    tool: TOOL,
-    ok: true,
-    receipts: result.receipts.length,
-    repaired,
-    ...tokens,
-    latency_ms: Date.now() - started,
-  });
+  log({ ok: true, receipts: result.receipts.length, repaired });
   return reply(ctx, { receipts: result.receipts, triesLeft: taken.triesLeft });
 }

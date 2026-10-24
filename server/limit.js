@@ -5,6 +5,9 @@
  *   AI_LIMIT_SCOPE=all (default) that is across every AI tool; with
  *   AI_LIMIT_SCOPE=per-tool, each tool has its own count.
  * - The whole site makes at most AI_SITE_CAP AI calls a day (default 200).
+ *   Every request sent to the API counts, a repair request included, and a
+ *   counted call is never given back, so the cap holds whatever the API or
+ *   the model answers. Only the visitor's try is ever refunded.
  *
  * Both counters live in D1, not KV: KV is eventually consistent, so quick
  * repeated clicks could slip past a limit of 2. Each counter is taken with a
@@ -42,6 +45,25 @@ export async function remaining(db, { day, visitorHash, key, config }) {
   };
 }
 
+/** Increments a visitor counter while it is under `limit`; null at the limit. */
+function takeFrom(db, { day, hash, key, limit }) {
+  return db
+    .prepare(
+      `INSERT INTO app_tries (day, visitor_hash, tool, count) VALUES (?1, ?2, ?3, 1)
+       ON CONFLICT (day, visitor_hash, tool) DO UPDATE SET count = count + 1 WHERE count < ?4
+       RETURNING count`
+    )
+    .bind(day, hash, key, limit)
+    .first("count");
+}
+
+function giveBack(db, { day, hash, key }) {
+  return db
+    .prepare("UPDATE app_tries SET count = count - 1 WHERE day = ?1 AND visitor_hash = ?2 AND tool = ?3 AND count > 0")
+    .bind(day, hash, key)
+    .run();
+}
+
 /**
  * Takes one try for the visitor and one call from the site's daily cap.
  * Returns { ok: true, triesLeft } or { ok: false, reason: "limit" | "cap" }.
@@ -49,49 +71,43 @@ export async function remaining(db, { day, visitorHash, key, config }) {
 export async function takeTry(db, { day, visitorHash, key, config }) {
   if (config.triesPerDay <= 0) return { ok: false, reason: "limit" };
 
-  const count = await db
-    .prepare(
-      `INSERT INTO app_tries (day, visitor_hash, tool, count) VALUES (?1, ?2, ?3, 1)
-       ON CONFLICT (day, visitor_hash, tool) DO UPDATE SET count = count + 1 WHERE count < ?4
-       RETURNING count`
-    )
-    .bind(day, visitorHash, key, config.triesPerDay)
-    .first("count");
+  const count = await takeFrom(db, { day, hash: visitorHash, key, limit: config.triesPerDay });
   if (count == null) return { ok: false, reason: "limit" };
 
-  const calls =
-    config.siteCap <= 0
-      ? null
-      : await db
-          .prepare(
-            `INSERT INTO app_calls (day, count) VALUES (?1, 1)
-             ON CONFLICT (day) DO UPDATE SET count = count + 1 WHERE count < ?2
-             RETURNING count`
-          )
-          .bind(day, config.siteCap)
-          .first("count");
-  if (calls == null) {
+  if (!(await takeCall(db, { day, config }))) {
     // The site is at its cap. Give the visitor their try back.
-    await refundVisitor(db, { day, visitorHash, key });
+    await giveBack(db, { day, hash: visitorHash, key });
     return { ok: false, reason: "cap" };
   }
 
   return { ok: true, triesLeft: Math.max(0, config.triesPerDay - count) };
 }
 
-async function refundVisitor(db, { day, visitorHash, key }) {
-  await db
+/**
+ * Takes one call from the site's daily cap. Every request actually sent to
+ * the API takes one first, the repair request included. Returns false at the
+ * cap, in which case the request must not be sent.
+ */
+export async function takeCall(db, { day, config }) {
+  if (config.siteCap <= 0) return false;
+  const calls = await db
     .prepare(
-      "UPDATE app_tries SET count = count - 1 WHERE day = ?1 AND visitor_hash = ?2 AND tool = ?3 AND count > 0"
+      `INSERT INTO app_calls (day, count) VALUES (?1, 1)
+       ON CONFLICT (day) DO UPDATE SET count = count + 1 WHERE count < ?2
+       RETURNING count`
     )
-    .bind(day, visitorHash, key)
-    .run();
+    .bind(day, config.siteCap)
+    .first("count");
+  return calls != null;
 }
 
-/** Gives back a try and a site call after a failure on our side. */
+/**
+ * Gives the visitor their try back after a failure on our side. The site's
+ * call count is left alone: the cap counts calls made, and a call that was
+ * sent was paid for.
+ */
 export async function refundTry(db, { day, visitorHash, key }) {
-  await refundVisitor(db, { day, visitorHash, key });
-  await db.prepare("UPDATE app_calls SET count = count - 1 WHERE day = ?1 AND count > 0").bind(day).run();
+  await giveBack(db, { day, hash: visitorHash, key });
 }
 
 /**

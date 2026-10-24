@@ -6,11 +6,15 @@ import { onRequestGet as getLimit } from "../functions/api/apps/limit.js";
 import { limitConfig, takeTry } from "../server/limit.js";
 
 const good = () => message(JSON.stringify({ receipts: [RECEIPT] }));
+const refusal = () => message("", { stop: "refusal" });
 
 async function setup(extra = {}) {
   const DB = await createD1();
   return { DB, env: { ...ENV, DB, ...extra } };
 }
+
+/** The visitor's own counts (IP and cookie), leaving out the per-IP rows. */
+const tries = (DB) => DB.rows("app_tries").filter((r) => !r.tool.startsWith("#ip")).map((r) => r.count);
 
 const counts = (DB) => ({
   tries: DB.rows("app_tries").map((r) => r.count),
@@ -136,6 +140,55 @@ describe("the site-wide cap", () => {
     expect(await someoneNew.json()).toMatchObject({ triesLeft: 2, capReached: true });
   });
 
+  it("holds at a test cap of 3 when the model refuses: five refusals make at most 3 API calls", async () => {
+    const { DB, env } = await setup({ AI_SITE_CAP: "3" });
+    const net = installNetwork({ anthropic: Array.from({ length: 5 }, refusal) });
+    for (const ip of ["192.0.2.1", "192.0.2.2", "192.0.2.3", "192.0.2.4", "192.0.2.5"]) {
+      await readReceipts({ request: receiptRequest({ ip }), env });
+    }
+    expect(net.anthropic.length).toBeLessThanOrEqual(3);
+    expect(counts(DB).calls).toEqual([3]);
+  });
+
+  it("counts a refusal as a used try: it comes from what was uploaded", async () => {
+    const { DB, env } = await setup();
+    installNetwork({ anthropic: [refusal()] });
+    const response = await readReceipts({ request: receiptRequest(), env });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "unreadable", triesLeft: 1 });
+    expect(tries(DB)).toEqual([1]);
+  });
+
+  it("counts the repair call against the cap", async () => {
+    const { DB, env } = await setup({ AI_SITE_CAP: "3" });
+    const net = installNetwork({ anthropic: [message("not json"), good(), good()] });
+    expect((await readReceipts({ request: receiptRequest({ ip: "192.0.2.1" }), env })).status).toBe(200);
+    expect(counts(DB).calls).toEqual([2]);
+    expect((await readReceipts({ request: receiptRequest({ ip: "192.0.2.2" }), env })).status).toBe(200);
+    expect(counts(DB).calls).toEqual([3]);
+    const third = await readReceipts({ request: receiptRequest({ ip: "192.0.2.3" }), env });
+    expect(third.status).toBe(429);
+    expect(net.anthropic).toHaveLength(3);
+  });
+
+  it("skips the repair when the cap is reached, gives the try back and answers unavailable", async () => {
+    const { DB, env } = await setup({ AI_SITE_CAP: "1" });
+    const net = installNetwork({ anthropic: [message("not json")] });
+    const response = await readReceipts({ request: receiptRequest(), env });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(net.anthropic).toHaveLength(1);
+    expect(counts(DB).calls).toEqual([1]);
+    expect(tries(DB)).toEqual([0]);
+  });
+
+  it("never retries a failed call behind the counter's back", async () => {
+    const { env } = await setup();
+    const net = installNetwork({ anthropic: ["network", good()] });
+    await readReceipts({ request: receiptRequest(), env });
+    expect(net.anthropic).toHaveLength(1);
+  });
+
   it("closes for the day when the API reports a billing problem, and refunds the try", async () => {
     const { DB, env } = await setup();
     installNetwork({ anthropic: [apiError(402, "billing_error", "Spend limit reached")] });
@@ -156,7 +209,7 @@ describe("the site-wide cap", () => {
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(429);
     expect((await response.json()).error).toBe("cap");
-    expect(counts(DB)).toEqual({ tries: [0], calls: [0] });
+    expect(counts(DB)).toEqual({ tries: [0], calls: [1] });
   });
 });
 
@@ -172,7 +225,7 @@ describe("refunds", () => {
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
-    expect(counts(DB)).toEqual({ tries: [0], calls: [0] });
+    expect(counts(DB)).toEqual({ tries: [0], calls: [1] });
   });
 
   it("give the try back when the output cannot be repaired", async () => {
@@ -182,7 +235,32 @@ describe("refunds", () => {
     expect(response.status).toBe(502);
     expect((await response.json()).error).toBe("unreadable");
     expect(net.anthropic).toHaveLength(2);
-    expect(counts(DB)).toEqual({ tries: [0], calls: [0] });
+    expect(counts(DB)).toEqual({ tries: [0], calls: [2] });
+  });
+});
+
+describe("unexpected failures", () => {
+  it("answer 503 unavailable when D1 is bound but the tables are missing", async () => {
+    const DB = await createD1({ migrate: false });
+    const net = installNetwork({ anthropic: [good()] });
+    const response = await readReceipts({ request: receiptRequest(), env: { ...ENV, DB } });
+    expect(response.status).toBe(503);
+    expect((await response.json()).error).toBe("unavailable");
+    expect(net.anthropic).toHaveLength(0);
+  });
+
+  it("give the try back when something throws after it was taken", async () => {
+    const { DB, env } = await setup();
+    installNetwork({ anthropic: [good()] });
+    // The model answered, but responding fails: an unexpected throw.
+    vi.spyOn(console, "log").mockImplementationOnce(() => {
+      throw new Error("log sink down");
+    });
+    const response = await readReceipts({ request: receiptRequest(), env });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(tries(DB)).toEqual([0]);
+    expect(counts(DB).calls).toEqual([1]);
   });
 });
 
