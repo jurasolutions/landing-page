@@ -37,7 +37,13 @@ Secrets for local runs go in `.dev.vars` (git-ignored), for example:
 
 ```bash
 RESEND_API_KEY=re_...            # only if you want the form to send for real
+AI_ALLOW_DRAFTS=1                # serve draft AI tools' Functions locally (never on Pages)
 ```
+
+To check a draft AI tool end to end, run
+`VITE_SHOW_DRAFTS=1 npm run dev:functions` (the build then opens the draft's
+page) with `AI_ALLOW_DRAFTS=1` in `.dev.vars` (its Functions then answer
+instead of 404). See "Environment variables".
 
 ## The design system
 
@@ -353,8 +359,13 @@ setup is in `jurasolutions/outputs/growth/setup/toolbox-ai.md`.
 | `RESEND_WEBHOOK_SECRET` | secret | `/api/resend-webhook` | none: webhooks refused |
 
 Local testing only, **never set on Pages**: `ANTHROPIC_BASE_URL` and
-`TURNSTILE_VERIFY_URL` (point the Functions at stand-ins), and
-`VITE_SHOW_DRAFTS=1` (a production build that still opens draft tools).
+`TURNSTILE_VERIFY_URL` (point the Functions at stand-ins),
+`VITE_SHOW_DRAFTS=1` (a production build that still opens draft tools), and
+`AI_ALLOW_DRAFTS=1`, its server-side partner. Without it the Functions treat a
+`draft` tool as absent: its AI endpoint and `/api/apps/limit?tool=<slug>`
+answer 404 before Turnstile, the counter or the API, and `/api/apps/usage`
+does not count it (`server/drafts.js`). That keeps a tool that is not signed
+off from spending money in production even once the AI variables are set.
 
 For local runs, Cloudflare's Turnstile test keys: site key
 `1x00000000000000000000BB` (invisible, always passes) or

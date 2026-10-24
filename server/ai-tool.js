@@ -7,6 +7,7 @@ import { json, sgtDay } from "./http.js";
 import { hashIp, identifyVisitor } from "./visitor.js";
 import { limitConfig, limitKey } from "./limit.js";
 import { findEntry } from "./registry.js";
+import { isServed } from "./drafts.js";
 
 /** Everything an AI tool needs from the environment before it does anything. */
 export function aiReady(env) {
@@ -15,6 +16,11 @@ export function aiReady(env) {
 
 export function isAiTool(slug, registry) {
   return findEntry(slug, registry)?.tier === "ai";
+}
+
+/** An AI tool this deployment serves: live, or a draft where AI_ALLOW_DRAFTS=1. */
+export function isServedAiTool(slug, env, registry) {
+  return isAiTool(slug, registry) && isServed(findEntry(slug, registry), env);
 }
 
 export async function visitorContext(request, env, tool, now) {

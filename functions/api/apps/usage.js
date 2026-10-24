@@ -5,7 +5,7 @@
  * fires and forgets, so every failure here is silent to the visitor.
  *
  *   204  counted
- *   400  unknown slug or event, or not JSON
+ *   400  unknown or draft slug (see server/drafts.js), unknown event, or not JSON
  *   413  body over 1 KB
  *   503  D1 not bound (DB) or the write failed
  */

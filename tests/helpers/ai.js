@@ -9,6 +9,10 @@ export const ENV = {
   ANTHROPIC_API_KEY: "sk-ant-test-not-real",
   TURNSTILE_SECRET: "1x0000000000000000000000000000000AA", // Cloudflare's always-pass test secret
   VISITOR_SALT: "test-salt",
+  // The receipt reader is still a draft tool, which the Functions serve only
+  // where this is set (local runs). tests/limiter.test.js "draft tools"
+  // covers the gate itself.
+  AI_ALLOW_DRAFTS: "1",
 };
 
 export function message(text, { stop = "end_turn", input = 1500, output = 400 } = {}) {

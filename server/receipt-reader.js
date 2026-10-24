@@ -25,7 +25,9 @@
  *   400 { error: "bad_request" | "count" }       413 { error: "too_large" }
  *   403 { error: "bot_check" }                    415 { error: "heic" | "type" }
  *   429 { error: "limit" | "cap", triesLeft }      502 { error: "unreadable" }
- *   503 { error: "unavailable" }
+ *   503 { error: "unavailable" }                  404 { error: "not_found" }
+ * 404 means the tool is still `draft` in the registry and AI_ALLOW_DRAFTS=1
+ * is not set (server/drafts.js); it is answered before anything else.
  */
 import { json } from "./http.js";
 import { MAX_BODY_BYTES, checkUploads } from "./images.js";
@@ -33,7 +35,7 @@ import { closeForToday, refundTry, takeCall, takeTry } from "./limit.js";
 import { verifyTurnstile } from "./turnstile.js";
 import { clientIp } from "./visitor.js";
 import { bytesToBase64 } from "./crypto.js";
-import { aiReady, logCall, reply, visitorContext } from "./ai-tool.js";
+import { aiReady, isServedAiTool, logCall, reply, visitorContext } from "./ai-tool.js";
 import { MODEL, anthropicClient, classifyApiError, responseText, usageOf } from "./anthropic.js";
 import {
   RECEIPT_SCHEMA,
@@ -80,8 +82,9 @@ function repairRequest(problems, text) {
   };
 }
 
-export async function handleReceiptRead({ request: incoming, env, now }) {
+export async function handleReceiptRead({ request: incoming, env, registry, now }) {
   const started = Date.now();
+  if (!isServedAiTool(TOOL, env, registry)) return json({ error: "not_found" }, 404);
   if (!aiReady(env)) return json({ error: "unavailable" }, 503);
 
   const declared = Number(incoming.headers.get("Content-Length"));

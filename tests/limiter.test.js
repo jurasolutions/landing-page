@@ -4,6 +4,7 @@ import { ENV, RECEIPT, apiError, cookieFrom, fakeHeic, fakeJpeg, fakePng, instal
 import { onRequestPost as readReceipts } from "../functions/api/apps/receipt-reader.js";
 import { onRequestGet as getLimit } from "../functions/api/apps/limit.js";
 import { limitConfig, takeTry } from "../server/limit.js";
+import registry from "../src/apps/registry.json";
 
 const good = () => message(JSON.stringify({ receipts: [RECEIPT] }));
 const refusal = () => message("", { stop: "refusal" });
@@ -32,7 +33,7 @@ describe("GET /api/apps/limit", () => {
   });
 
   it("says when the AI tools are not configured", async () => {
-    const response = await getLimit({ request: limitRequest(), env: {} });
+    const response = await getLimit({ request: limitRequest(), env: { AI_ALLOW_DRAFTS: "1" } });
     expect(await response.json()).toMatchObject({ ready: false, triesLeft: 0 });
   });
 
@@ -40,6 +41,57 @@ describe("GET /api/apps/limit", () => {
     const { env } = await setup();
     expect((await getLimit({ request: limitRequest({ tool: "quote-builder" }), env })).status).toBe(400);
     expect((await getLimit({ request: limitRequest({ tool: "nope" }), env })).status).toBe(400);
+  });
+});
+
+describe("draft tools", () => {
+  const entry = registry.find((e) => e.slug === "receipt-reader");
+  const asDraft = [{ ...entry, status: "draft" }];
+  const asLive = [{ ...entry, status: "live" }];
+  const production = async () => {
+    const { DB, env } = await setup();
+    delete env.AI_ALLOW_DRAFTS;
+    return { DB, env };
+  };
+
+  it("answer 404 from the AI Function before Turnstile, the counter or the API", async () => {
+    const { DB, env } = await production();
+    const net = installNetwork({ anthropic: [good()] });
+    const response = await readReceipts({ request: receiptRequest(), env, registry: asDraft });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "not_found" });
+    expect(net.turnstile).toHaveLength(0);
+    expect(net.anthropic).toHaveLength(0);
+    expect(DB.rows("app_tries")).toEqual([]);
+  });
+
+  it("answer 404 from /api/apps/limit", async () => {
+    const { env } = await production();
+    const response = await getLimit({ request: limitRequest(), env, registry: asDraft });
+    expect(response.status).toBe(404);
+    expect(response.headers.get("Set-Cookie")).toBeNull();
+  });
+
+  it("are served where AI_ALLOW_DRAFTS=1 (local runs only)", async () => {
+    const { env } = await production();
+    env.AI_ALLOW_DRAFTS = "1";
+    installNetwork({ anthropic: [good()] });
+    expect((await readReceipts({ request: receiptRequest(), env, registry: asDraft })).status).toBe(200);
+    expect((await getLimit({ request: limitRequest(), env, registry: asDraft })).status).toBe(200);
+  });
+
+  it("do not include live tools, which need no flag", async () => {
+    const { env } = await production();
+    installNetwork({ anthropic: [good()] });
+    expect((await readReceipts({ request: receiptRequest(), env, registry: asLive })).status).toBe(200);
+    expect((await getLimit({ request: limitRequest(), env, registry: asLive })).status).toBe(200);
+  });
+
+  it("follow the real registry when no list is passed", async () => {
+    const { env } = await production();
+    installNetwork({ anthropic: [good()] });
+    const expected = entry.status === "live" ? 200 : 404;
+    expect((await readReceipts({ request: receiptRequest(), env })).status).toBe(expected);
   });
 });
 
