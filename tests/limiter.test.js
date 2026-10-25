@@ -447,6 +447,19 @@ describe("unexpected failures", () => {
     expect(net.anthropic).toHaveLength(0);
   });
 
+  it("log one line in the same shape as every other call, with no content", async () => {
+    const DB = await createD1({ migrate: false });
+    installNetwork({ anthropic: [] });
+    const lines = [];
+    vi.spyOn(console, "log").mockImplementation((line) => lines.push(JSON.parse(line)));
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    await readReceipts({ request: receiptRequest(), env: { ...ENV, DB } });
+    expect(errors).not.toHaveBeenCalled();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ at: "ai-tool", tool: "receipt-reader", ok: false, reason: "error", receipts: 0 });
+    expect(Object.keys(lines[0]).sort()).toEqual(["at", "day", "error", "latency_ms", "ok", "reason", "receipts", "tool"]);
+  });
+
   it("give the try back when something throws after it was taken", async () => {
     const { DB, env } = await setup();
     installNetwork({ anthropic: [good()] });
