@@ -46,7 +46,7 @@ export const ROUTE_META = {
     path: "/apps",
     title: "Free business tools | Jura Solutions",
     description:
-      "Free tools for quotes, receipts and other everyday paperwork. No sign-up. Open one and use it straight away.",
+      "Free tools for quotes, PDFs and other everyday paperwork. No sign-up. Open one and use it straight away.",
   },
   privacy: {
     path: "/privacy",
