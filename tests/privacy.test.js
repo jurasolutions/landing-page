@@ -8,8 +8,10 @@ import { PRIVACY } from "../src/content.js";
 const text = PRIVACY.sections.flatMap((s) => s.paragraphs).join("\n");
 
 describe("the privacy notice", () => {
-  it("does not claim Cloudflare Web Analytics, which is not switched on", () => {
-    expect(text).not.toMatch(/Web Analytics/);
+  it("says visits are counted with Cloudflare Web Analytics, without cookies", () => {
+    // Switched on in the Pages project (Metrics → Web Analytics) on 2026-10-25.
+    // If it is ever switched off, take this sentence out of the notice.
+    expect(text).toMatch(/Cloudflare Web Analytics, which does not use cookies/);
   });
 
   it("says the AI try count is also kept against the IP address alone", () => {

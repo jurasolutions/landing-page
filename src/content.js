@@ -160,7 +160,7 @@ export const PRIVACY = {
     {
       heading: "Counting visits",
       paragraphs: [
-        "We count how many times each tool is opened and used each day, with nothing about who you are.",
+        "We count how many times each tool is opened and used each day, with nothing about who you are. We also count visits to the site with Cloudflare Web Analytics, which does not use cookies.",
         "The site's fonts come from Google Fonts, so your browser connects to Google to fetch them.",
       ],
     },

@@ -627,11 +627,5 @@ The Functions return codes, never wording; the pages own every word.
   Turnstile is now set up for the AI tools and could be added to the form if the
   inbox starts collecting noise.
 - **Terms page.** There is a privacy notice but no terms page.
-- **Cloudflare Web Analytics.** App factory §5.5 asks for it (cookieless), but
-  it is a dashboard toggle that is not switched on yet. Turn it on in the Pages
-  project (Metrics → Web Analytics), then add a line back to the privacy
-  notice's "Counting visits" section in `src/content.js` saying the site counts
-  visits with it and that it uses no cookies. Until then the notice must not
-  mention it (`tests/privacy.test.js` checks).
 - **The receipt reader is `draft`** until Ting Yu's own receipts have been run
   through the real model (see its `__fixtures__/README.md`).
