@@ -446,6 +446,7 @@ built on sql.js with the real migrations.
 | `src/apps/quote-builder/calc.test.js` | every money case in APP-001, rounding, float artefacts |
 | `src/apps/quote-builder/quote.test.js` | quote file round trip, PDF pagination and logos, WinAnsi |
 | `src/apps/receipt-reader/receipts.test.js` | the add-up check, CSV/XLSX/TSV exports, resize rules |
+| `src/apps/receipt-reader/read-state.test.js` | out of tries, and why Read receipts is off |
 | `src/apps/pdf-merge-and-split/ranges.test.js`, `order.test.js` | the page range parser and its messages; reordering by buttons and drag |
 | `src/apps/pdf-merge-and-split/pdf.test.js` | merging the three fixture page sizes, kept pages, split ZIPs, metadata, password, damaged and non-PDF files |
 | `src/apps/pdf-merge-and-split/files.test.js`, `names.test.js` | the 20-file and 50 MB limits before reading, per-file messages, output names |
@@ -455,6 +456,8 @@ built on sql.js with the real migrations.
 | `tests/unsubscribe.test.js` | the token contract (with a fixed vector), GET and one-click POST |
 | `tests/resend-webhook.test.js` | Svix verification, bounces, complaints, precedence, retries |
 | `tests/usage.test.js`, `tests/enquiry.test.js`, `tests/shell.test.js` | counter, `from` value, registry, routes, pages, prerendered heads |
+| `tests/router.test.js` | focus and scroll on navigation, back and forward |
+| `tests/ui.test.js` | rendered markup: hints and errors linked to inputs, live regions, the view switch, tap targets |
 
 ## The enquiry form
 
