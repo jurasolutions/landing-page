@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import COPY from "./copy.js";
-import { isOutOfTries, readBlocker, readBlockerText, showsTalkCard } from "./read-state.js";
+import { failureMessage, isOutOfTries, readBlocker, readBlockerText, showsTalkCard } from "./read-state.js";
 
 const OPEN = { limit: { ready: true, triesLeft: 2, capReached: false }, siteKey: "key", readyCount: 1, preparing: false, sending: false };
 const blocked = (changes) => readBlocker({ ...OPEN, ...changes });
@@ -61,5 +61,34 @@ describe("the tool's own talk-to-us card", () => {
     expect(showsTalkCard(null, "key")).toBe(false);
     expect(showsTalkCard({ ready: false, triesLeft: 0, capReached: false }, "key")).toBe(false);
     expect(showsTalkCard({ ready: true, triesLeft: 0, capReached: false }, "")).toBe(false);
+  });
+});
+
+describe("what a failed read says", () => {
+  const said = (status, body) => failureMessage({ status, body, triesBefore: 2 }, COPY);
+
+  it("says the try wasn't counted only when the count did not drop", () => {
+    expect(said(502, { error: "unreadable", triesLeft: 2 })).toBe(
+      "We couldn't read these images. Clearer, flatter photos usually work. This try wasn't counted."
+    );
+    expect(said(502, { error: "unreadable", triesLeft: 1 })).toBe("We couldn't read these images. Clearer, flatter photos usually work.");
+    expect(said(503, { error: "unavailable", triesLeft: 1 })).toBe("The receipt reader isn't available right now. Please try again later.");
+  });
+
+  it("says it wasn't counted for a 503 that came before any try was taken", () => {
+    expect(said(503, { error: "unavailable" })).toBe(
+      "The receipt reader isn't available right now. Please try again later. This try wasn't counted."
+    );
+  });
+
+  it("promises nothing when the network failed and the outcome is unknown", () => {
+    expect(said(0, {})).toBe("The receipt reader isn't available right now. Please try again later.");
+  });
+
+  it("explains a rejected upload or bot check without mentioning the try", () => {
+    expect(said(403, { error: "bot_check" })).toBe(COPY.errors.botCheck);
+    expect(said(413, { error: "too_large" })).toBe(COPY.tooBig);
+    expect(said(415, { error: "heic" })).toBe(COPY.heic);
+    expect(said(415, { error: "type" })).toBe(COPY.badType);
   });
 });

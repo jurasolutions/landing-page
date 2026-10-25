@@ -18,12 +18,13 @@ import { createD1 } from "./helpers/d1.js";
 import { ENV, RECEIPT, apiError, installNetwork, message, receiptRequest } from "./helpers/ai.js";
 import { onRequestPost as readReceipts } from "../functions/api/apps/receipt-reader.js";
 import copy from "../src/apps/receipt-reader/copy.js";
+import { failureMessage } from "../src/apps/receipt-reader/read-state.js";
 
 const TRIES_PER_DAY = 2;
 const NOT_COUNTED = /wasn't counted/i;
 
-/** The message index.jsx shows for a failed read, by status (403, 413 and 415 left out). */
-const shownMessage = (status) => ({ 502: copy.errors.unreadable }[status] ?? copy.errors.unavailable);
+/** The message index.jsx shows for a failed read (src/apps/receipt-reader/index.jsx, `read`). */
+const shownMessage = (status, body, triesBefore) => failureMessage({ status, body, triesBefore }, copy);
 
 async function setup() {
   const DB = await createD1();
@@ -35,11 +36,13 @@ async function answer(env, cookie) {
   return { status: response.status, body: await response.json() };
 }
 
-/** Fails when the page would tell the visitor the try was given back but it was not. */
+/** Fails unless the page says the try wasn't counted exactly when it was given back. */
 function expectHonest({ status, body }, triesBefore) {
   const counted = body.triesLeft < triesBefore;
-  const words = shownMessage(status);
-  if (counted) expect(words, `status ${status}, triesLeft ${triesBefore} -> ${body.triesLeft}`).not.toMatch(NOT_COUNTED);
+  const words = shownMessage(status, body, triesBefore);
+  const why = `status ${status}, triesLeft ${triesBefore} -> ${body.triesLeft}`;
+  if (counted) expect(words, why).not.toMatch(NOT_COUNTED);
+  else expect(words, why).toMatch(NOT_COUNTED);
 }
 
 describe("what the receipt reader tells the visitor after a failed try", () => {
@@ -71,7 +74,7 @@ describe("what the receipt reader tells the visitor after a failed try", () => {
     expectHonest(second, first.body.triesLeft);
   });
 
-  it("may say the try wasn't counted when it was given back", async () => {
+  it("says the try wasn't counted when it was given back", async () => {
     const { env } = await setup();
     installNetwork({ anthropic: ["network"] });
     const result = await answer(env, `jura_vid=${crypto.randomUUID()}`);

@@ -47,8 +47,10 @@ export default {
   unopenable: "That file couldn't be opened. Try another photo.",
 
   errors: {
-    unreadable: "We couldn't read these images. Clearer, flatter photos usually work. This try wasn't counted.",
-    unavailable: "The receipt reader isn't available right now. Please try again later. This try wasn't counted.",
+    unreadable: "We couldn't read these images. Clearer, flatter photos usually work.",
+    unavailable: "The receipt reader isn't available right now. Please try again later.",
+    // Added after either message above, only when the try came back.
+    notCounted: "This try wasn't counted.",
     botCheck: "We couldn't confirm this is a person and not a bot. Refresh the page and try again.",
     notReady: "The receipt reader isn't available right now. Please try again later.",
   },
