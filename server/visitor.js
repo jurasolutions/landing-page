@@ -36,6 +36,15 @@ export function clientIp(request) {
 }
 
 /**
+ * A salted SHA-256 of the connecting IP alone, for the per-IP ceiling
+ * (AI_TRIES_PER_IP), so clearing cookies is not a way round the limit. The
+ * "ip" segment keeps it from ever equalling an IP-and-cookie hash.
+ */
+export function hashIp(request, salt) {
+  return sha256Hex(`${salt}|ip|${clientIp(request)}`);
+}
+
+/**
  * Returns { hash, setCookie }. `setCookie` is a Set-Cookie value when this
  * request had no cookie and one should be issued (the hash already uses it,
  * so the next request lands in the same bucket only if the browser keeps

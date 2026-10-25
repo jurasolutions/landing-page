@@ -80,12 +80,12 @@ describe("injection fixture: instructions written on a receipt", () => {
     expect(body).not.toHaveProperty("extra");
   });
 
-  it("treats a refusal as unreadable and refunds", async () => {
+  it("treats a refusal as unreadable, and the try stays used", async () => {
     const { DB, env } = await setup();
     installNetwork({ anthropic: [message("", { stop: "refusal" })] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(502);
-    expect(DB.rows("app_tries")[0].count).toBe(0);
+    expect(DB.rows("app_tries")[0].count).toBe(1);
   });
 });
 

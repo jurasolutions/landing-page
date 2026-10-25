@@ -10,9 +10,19 @@ const REGISTRY = [
     description: "A test entry.",
     category: "Admin",
     tier: "browser",
-    status: "draft",
+    status: "live",
     added: "2026-10-24",
     prd: "APP-999",
+  },
+  {
+    slug: "draft-tool",
+    name: "Draft tool",
+    description: "A test entry not yet live.",
+    category: "Admin",
+    tier: "ai",
+    status: "draft",
+    added: "2026-10-24",
+    prd: "APP-998",
   },
 ];
 
@@ -44,6 +54,15 @@ describe("POST /api/apps/usage", () => {
     const response = await handleUsage({ request: request({ slug: "nope", event: "open" }), env: { DB }, registry: REGISTRY });
     expect(response.status).toBe(400);
     expect(DB.rows("app_usage")).toEqual([]);
+  });
+
+  it("refuses a draft tool, unless AI_ALLOW_DRAFTS=1 (local runs only)", async () => {
+    const DB = await createD1();
+    const draft = { slug: "draft-tool", event: "open" };
+    expect((await handleUsage({ request: request(draft), env: { DB }, registry: REGISTRY })).status).toBe(400);
+    expect(DB.rows("app_usage")).toEqual([]);
+    const local = await handleUsage({ request: request(draft), env: { DB, AI_ALLOW_DRAFTS: "1" }, registry: REGISTRY });
+    expect(local.status).toBe(204);
   });
 
   it("refuses an unknown event", async () => {
