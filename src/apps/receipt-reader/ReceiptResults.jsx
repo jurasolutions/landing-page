@@ -1,10 +1,7 @@
 import React from "react";
 import { Alert, Badge, Button, Card, Field, Icon, IconButton, Input } from "../../ds.js";
+import { TAP_INPUT } from "../_shared/controls.js";
 import { emptyLine, itemsMismatch } from "./model.js";
-
-// 44px tap targets, and the left padding the design system's Input drops
-// when it has no icon.
-const TAP_INPUT = { minHeight: "var(--tap-min)", paddingLeft: "var(--space-3)" };
 
 function TextField({ id, label, value, onChange, list, placeholder, inputMode }) {
   return (

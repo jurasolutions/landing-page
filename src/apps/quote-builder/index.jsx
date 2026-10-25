@@ -5,6 +5,7 @@ import { readStored, removeStored, writeStored } from "../_shared/storage.js";
 import { safeFilename, saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
 import { useToast } from "../_shared/useToast.js";
+import { useFocusReturn } from "../_shared/focus.js";
 import { quoteTotals } from "./calc.js";
 import { newQuote } from "./model.js";
 import { parseQuoteFile, readBusiness, serialiseQuote } from "./quoteFile.js";
@@ -58,6 +59,8 @@ export default function QuoteBuilder({ app, copy }) {
   const [confirmNew, setConfirmNew] = React.useState(false);
   const openRef = React.useRef(null);
   const newRef = React.useRef(null);
+  // "Download PDF" is disabled while the PDF is made; focus goes back to it.
+  const holdFocus = useFocusReturn(pdfState === "working");
 
   const totals = React.useMemo(() => quoteTotals(quote), [quote]);
   const unsupported = React.useMemo(() => unprintableIn(allText(quote)), [quote]);
@@ -69,13 +72,11 @@ export default function QuoteBuilder({ app, copy }) {
   }, []);
 
   // Business details (and the GST setting that goes with them) are kept on
-  // this device only while "Remember" is ticked. Unticking forgets them.
+  // this device only while "Remember" is ticked. Unticking forgets them
+  // (onRemember below). Editing with Remember unticked leaves storage alone,
+  // so a second tab that never ticked it cannot erase what this one saved.
   React.useEffect(() => {
-    if (!remember) {
-      removeStored(STORE_KEY);
-      setRememberBlocked(false);
-      return undefined;
-    }
+    if (!remember) return undefined;
     const timer = setTimeout(() => {
       const saved =
         writeStored(STORE_KEY, { business: quote.business, gst: quote.gst }) ||
@@ -85,6 +86,14 @@ export default function QuoteBuilder({ app, copy }) {
     }, 300);
     return () => clearTimeout(timer);
   }, [remember, quote.business, quote.gst]);
+
+  const onRemember = (next) => {
+    setRemember(next);
+    if (!next) {
+      removeStored(STORE_KEY);
+      setRememberBlocked(false);
+    }
+  };
 
   const onLogo = async (file) => {
     setLogoError("");
@@ -100,6 +109,7 @@ export default function QuoteBuilder({ app, copy }) {
 
   const downloadPdf = async () => {
     if (pdfState === "working") return;
+    holdFocus();
     setPdfState("working");
     try {
       const { buildQuotePdf } = await loadPdf();
@@ -241,7 +251,7 @@ export default function QuoteBuilder({ app, copy }) {
             totals={totals}
             copy={copy}
             remember={remember}
-            onRemember={setRemember}
+            onRemember={onRemember}
             rememberBlocked={rememberBlocked}
             onLogo={onLogo}
             logoError={logoError}

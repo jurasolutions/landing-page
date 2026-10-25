@@ -3,14 +3,13 @@ import { Alert, Button, Field, Icon, IconButton, Input } from "../../ds.js";
 import { FileDrop } from "../_shared/FileDrop.jsx";
 import { saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
+import { TAP_INPUT } from "../_shared/controls.js";
+import { useFocusReturn } from "../_shared/focus.js";
 import { MAX_TOTAL_BYTES, problemMessage } from "./files.js";
 import { parseRanges, rangeMessage } from "./ranges.js";
 import { baseName } from "./names.js";
 import { Outcome, focusFirstButton, nextPaint } from "./Outcome.jsx";
 import { Thumbnails } from "./Thumbnails.jsx";
-
-// The design system's Input is 42px; tool pages lift every control to 44px.
-const TAP = { minHeight: "var(--tap-min)" };
 
 /**
  * Split: one PDF, its page count and thumbnails, then either the pages typed
@@ -27,6 +26,9 @@ export function SplitPanel({ app, copy, loadPdf }) {
   const panelRef = React.useRef(null);
 
   const working = state === "working";
+  // The buttons and "Pages to keep" are disabled while working; focus goes
+  // back to whichever started the work.
+  const holdFocus = useFocusReturn(working);
 
   const addFile = async ([picked]) => {
     if (!picked || working) return;
@@ -67,6 +69,7 @@ export function SplitPanel({ app, copy, loadPdf }) {
 
   const run = async (kind, make) => {
     if (working || !file) return;
+    holdFocus();
     setBusy(kind);
     setState("working");
     await nextPaint();
@@ -171,9 +174,10 @@ export function SplitPanel({ app, copy, loadPdf }) {
               <Input
                 id="pm-split-range"
                 name="pagesToKeep"
-                style={TAP}
+                style={TAP_INPUT}
                 value={range}
                 invalid={Boolean(rangeError)}
+                aria-invalid={Boolean(rangeError) || undefined}
                 autoComplete="off"
                 spellCheck={false}
                 placeholder={copy.split.rangePlaceholder}

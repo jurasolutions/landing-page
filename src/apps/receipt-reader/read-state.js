@@ -37,3 +37,27 @@ export function readBlocker({ limit, siteKey, readyCount, preparing, sending }) 
 export function readBlockerText(reason, copy) {
   return copy.readWhy[reason] ?? "";
 }
+
+/**
+ * What the page says after a read that did not return receipts (403, 413,
+ * 415, 502, 503, or 0 when the network failed; 429 shows the out-of-tries
+ * notice instead).
+ *   body         the Function's answer: { error, triesLeft? }
+ *   triesBefore  the tries left before this read
+ *
+ * "This try wasn't counted" is added only when it is true. The Function
+ * answers 502 and 503 both for a try it gave back and for one it kept (a
+ * refusal, or a second failure the same SGT day), so its `triesLeft` decides:
+ * the try came back when the count did not drop. A 503 with no `triesLeft`
+ * came before any try was taken. A failed network leaves it unknown, so the
+ * page promises nothing.
+ */
+export function failureMessage({ status, body = {}, triesBefore }, copy) {
+  if (status === 403) return copy.errors.botCheck;
+  if (status === 413) return copy.tooBig;
+  if (status === 415) return body.error === "heic" ? copy.heic : copy.badType;
+  const words = status === 502 ? copy.errors.unreadable : copy.errors.unavailable;
+  const known = typeof body.triesLeft === "number";
+  const givenBack = known ? body.triesLeft >= triesBefore : status === 503;
+  return givenBack ? `${words} ${copy.errors.notCounted}` : words;
+}

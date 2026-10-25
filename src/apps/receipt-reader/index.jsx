@@ -9,7 +9,7 @@ import { saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
 import { useToast } from "../_shared/useToast.js";
 import { MAX_FILES_CLIENT, fileMessage } from "./files.js";
-import { isOutOfTries, readBlocker, readBlockerText, showsTalkCard } from "./read-state.js";
+import { failureMessage, isOutOfTries, readBlocker, readBlockerText, showsTalkCard } from "./read-state.js";
 import { prepareFile } from "./prepare.js";
 import { SITE_KEY, createTurnstile } from "./turnstile.js";
 import { fetchLimit, sendReceipts } from "./api.js";
@@ -125,6 +125,7 @@ export default function ReceiptReader({ app, copy }) {
 
   const read = async () => {
     if (!canRead) return;
+    const triesBefore = limit.triesLeft;
     setSending(true);
     setError("");
     let token;
@@ -152,13 +153,7 @@ export default function ReceiptReader({ app, copy }) {
       return;
     }
     if (typeof body.triesLeft === "number") setLimit((current) => ({ ...current, triesLeft: body.triesLeft }));
-    const messages = {
-      403: copy.errors.botCheck,
-      415: body.error === "heic" ? copy.heic : copy.badType,
-      413: copy.tooBig,
-      502: copy.errors.unreadable,
-    };
-    setError(messages[status] ?? copy.errors.unavailable);
+    setError(failureMessage({ status, body, triesBefore }, copy));
   };
 
   const table = () => receiptTable(receipts, copy);

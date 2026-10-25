@@ -3,13 +3,12 @@ import { Alert, Button, Field, Icon, IconButton, Input } from "../../ds.js";
 import { FileDrop } from "../_shared/FileDrop.jsx";
 import { saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
+import { TAP_INPUT } from "../_shared/controls.js";
+import { focusAction, useFocusReturn } from "../_shared/focus.js";
 import { admitFiles, problemMessage } from "./files.js";
 import { moveDown, moveItem, moveUp } from "./order.js";
 import { pdfFileName } from "./names.js";
 import { Outcome, focusFirstButton, nextPaint } from "./Outcome.jsx";
-
-// The design system's Input is 42px; tool pages lift every control to 44px.
-const TAP = { minHeight: "var(--tap-min)" };
 
 let counter = 0;
 const nextId = () => `pm-file-${(counter += 1)}`;
@@ -50,6 +49,7 @@ export function MergePanel({ app, copy, loadPdf }) {
   const focusNext = React.useRef(null);
 
   const working = state === "working";
+  const holdFocus = useFocusReturn(working);
   const ready = files.filter((file) => file.status === "ready");
   const checking = files.some((file) => file.status === "checking");
 
@@ -59,10 +59,7 @@ export function MergePanel({ app, copy, loadPdf }) {
     if (!target) return;
     focusNext.current = null;
     const row = listRef.current?.querySelector(`[data-file="${target.id}"]`);
-    const wanted = row?.querySelector(`[data-action="${target.action}"]`);
-    const button = wanted && !wanted.disabled ? wanted : row?.querySelector("button:not([disabled])");
-    if (button) button.focus();
-    else focusFirstButton(panelRef.current);
+    if (!focusAction(row, target.action)) focusFirstButton(panelRef.current);
   }, [files]);
 
   const changed = () => {
@@ -118,6 +115,7 @@ export function MergePanel({ app, copy, loadPdf }) {
 
   const merge = async () => {
     if (working || ready.length === 0 || checking) return;
+    holdFocus();
     setState("working");
     await nextPaint();
     try {
@@ -302,7 +300,7 @@ export function MergePanel({ app, copy, loadPdf }) {
             <Input
               id="pm-merge-name"
               name="fileName"
-              style={TAP}
+              style={TAP_INPUT}
               value={name}
               autoComplete="off"
               maxLength={120}

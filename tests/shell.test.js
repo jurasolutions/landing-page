@@ -8,7 +8,7 @@ import { matchRoute, normalisePath, homeAnchor, isAppPath } from "../src/lib/rou
 import { enquiryHref } from "../src/apps/_shared/TalkToUsCard.jsx";
 import { AppsIndex } from "../src/pages/AppsIndex.jsx";
 import { AppShell, ToolPage } from "../src/apps/_shared/AppShell.jsx";
-import { TOOLBOX } from "../src/content.js";
+import { ROUTE_META, TOOLBOX } from "../src/content.js";
 import { withMeta } from "../scripts/prerender-routes.mjs";
 
 const DUMMY = {
@@ -190,5 +190,18 @@ describe("prerendered route heads", () => {
   it("adds noindex when asked", () => {
     const html = withMeta(index, { path: "/unsubscribed", title: "x", description: "y", noindex: true });
     expect(html).toContain('<meta name="robots" content="noindex" />');
+  });
+});
+
+describe("the /apps head", () => {
+  // Search results and link previews show this description, so it may only
+  // name what a live tool does (design system §3: claim only what you can defend).
+  it("names no tool that is still a draft", () => {
+    const description = ROUTE_META.apps.description.toLowerCase();
+    const drafts = REGISTRY.filter((app) => app.status === "draft");
+    for (const app of drafts) {
+      const subject = app.name.split(" ")[0].toLowerCase();
+      expect(description, `${app.slug} is a draft`).not.toContain(subject);
+    }
   });
 });
