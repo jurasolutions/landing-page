@@ -7,7 +7,7 @@ import { REGISTRY, validateRegistry, liveApps, liveCategories, findApp } from ".
 import { matchRoute, normalisePath, homeAnchor, isAppPath } from "../src/lib/router.js";
 import { enquiryHref } from "../src/apps/_shared/TalkToUsCard.jsx";
 import { AppsIndex } from "../src/pages/AppsIndex.jsx";
-import { AppShell } from "../src/apps/_shared/AppShell.jsx";
+import { AppShell, ToolPage } from "../src/apps/_shared/AppShell.jsx";
 import { TOOLBOX } from "../src/content.js";
 import { withMeta } from "../scripts/prerender-routes.mjs";
 
@@ -129,6 +129,24 @@ describe("a tool page", () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     expect(html).toContain('href="/?from=apps/dummy-tool#contact"');
     expect(html).toContain("<h1");
+  });
+
+  it("leaves out its closing talk-to-us card while the tool shows its own", () => {
+    const copy = {
+      title: "Dummy tool",
+      subtitle: "Does one dummy thing.",
+      privacy: "Everything stays in your browser.",
+      talk: { heading: "A bigger dummy", body: "We can build the real one.", button: "Tell us more" },
+    };
+    const page = (closingCard) =>
+      renderToStaticMarkup(
+        React.createElement(ToolPage, { app: DUMMY, copy, closingCard }, React.createElement("p", null, "THE TOOL"))
+      );
+    expect(page(true)).toContain("A bigger dummy");
+    const without = page(false);
+    expect(without).not.toContain("A bigger dummy");
+    expect(without).not.toContain('href="/?from=apps/dummy-tool#contact"');
+    expect(without).toContain("Everything stays in your browser.");
   });
 });
 

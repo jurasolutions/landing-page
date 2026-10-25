@@ -6,6 +6,24 @@ import { PrivacyNote } from "./PrivacyNote.jsx";
 import { TalkToUsCard } from "./TalkToUsCard.jsx";
 import { trackUsage } from "./usage.js";
 
+/** Lets a tool tell the shell it is showing its own talk-to-us card. */
+const OwnTalkCard = React.createContext(null);
+
+/**
+ * For a tool that sometimes shows the talk-to-us card itself (the receipt
+ * reader puts it under the out-of-tries notice, APP-002 §5.1 step 7). While
+ * `showing` is true, the shell leaves out its closing card, so the page has
+ * the card, its heading and its link once.
+ */
+export function useOwnTalkCard(showing) {
+  const setOwn = React.useContext(OwnTalkCard);
+  React.useEffect(() => {
+    if (!setOwn) return undefined;
+    setOwn(Boolean(showing));
+    return () => setOwn(false);
+  }, [setOwn, showing]);
+}
+
 /**
  * Every tool page has the same shape (app factory PRD §5.2): the one-line
  * promise, the tool, a privacy note, then the talk-to-us card.
@@ -16,7 +34,7 @@ import { trackUsage } from "./usage.js";
  * Opening the page counts one anonymous "open" for the tool.
  */
 export function AppShell({ app, copy, children }) {
-  const heading = usePageHeading();
+  const [ownCard, setOwnCard] = React.useState(false);
 
   const counted = React.useRef(false);
   React.useEffect(() => {
@@ -24,6 +42,19 @@ export function AppShell({ app, copy, children }) {
     counted.current = true;
     trackUsage(app.slug, "open");
   }, [app.slug]);
+
+  return (
+    <OwnTalkCard.Provider value={setOwnCard}>
+      <ToolPage app={app} copy={copy} closingCard={!ownCard}>
+        {children}
+      </ToolPage>
+    </OwnTalkCard.Provider>
+  );
+}
+
+/** The page itself. `closingCard` is false while the tool shows its own card. */
+export function ToolPage({ app, copy, closingCard = true, children }) {
+  const heading = usePageHeading();
 
   return (
     <main id="main" className="tb-page">
@@ -53,7 +84,7 @@ export function AppShell({ app, copy, children }) {
           <PrivacyNote link={APP_SHELL.privacyHref ? { href: APP_SHELL.privacyHref, label: APP_SHELL.privacyLink } : null}>
             {copy.privacy}
           </PrivacyNote>
-          <TalkToUsCard slug={app.slug} {...copy.talk} />
+          {closingCard && <TalkToUsCard slug={app.slug} {...copy.talk} />}
         </div>
       </section>
     </main>
