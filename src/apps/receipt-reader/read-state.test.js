@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import COPY from "./copy.js";
-import { isOutOfTries, readBlocker, readBlockerText } from "./read-state.js";
+import { isOutOfTries, readBlocker, readBlockerText, showsTalkCard } from "./read-state.js";
 
 const OPEN = { limit: { ready: true, triesLeft: 2, capReached: false }, siteKey: "key", readyCount: 1, preparing: false, sending: false };
 const blocked = (changes) => readBlocker({ ...OPEN, ...changes });
@@ -47,5 +47,19 @@ describe("why Read receipts is off", () => {
     expect(readBlockerText("outOfTries", COPY)).toBe("");
     expect(readBlockerText("sending", COPY)).toBe("");
     expect(readBlockerText(null, COPY)).toBe("");
+  });
+});
+
+describe("the tool's own talk-to-us card", () => {
+  it("shows under the notice when the visitor or the site is out of tries", () => {
+    expect(showsTalkCard({ ready: true, triesLeft: 0, capReached: false }, "key")).toBe(true);
+    expect(showsTalkCard({ ready: true, triesLeft: 2, capReached: true }, "key")).toBe(true);
+  });
+
+  it("does not show while tries are left, before the count arrives, or when the tools are not ready", () => {
+    expect(showsTalkCard({ ready: true, triesLeft: 1, capReached: false }, "key")).toBe(false);
+    expect(showsTalkCard(null, "key")).toBe(false);
+    expect(showsTalkCard({ ready: false, triesLeft: 0, capReached: false }, "key")).toBe(false);
+    expect(showsTalkCard({ ready: true, triesLeft: 0, capReached: false }, "")).toBe(false);
   });
 });

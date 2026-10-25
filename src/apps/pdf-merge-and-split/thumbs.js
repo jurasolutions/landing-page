@@ -1,18 +1,16 @@
 /**
  * Page thumbnails for the split view, drawn in the browser with pdf.js. It is
- * fetched only when a PDF is added on the Split tab, the same way the receipt
- * reader loads it (legacy build, worker by URL, no eval).
+ * fetched only when a PDF is added on the Split tab, through the toolbox's
+ * shared loader (_shared/pdfjs.js), as the receipt reader does.
  *
  * Pages are drawn one at a time, only when asked (the page asks as each
  * thumbnail scrolls into view), and each drawing is kept as a small JPEG
  * rather than a live canvas, so a 200-page file stays light.
  */
-const WIDTH_CSS = 112;
+import { canvasToJpeg, openPdfjs } from "../_shared/pdfjs.js";
 
-const toJpeg = (canvas) =>
-  new Promise((resolve, reject) =>
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("encode"))), "image/jpeg", 0.8)
-  );
+const WIDTH_CSS = 112;
+const QUALITY = 0.8;
 
 export const isPasswordError = (error) => error?.name === "PasswordException";
 
@@ -21,13 +19,8 @@ export const isPasswordError = (error) => error?.name === "PasswordException";
  * protected file. Resolves to { draw(pageNumber) -> object URL, close() }.
  */
 export async function openThumbnails(buffer) {
-  const [pdfjs, worker] = await Promise.all([
-    import("pdfjs-dist/legacy/build/pdf.mjs"),
-    import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
-  ]);
-  pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
   // pdf.js moves the bytes it is given to its worker, so give it a copy.
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer).slice(), isEvalSupported: false }).promise;
+  const doc = await openPdfjs(new Uint8Array(buffer).slice());
 
   let queue = Promise.resolve();
   let closed = false;
@@ -46,7 +39,7 @@ export async function openThumbnails(buffer) {
     context.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: context, viewport }).promise;
     page.cleanup();
-    const blob = await toJpeg(canvas);
+    const blob = await canvasToJpeg(canvas, QUALITY);
     canvas.width = 0;
     canvas.height = 0;
     return closed ? null : URL.createObjectURL(blob);

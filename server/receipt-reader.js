@@ -14,9 +14,10 @@
  *      visitor but takes its own call from the site cap (skipped at the cap)
  *   6. respond
  * An API or network failure, output that cannot be repaired, or anything
- * unexpected after step 3 gives the visitor's try back. A refusal does not:
- * it comes from what was uploaded. No call counted against the site cap is
- * ever given back.
+ * unexpected after step 3 gives the visitor's try back, once per visitor per
+ * SGT day (server/limit.js refundTry). A refusal, or an API 400 about what
+ * was sent, does not: it comes from what was uploaded. No call counted
+ * against the site cap is ever given back.
  * Nothing uploaded is stored anywhere: the images live in this request's
  * memory and go to Anthropic's API, and the result goes back to the browser.
  *
@@ -112,23 +113,42 @@ export async function handleReceiptRead({ request: incoming, env, registry, now 
 
   // Steps 3 to 6 run inside one guard: anything unexpected (a D1 binding
   // with no tables, say) gives back a try that was taken and answers 503.
-  const state = { ctx: null, taken: null, refunded: false };
+  const state = { ctx: null, taken: null, refund: null };
   try {
     return await readWithTry({ incoming, env, now, images: uploads.images, started, state });
   } catch (error) {
     const { ctx, taken } = state;
-    const owed = taken?.ok && !state.refunded;
-    if (owed) {
+    let refunded = false;
+    if (taken?.ok) {
       try {
-        await refundTry(ctx.db, ctx);
+        refunded = await refundOnce(state);
       } catch {
         // Nothing more to do: the count resets at midnight SGT.
       }
     }
-    console.error(JSON.stringify({ at: "ai-tool", tool: TOOL, ok: false, reason: "error", error: String(error?.name ?? "error") }));
-    const triesLeft = taken?.ok ? { triesLeft: taken.triesLeft + 1 } : {};
+    logCall({
+      day: ctx?.day,
+      tool: TOOL,
+      ok: false,
+      reason: "error",
+      error: String(error?.name ?? "error"),
+      receipts: 0,
+      latency_ms: Date.now() - started,
+    });
+    const triesLeft = taken?.ok ? { triesLeft: taken.triesLeft + (refunded ? 1 : 0) } : {};
     return reply(ctx, { error: "unavailable", ...triesLeft }, 503);
   }
+}
+
+/**
+ * Gives the visitor's try back, at most once per request: `fail` and the
+ * guard above share it, so a refund that throws part-way is never run a
+ * second time (which could give back more than was taken). Resolves to
+ * whether the try came back.
+ */
+function refundOnce(state) {
+  state.refund ??= refundTry(state.ctx.db, state.ctx);
+  return state.refund;
 }
 
 async function readWithTry({ incoming, env, now, images, started, state }) {
@@ -152,18 +172,19 @@ async function readWithTry({ incoming, env, now, images, started, state }) {
 
   // A failure on our side, or output we could not use: the try comes back.
   const fail = async (reason, status, error) => {
-    await refundTry(ctx.db, ctx);
-    state.refunded = true;
+    const refunded = await refundOnce(state);
     log({ ok: false, reason });
-    return reply(ctx, { error, triesLeft: taken.triesLeft + 1 }, status);
+    return reply(ctx, { error, triesLeft: taken.triesLeft + (refunded ? 1 : 0) }, status);
   };
-  // The model declined what was uploaded: the try was used.
-  const refused = () => {
-    log({ ok: false, reason: "refusal" });
+  // The model declined what was uploaded, or the API could not process it:
+  // the try was used.
+  const refused = (reason = "refusal") => {
+    log({ ok: false, reason });
     return reply(ctx, { error: "unreadable", triesLeft: taken.triesLeft }, 502);
   };
   const apiFailure = async (error) => {
     const kind = classifyApiError(error);
+    if (kind === "input") return refused("api_400");
     if (kind === "billing") {
       const response = await fail("billing", 429, "cap");
       await closeForToday(ctx.db, ctx);

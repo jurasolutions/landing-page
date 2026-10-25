@@ -36,6 +36,8 @@ export function anthropicClient(env) {
  * What kind of failure an API error is:
  *   "billing"     spend limit or credit problem: close the AI tools for the day
  *   "rate"        rate limited: show the used-up message (fail closed)
+ *   "input"       400 invalid_request_error: the API could not process what
+ *                 was uploaded, so the try stays used, as with a refusal
  *   "unavailable" anything else (overloaded, 5xx, network, timeout, bad key)
  */
 export function classifyApiError(error) {
@@ -51,6 +53,9 @@ export function classifyApiError(error) {
     if (error.status === 400 && /credit balance|usage limit|spend limit/i.test(error.error?.error?.message ?? "")) {
       return "billing";
     }
+    // Any other 400 comes from what was sent: an image the API cannot
+    // process, say. It is the visitor's input, like a refusal.
+    if (error.status === 400 && type === "invalid_request_error") return "input";
     return "unavailable";
   }
   return "unavailable";

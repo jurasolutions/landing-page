@@ -99,6 +99,14 @@
   background: var(--surface-sunken);
 }
 
+/* The list is focusable so the keyboard can scroll it. Keep the design
+   system's focus outline, with the list's own corners. */
+.pm-thumbs:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-lg);
+}
+
 .pm-thumb {
   display: flex;
   flex-direction: column;

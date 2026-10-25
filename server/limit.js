@@ -14,9 +14,14 @@
  *   Every request sent to the API counts, a repair request included, and a
  *   counted call is never given back, so the cap holds whatever the API or
  *   the model answers. Only the visitor's try is ever refunded.
+ * - A try is refunded after a failure on our side, at most once per visitor
+ *   per SGT day (and at most three times per IP by default), recorded in
+ *   app_tries rows with `tool` '#refund' (or '#refund:<slug>' per tool).
+ *   Slugs are [a-z0-9-] only, so a reserved '#' key never meets a tool.
  *
- * Both counters live in D1, not KV: KV is eventually consistent, so quick
- * repeated clicks could slip past a limit of 2. Each counter is taken with a
+ * All three counters (visitor, IP and site) and the refund rows live in D1,
+ * not KV: KV is eventually consistent, so quick repeated clicks could slip
+ * past a limit of 2. Each counter is taken with a
  * single upsert that only increments while under the limit and returns the
  * new count (`... DO UPDATE SET count = count + 1 WHERE count < ? RETURNING
  * count`). D1 runs writes one at a time, so two clicks a millisecond apart
@@ -83,9 +88,25 @@ function giveBack(db, { day, hash, key }) {
 }
 
 /**
+ * Gives back each row in `rows`, one at a time. A give-back that throws is
+ * skipped rather than retried: the row keeps its count until midnight SGT,
+ * which costs the visitor a try and never lets a call through uncounted.
+ */
+async function giveBackAll(db, rows) {
+  for (const row of rows) {
+    try {
+      await giveBack(db, row);
+    } catch {
+      // Fails closed; see above.
+    }
+  }
+}
+
+/**
  * Takes one try for the visitor (IP and cookie), one from their IP's ceiling,
  * and one call from the site's daily cap. If a later one is refused, the
- * earlier ones are given back.
+ * earlier ones are given back. If a statement throws part-way, whatever was
+ * already taken is given back and the error is rethrown.
  * Returns { ok: true, triesLeft } or { ok: false, reason: "limit" | "cap" }.
  */
 export async function takeTry(db, { day, visitorHash, ipHash, key, config }) {
@@ -93,20 +114,32 @@ export async function takeTry(db, { day, visitorHash, ipHash, key, config }) {
   const visitor = { day, hash: visitorHash, key };
   const ip = { day, hash: ipHash, key: ipKey(key) };
 
-  const count = await takeFrom(db, { ...visitor, limit: config.triesPerDay });
-  if (count == null) return { ok: false, reason: "limit" };
-
-  const ipCount = await takeFrom(db, { ...ip, limit: config.triesPerIp });
-  if (ipCount == null) {
-    // Another cookie on this IP has used the IP's tries for today.
-    await giveBack(db, visitor);
-    return { ok: false, reason: "limit" };
+  const taken = [];
+  let count;
+  let ipCount;
+  let called = false;
+  try {
+    count = await takeFrom(db, { ...visitor, limit: config.triesPerDay });
+    if (count == null) return { ok: false, reason: "limit" };
+    taken.push(visitor);
+    ipCount = await takeFrom(db, { ...ip, limit: config.triesPerIp });
+    if (ipCount != null) {
+      taken.push(ip);
+      called = await takeCall(db, { day, config });
+    }
+  } catch (error) {
+    await giveBackAll(db, taken);
+    throw error;
   }
 
-  if (!(await takeCall(db, { day, config }))) {
+  if (ipCount == null) {
+    // Another cookie on this IP has used the IP's tries for today.
+    await giveBackAll(db, taken);
+    return { ok: false, reason: "limit" };
+  }
+  if (!called) {
     // The site is at its cap. Give the visitor their try back.
-    await giveBack(db, visitor);
-    await giveBack(db, ip);
+    await giveBackAll(db, taken);
     return { ok: false, reason: "cap" };
   }
 
@@ -132,13 +165,38 @@ export async function takeCall(db, { day, config }) {
 }
 
 /**
- * Gives the visitor their try back after a failure on our side. The site's
- * call count is left alone: the cap counts calls made, and a call that was
- * sent was paid for.
+ * The `tool` column value for the refund rows: '#refund', or
+ * '#refund:<slug>' per tool. Each visitor and each IP has one, counting the
+ * refunds given today.
  */
-export async function refundTry(db, { day, visitorHash, ipHash, key }) {
+export const refundKey = (key) => (key === "*" ? "#refund" : `#refund:${key}`);
+
+/** Refunds an IP may have a day: one per visitor its ceiling lets in. */
+const refundsPerIp = (config) => Math.max(1, Math.ceil(config.triesPerIp / Math.max(1, config.triesPerDay)));
+
+/**
+ * Gives the visitor their try back after a failure on our side, at most once
+ * per visitor per SGT day, and at most once per visitor the IP's ceiling lets
+ * in (three by default), so fresh cookies do not bring fresh refunds. A
+ * second failure keeps the try used, so one visitor cannot spend the site's
+ * cap on failures. Resolves to true when the try came back.
+ *
+ * The refund is recorded before the try is given back: if a statement throws
+ * in between, the visitor loses a try rather than gaining one.
+ *
+ * The site's call count is left alone: the cap counts calls made, and a call
+ * that was sent was paid for.
+ */
+export async function refundTry(db, { day, visitorHash, ipHash, key, config }) {
+  const visitorRefund = { day, hash: visitorHash, key: refundKey(key) };
+  if ((await takeFrom(db, { ...visitorRefund, limit: 1 })) == null) return false;
+  if ((await takeFrom(db, { day, hash: ipHash, key: refundKey(key), limit: refundsPerIp(config) })) == null) {
+    await giveBackAll(db, [visitorRefund]);
+    return false;
+  }
   await giveBack(db, { day, hash: visitorHash, key });
   await giveBack(db, { day, hash: ipHash, key: ipKey(key) });
+  return true;
 }
 
 /**

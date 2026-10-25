@@ -6,6 +6,8 @@
  * Returns { ok: true, blob, previewUrl, fromPdf } or
  * { ok: false, reason: "heic" | "type" | "tooBig" | "unopenable" }.
  */
+import { canvasToJpeg, openPdfjs } from "../_shared/pdfjs.js";
+
 export const LONG_EDGE = 1600;
 export const QUALITY = 0.8;
 export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
@@ -26,11 +28,6 @@ export function fitLongEdge(width, height, edge = LONG_EDGE) {
   const scale = Math.min(1, edge / Math.max(width, height));
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
 }
-
-const toJpeg = (canvas) =>
-  new Promise((resolve, reject) =>
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("encode"))), "image/jpeg", QUALITY)
-  );
 
 function canvasFor(width, height) {
   const canvas = document.createElement("canvas");
@@ -68,16 +65,11 @@ async function fromImage(file) {
   const { canvas, context } = canvasFor(width, height);
   context.drawImage(source, 0, 0, width, height);
   source.close?.();
-  return toJpeg(canvas);
+  return canvasToJpeg(canvas, QUALITY);
 }
 
 async function fromPdf(file) {
-  const [pdfjs, worker] = await Promise.all([
-    import("pdfjs-dist/legacy/build/pdf.mjs"),
-    import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
-  ]);
-  pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-  const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
+  const pdf = await openPdfjs(new Uint8Array(await file.arrayBuffer()));
   try {
     const page = await pdf.getPage(1);
     const base = page.getViewport({ scale: 1 });
@@ -85,7 +77,7 @@ async function fromPdf(file) {
     const viewport = page.getViewport({ scale: width / base.width });
     const { canvas, context } = canvasFor(width, height);
     await page.render({ canvasContext: context, viewport }).promise;
-    return toJpeg(canvas);
+    return canvasToJpeg(canvas, QUALITY);
   } finally {
     pdf.destroy();
   }

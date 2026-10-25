@@ -9,7 +9,8 @@ import { FILE_DROP } from "../../content.js";
  *
  * Files are handed to `onFiles` as an array and never leave the browser here.
  * `dropNote={false}` leaves out the "or drop them here" line, for a label
- * that already says so.
+ * that already says so. `chooseLabel` replaces the shared "Choose files"
+ * wording on the button, for a tool whose copy sets its own.
  */
 export function FileDrop({
   id,
@@ -20,6 +21,7 @@ export function FileDrop({
   camera = false,
   disabled = false,
   dropNote = true,
+  chooseLabel,
   onFiles,
 }) {
   const pickerRef = React.useRef(null);
@@ -80,7 +82,7 @@ export function FileDrop({
           onClick={() => pickerRef.current?.click()}
           iconLeft={<Icon name="folder-open" size={20} />}
         >
-          {multiple ? FILE_DROP.choose : FILE_DROP.chooseOne}
+          {chooseLabel ?? (multiple ? FILE_DROP.choose : FILE_DROP.chooseOne)}
         </Button>
         {camera && (
           <Button
