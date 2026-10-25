@@ -69,7 +69,9 @@ export function Thumbnails({ buffer, pages, copy, onPassword }) {
   }, [viewer, pages]);
 
   return (
-    <ol ref={listRef} className="pm-thumbs" aria-label={copy.split.pagesLabel}>
+    // tabIndex: the list scrolls but holds nothing focusable, and Safari
+    // does not make such a scroller focusable by itself.
+    <ol ref={listRef} className="pm-thumbs" aria-label={copy.split.pagesLabel} tabIndex={0}>
       {pages.map((page, i) => {
         const n = i + 1;
         return (

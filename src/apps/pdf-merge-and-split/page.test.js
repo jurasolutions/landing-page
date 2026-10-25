@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import PdfMergeAndSplit from "./index.jsx";
 import { LeftOutNote } from "./MergePanel.jsx";
+import { Thumbnails } from "./Thumbnails.jsx";
+import fs from "node:fs";
 import COPY from "./copy.js";
 import { REGISTRY, findApp } from "../registry.js";
 
@@ -50,6 +52,14 @@ describe("the PDF merge and split page", () => {
       { id: "b", name: "b.pdf", status: "checking" },
     ];
     expect(renderToStaticMarkup(React.createElement(LeftOutNote, { files, copy: COPY }))).toBe("");
+  });
+
+  it("lets the keyboard reach and scroll the page thumbnails, with the design system's focus outline", () => {
+    const pages = [{ width: 595, height: 842 }, { width: 842, height: 595 }];
+    const html = renderToStaticMarkup(React.createElement(Thumbnails, { buffer: null, pages, copy: COPY }));
+    expect(html).toMatch(/<ol[^>]*tabindex="0"[^>]*aria-label="Pages in this file"|<ol[^>]*aria-label="Pages in this file"[^>]*tabindex="0"/);
+    const css = fs.readFileSync(new URL("./pdf-merge-and-split.css", import.meta.url), "utf8");
+    expect(css).toMatch(/\.pm-thumbs:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--border-focus\)/);
   });
 
   it("labels the file picker inputs", () => {
