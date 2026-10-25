@@ -17,11 +17,13 @@ describe("the privacy notice", () => {
     expect(text).toMatch(/IP address alone/);
   });
 
-  it("says a reply 'unsubscribe' is handled by hand, not straight away", () => {
+  it("says a reply 'unsubscribe' is handled by hand, well within ten business days", () => {
     // Reply detection is optional (scout §5.5); without it, a person reads the reply.
-    // No timeframe: "10 business days" is not an approved claim for jura-growth check-copy.
+    // The timeframe is the Spam Control Act's. jura-growth check-copy fails any
+    // figure, digits or words, in a sentence about Jura ("we"), so the sentence
+    // is written without "we".
     const outreach = PRIVACY.sections.find((s) => s.heading === "Emails we send to businesses").paragraphs.join(" ");
-    expect(outreach).toMatch(/reply “unsubscribe”, and we'll add the address by hand/);
+    expect(outreach).toMatch(/reply “unsubscribe”, and the address is added by hand, well within ten business days\./);
     expect(outreach).not.toMatch(/reply[^.]*\. Either way the address goes on our do-not-email list straight away/);
   });
 

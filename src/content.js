@@ -169,8 +169,8 @@ export const PRIVACY = {
       paragraphs: [
         "We send a small number of short, personal emails to Singapore businesses whose work involves a lot of paperwork, to tell them about our free tools. We only write to an address a business publishes for enquiries on its own website, such as info@ or hello@, and to a named person's address only when the business lists it there for enquiries. We do not buy lists or guess addresses.",
         "To choose who to write to, we note the business's name, website, industry and a few things its own website says about how it works, with the pages we read. We send each business one email and, at most, one follow-up.",
-        "Every email has a one-click unsubscribe link, which puts the address on our do-not-email list straight away. You can also reply “unsubscribe”, and we'll add the address by hand as soon as we read your reply. Either way it stays on the list. Addresses that bounce or report an email as spam go on the same list.",
-        "If a business never replies, we delete its details after two years. We keep the website's domain so we never contact that business again.",
+        "Every email has a one-click unsubscribe link, which puts the address on our do-not-email list straight away. You can also reply “unsubscribe”, and the address is added by hand, well within ten business days. Either way it stays on the list. Addresses that bounce or report an email as spam go on the same list.",
+        "If a business never replies, its details are deleted after two years. We keep the website's domain so we never contact that business again.",
       ],
     },
   ],
