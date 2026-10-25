@@ -179,6 +179,7 @@ export function SplitPanel({ app, copy, loadPdf }) {
                 style={TAP}
                 value={range}
                 invalid={Boolean(rangeError)}
+                aria-invalid={Boolean(rangeError) || undefined}
                 autoComplete="off"
                 spellCheck={false}
                 placeholder={copy.split.rangePlaceholder}
