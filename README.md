@@ -335,8 +335,12 @@ safe for as long as nobody added a handler to it.
   (two sheets, via `write-excel-file`, loaded on click) and copy as
   tab-separated text all happen in the browser. Text from a receipt that
   would start a spreadsheet formula is prefixed with an apostrophe.
-- The registry entry is `draft` until Ting Yu has run his own receipts
-  through the real model (`src/apps/receipt-reader/__fixtures__/README.md`).
+- Live since 2026-10-26, after Ting Yu's own receipts were read on the live
+  tool: nine photos (Singapore supermarket and F&B, one with handwriting, one
+  half hidden, Malaysian ringgit, two London receipts, and a page that is not
+  a receipt) all came back right, and the CSV and Excel exports checked out.
+  The expected values are in `src/apps/receipt-reader/__fixtures__/expected.json`;
+  the photos themselves are personal and stay out of git.
 
 ### APP-003 PDF merge and split (`src/apps/pdf-merge-and-split/`)
 
@@ -640,5 +644,3 @@ The Functions return codes, never wording; the pages own every word.
   Turnstile is now set up for the AI tools and could be added to the form if the
   inbox starts collecting noise.
 - **Terms page.** There is a privacy notice but no terms page.
-- **The receipt reader is `draft`** until Ting Yu's own receipts have been run
-  through the real model (see its `__fixtures__/README.md`).

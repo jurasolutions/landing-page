@@ -1,0 +1,12 @@
+{
+  "_about": "Expected reads for the receipt photos Ting Yu keeps in this folder. The photos are personal and stay out of git (.gitignore); only these values are committed. Checked against the live tool (claude-haiku-5-5) on 2026-10-26: all nine matched.",
+  "F3B046F6-00BF-4632-8851-CBAA22A0DC32_1_105_c.jpeg": { "kind": "supermarket", "merchant": "Cold Storage West Mall", "date": null, "currency": "SGD", "total": 56.75 },
+  "C3D2388D-9F51-4807-B2B2-55953862D89C_1_105_c.jpeg": { "kind": "F&B", "merchant": "Sushi Tei - JEM", "date": "2026-05-01", "currency": "SGD", "total": 162.82 },
+  "7D977B57-789B-42C1-BD9A-DB47AED934F2_1_105_c.jpeg": { "kind": "F&B delivery", "merchant": "Domino's Pizza Bukit Batok", "date": "2025-10-25", "currency": "SGD", "total": 40.9 },
+  "18C21C20-506F-47AB-8A87-49F7925BF87F_1_105_c.jpeg": { "kind": "F&B, with handwriting on it", "merchant": "Canton Paradise Tea House", "date": "2026-02-03", "currency": "SGD", "total": 300.0 },
+  "6BAE6710-BA3A-4A89-B35D-A2EF0633209D_1_105_c.jpeg": { "kind": "F&B, partly hidden behind a cup", "merchant": "Luckin Coffee", "currency": null, "total": 2.99 },
+  "D9B1ECDA-F6CC-454F-8F13-BA2639E02833_1_105_c.jpeg": { "kind": "hotel F&B, Malaysia", "merchant": "Pulai Springs Resort Berhad", "date": "2026-09-11", "currency": "MYR", "total": 1560.0 },
+  "87C1F009-797C-4A72-A7A0-4FD7B647814E_1_105_c.jpeg": { "kind": "F&B, London", "merchant": "Honest Burgers Borough", "date": "2026-07-14", "currency": "GBP", "total": 18.32 },
+  "CF6CFF26-401E-445B-B9C3-8DA469C29795_1_105_c.jpeg": { "kind": "hotel room service, London", "merchant": "Park Plaza County Hall", "date": "2026-07-17", "currency": "GBP", "total": 24.88 },
+  "850A9FF3-3B1F-4A6B-9C1A-2BBBD59F06DE_1_105_c.jpeg": { "kind": "not a receipt (a door lock guide)", "is_receipt": false }
+}
