@@ -83,9 +83,25 @@ function giveBack(db, { day, hash, key }) {
 }
 
 /**
+ * Gives back each row in `rows`, one at a time. A give-back that throws is
+ * skipped rather than retried: the row keeps its count until midnight SGT,
+ * which costs the visitor a try and never lets a call through uncounted.
+ */
+async function giveBackAll(db, rows) {
+  for (const row of rows) {
+    try {
+      await giveBack(db, row);
+    } catch {
+      // Fails closed; see above.
+    }
+  }
+}
+
+/**
  * Takes one try for the visitor (IP and cookie), one from their IP's ceiling,
  * and one call from the site's daily cap. If a later one is refused, the
- * earlier ones are given back.
+ * earlier ones are given back. If a statement throws part-way, whatever was
+ * already taken is given back and the error is rethrown.
  * Returns { ok: true, triesLeft } or { ok: false, reason: "limit" | "cap" }.
  */
 export async function takeTry(db, { day, visitorHash, ipHash, key, config }) {
@@ -93,20 +109,32 @@ export async function takeTry(db, { day, visitorHash, ipHash, key, config }) {
   const visitor = { day, hash: visitorHash, key };
   const ip = { day, hash: ipHash, key: ipKey(key) };
 
-  const count = await takeFrom(db, { ...visitor, limit: config.triesPerDay });
-  if (count == null) return { ok: false, reason: "limit" };
-
-  const ipCount = await takeFrom(db, { ...ip, limit: config.triesPerIp });
-  if (ipCount == null) {
-    // Another cookie on this IP has used the IP's tries for today.
-    await giveBack(db, visitor);
-    return { ok: false, reason: "limit" };
+  const taken = [];
+  let count;
+  let ipCount;
+  let called = false;
+  try {
+    count = await takeFrom(db, { ...visitor, limit: config.triesPerDay });
+    if (count == null) return { ok: false, reason: "limit" };
+    taken.push(visitor);
+    ipCount = await takeFrom(db, { ...ip, limit: config.triesPerIp });
+    if (ipCount != null) {
+      taken.push(ip);
+      called = await takeCall(db, { day, config });
+    }
+  } catch (error) {
+    await giveBackAll(db, taken);
+    throw error;
   }
 
-  if (!(await takeCall(db, { day, config }))) {
+  if (ipCount == null) {
+    // Another cookie on this IP has used the IP's tries for today.
+    await giveBackAll(db, taken);
+    return { ok: false, reason: "limit" };
+  }
+  if (!called) {
     // The site is at its cap. Give the visitor their try back.
-    await giveBack(db, visitor);
-    await giveBack(db, ip);
+    await giveBackAll(db, taken);
     return { ok: false, reason: "cap" };
   }
 

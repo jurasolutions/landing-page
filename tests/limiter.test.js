@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createD1 } from "./helpers/d1.js";
+import { createD1, failingOn } from "./helpers/d1.js";
 import { ENV, RECEIPT, apiError, cookieFrom, fakeHeic, fakeJpeg, fakePng, installNetwork, limitRequest, message, receiptRequest } from "./helpers/ai.js";
 import { onRequestPost as readReceipts } from "../functions/api/apps/receipt-reader.js";
 import { onRequestGet as getLimit } from "../functions/api/apps/limit.js";
@@ -364,6 +364,40 @@ describe("unexpected failures", () => {
     expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
     expect(tries(DB)).toEqual([0]);
     expect(counts(DB).calls).toEqual([1]);
+  });
+});
+
+describe("a D1 statement that throws part-way", () => {
+  const TAKE = /INSERT INTO app_tries/;
+  const config = { triesPerDay: 2, triesPerIp: 6, siteCap: 200, scope: "all" };
+  const args = { day: "2026-10-24", visitorHash: "h", ipHash: "i", key: "*", config };
+
+  it("inside takeTry gives back the visitor's try when the IP take throws, then rethrows", async () => {
+    const DB = await createD1();
+    // The first insert takes the visitor's try; the second, the IP's.
+    await expect(takeTry(failingOn(DB, TAKE, 2), args)).rejects.toThrow("D1 transient error");
+    expect(DB.rows("app_tries").map((r) => [r.tool, r.count])).toEqual([["*", 0]]);
+    expect(DB.rows("app_calls")).toEqual([]);
+  });
+
+  it("inside takeTry gives back both tries when the site call throws", async () => {
+    const DB = await createD1();
+    await expect(takeTry(failingOn(DB, /INSERT INTO app_calls/), args)).rejects.toThrow("D1 transient error");
+    expect(DB.rows("app_tries").map((r) => [r.tool, r.count])).toEqual([
+      ["*", 0],
+      ["#ip", 0],
+    ]);
+  });
+
+  it("answers 503 and leaves the visitor's tries as they were", async () => {
+    const DB = await createD1();
+    const net = installNetwork({ anthropic: [good()] });
+    const response = await readReceipts({ request: receiptRequest(), env: { ...ENV, DB: failingOn(DB, TAKE, 2) } });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "unavailable" });
+    expect(net.anthropic).toHaveLength(0);
+    const left = await getLimit({ request: limitRequest(), env: { ...ENV, DB } });
+    expect((await left.json()).triesLeft).toBe(2);
   });
 });
 

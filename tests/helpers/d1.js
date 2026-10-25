@@ -99,3 +99,33 @@ export async function createD1({ migrate = true } = {}) {
     },
   };
 }
+
+/**
+ * Wraps a D1 stand-in so the `nth` statement whose SQL matches `pattern`
+ * throws, once, as a transient D1 error would. Every other statement runs
+ * against the real in-memory database, so its rows show what was left behind.
+ */
+export function failingOn(DB, pattern, nth = 1) {
+  let seen = 0;
+  return {
+    ...DB,
+    prepare(sql) {
+      const statement = DB.prepare(sql);
+      if (!pattern.test(sql)) return statement;
+      return {
+        bind(...params) {
+          const bound = statement.bind(...params);
+          const maybeThrow = () => {
+            seen += 1;
+            if (seen === nth) throw new Error("D1 transient error");
+          };
+          return {
+            first: async (column) => (maybeThrow(), bound.first(column)),
+            run: async () => (maybeThrow(), bound.run()),
+            all: async () => (maybeThrow(), bound.all()),
+          };
+        },
+      };
+    },
+  };
+}
