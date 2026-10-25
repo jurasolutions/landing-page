@@ -106,16 +106,22 @@ tests/                   Vitest: Functions against an in-memory D1, plus shell t
 | Path | Page |
 | --- | --- |
 | `/` | the marketing page, as before |
-| `/apps` | the toolbox index, from the registry, filterable by category |
+| `/apps` | the toolbox index, from the registry, filterable by industry (`/apps?industry=general,retail` opens it filtered) |
 | `/apps/<slug>` | one tool, its code loaded only on that page |
 | `/privacy` | the privacy notice (linked from the footer, every tool and every outreach email) |
 | `/unsubscribed` | where `/unsubscribe` sends people afterwards (`?status=invalid` or `?status=error` for the failure states); `noindex` |
 
 Routing is a small history-API router (`src/lib/router.js`); there is no
 routing library. It intercepts clicks on same-origin links to these paths, so
-the design system's `Button href` works unchanged. On the home page the nav and
-footer links stay plain `#section` anchors exactly as before; on every other
-page they point to `/#section`.
+the design system's `Button href` works unchanged. On the home page the
+footer's section links stay plain `#section` anchors exactly as before; on
+every other page they point to `/#section`.
+
+The top bar (`src/sections/Nav.jsx`) holds only the logo, a **Toolbox**
+button and **Book a call**. The toolbox is its one destination, shown as a
+secondary button with an icon so it stands out (Ting Yu, 2026-10-26); the home
+page's sections are reached by scrolling or from the footer. Both buttons fit
+on a 360px phone, so there is no menu sheet.
 
 Cloudflare Pages serves `index.html` for any path that is not a file, because
 there is no top-level `404.html`. After `vite build`,
@@ -144,12 +150,19 @@ because the Functions and the growth CLI (`repos/growth`) read it too:
 ```json
 { "slug": "quote-builder", "name": "Quote builder",
   "description": "Professional PDF quotes with your logo, in minutes.",
-  "category": "Sales", "tier": "browser", "status": "live",
-  "added": "2026-10-24", "prd": "APP-001" }
+  "category": "Sales", "industries": ["general", "retail", "logistics"],
+  "tier": "browser", "status": "live", "added": "2026-10-24", "prd": "APP-001" }
 ```
 
-`category` is one of Sales, Finance, Admin, HR, Marketing, Documents. `tier`
-is `browser` or `ai`. Only `live` tools are listed on `/apps` or prerendered; a
+`category` is what the tool does: one of Sales, Finance, Admin, HR,
+Marketing, Documents (the app factory uses it). `industries` is who it suits,
+one or more of `general`, `fnb`, `retail`, `logistics`,
+`professional-services` (`INDUSTRIES` in `src/apps/registry.js`, with their
+labels). A tool any business can use is tagged `general`, plus each industry
+it fits especially well. `/apps` filters by industry: the visitor can pick
+several at once and sees every tool tagged with any of them, and the choice is
+kept in the address (`?industry=general,retail`) so a filtered list can be
+linked to, from an outreach email say. `tier` is `browser` or `ai`. Only `live` tools are listed on `/apps` or prerendered; a
 `draft` tool's page opens on the local dev server only.
 
 **Adding a tool is one folder and one registry entry.** The folder is

@@ -13,20 +13,10 @@
 export const CONTACT_EMAIL = "info@jurasolutions.sg";
 export const SITE_ORIGIN = "https://jurasolutions.sg";
 
-/** Hash links point at sections of the home page; elsewhere they become /#hash. */
-export const NAV_LINKS = [
-  { href: "#services", label: "Services" },
-  { href: "#how", label: "How we work" },
-  { href: "#proof", label: "What it looks like" },
-  { href: "#trust", label: "Working with us" },
-  { href: "#faq", label: "Questions" },
-  { href: "/apps", label: "Toolbox" },
-];
-
 export const NAV = {
+  label: "Main",
+  toolbox: "Toolbox",
   cta: "Book a call",
-  menuOpen: "Open menu",
-  menuClose: "Close menu",
   skip: "Skip to content",
 };
 
@@ -76,10 +66,11 @@ export const TOOLBOX = {
     "Small tools for the jobs that come round every week. No sign-up. Each one is a small version of something we can build into your own systems.",
   filterLabel: "Show tools for",
   allLabel: "All",
+  filterHint: "Pick one or more.",
   emptyHeading: "The first tools are on the way",
   emptyBody: "Nothing is listed yet. If there is a job you would like a tool for, tell us about it.",
   emptyButton: "Tell us about it",
-  noneInCategory: "No tools in this category yet.",
+  noneForIndustries: "No tools for this choice yet. Pick another, or choose All.",
   tierLabel: {
     browser: "Runs in your browser",
     ai: "Uses AI, with free tries each day",

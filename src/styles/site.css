@@ -159,58 +159,8 @@
 .brand-lockup { display: inline-flex; }
 .brand-mark { display: none; }
 
-.navlinks { display: flex; gap: var(--space-6); align-items: center; }
-
-.navlink {
-  font-size: var(--text-body-sm);
-  color: var(--text-body);
-  text-decoration: none;
-  min-height: var(--tap-min);
-  display: inline-flex;
-  align-items: center;
-}
-
-.navlink:hover { color: var(--text-brand); text-decoration: none; }
-
-.nav-menu-button { display: none; }
-
-.nav-sheet {
-  position: fixed;
-  inset: 72px 0 0 0;
-  z-index: 40;
-  background: var(--surface-page);
-  border-top: 1px solid var(--border-subtle);
-  padding: var(--space-6) 0;
-  overflow-y: auto;
-}
-
-.nav-sheet-links { display: flex; flex-direction: column; }
-
-.nav-sheet-link {
-  display: flex;
-  align-items: center;
-  min-height: var(--tap-min);
-  padding-block: var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
-  font-family: var(--font-display);
-  font-size: var(--text-h3);
-  font-weight: var(--weight-medium);
-  color: var(--text-strong);
-  text-decoration: none;
-}
-
-.nav-sheet-link:hover { color: var(--text-brand); text-decoration: none; }
-
-/* The current section (the Toolbox link on the toolbox pages). Underlined as
-   well as coloured, so it does not rest on colour alone. After the hover
-   rules, which it ties with on specificity. */
-.navlink[aria-current="page"],
-.nav-sheet-link[aria-current="page"] {
-  color: var(--text-brand);
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
+/* The toolbox and the primary action, side by side at every width. */
+.nav-actions { display: flex; gap: var(--space-3); align-items: center; }
 
 /* ---- Problem statements ---- */
 
@@ -427,8 +377,6 @@
   .split { grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
   .grid2 { grid-template-columns: minmax(0, 1fr); }
   .reality-list { grid-template-columns: minmax(0, 1fr); }
-  .navlinks { display: none; }
-  .nav-menu-button { display: inline-flex; }
 }
 
 @media (max-width: 560px) {

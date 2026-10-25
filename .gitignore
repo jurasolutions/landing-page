@@ -21,3 +21,9 @@ npm-debug.log*
 # Developer agents work in git worktrees here.
 .claude/worktrees/
 .playwright-mcp/
+
+# Receipt photos are personal (names, addresses, card digits). Kept local only.
+src/apps/receipt-reader/__fixtures__/*.jp*g
+src/apps/receipt-reader/__fixtures__/*.png
+src/apps/receipt-reader/__fixtures__/*.webp
+src/apps/receipt-reader/__fixtures__/*.heic

@@ -3,10 +3,20 @@ import fs from "node:fs";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { REGISTRY, validateRegistry, liveApps, liveCategories, findApp } from "../src/apps/registry.js";
+import {
+  REGISTRY,
+  validateRegistry,
+  liveApps,
+  liveCategories,
+  liveIndustries,
+  appsForIndustries,
+  parseIndustries,
+  findApp,
+} from "../src/apps/registry.js";
 import { matchRoute, normalisePath, homeAnchor, isAppPath } from "../src/lib/router.js";
 import { enquiryHref } from "../src/apps/_shared/TalkToUsCard.jsx";
 import { AppsIndex } from "../src/pages/AppsIndex.jsx";
+import { Nav } from "../src/sections/Nav.jsx";
 import { AppShell, ToolPage } from "../src/apps/_shared/AppShell.jsx";
 import { ROUTE_META, TOOLBOX } from "../src/content.js";
 import { withMeta } from "../scripts/prerender-routes.mjs";
@@ -16,6 +26,7 @@ const DUMMY = {
   name: "Dummy tool",
   description: "A test entry that renders a page.",
   category: "Admin",
+  industries: ["general"],
   tier: "browser",
   status: "live",
   added: "2026-10-24",
@@ -39,6 +50,19 @@ describe("the registry", () => {
     expect(problems.join("\n")).toMatch(/added must be/);
     expect(problems.join("\n")).toMatch(/prd must/);
     expect(problems.join("\n")).toMatch(/duplicate slug/);
+  });
+
+  it("needs one or more known industries on every entry, each once", () => {
+    const bad = (industries) => validateRegistry([{ ...DUMMY, industries }]).join("\n");
+    expect(bad(undefined)).toMatch(/industries must be/);
+    expect(bad([])).toMatch(/industries must be/);
+    expect(bad(["toys"])).toMatch(/industries must be/);
+    expect(bad(["general", "general"])).toMatch(/industries must be/);
+    expect(bad(["general", "fnb"])).toBe("");
+  });
+
+  it("tags every committed tool General, since any business can use them so far", () => {
+    for (const entry of REGISTRY) expect(entry.industries, entry.slug).toContain("general");
   });
 
   it("lists only live tools, and only the categories they use", () => {
@@ -100,15 +124,38 @@ describe("the /apps index", () => {
     expect(html).not.toContain(TOOLBOX.emptyHeading);
   });
 
-  it("offers category filters only when there is more than one category", () => {
+  it("offers industry filters only when there is more than one industry", () => {
     const one = renderToStaticMarkup(React.createElement(AppsIndex, { registry: [DUMMY] }));
-    expect(one).not.toContain('aria-pressed');
+    expect(one).not.toContain("aria-pressed");
     const two = renderToStaticMarkup(
-      React.createElement(AppsIndex, { registry: [DUMMY, { ...DUMMY, slug: "other", category: "Sales" }] })
+      React.createElement(AppsIndex, { registry: [DUMMY, { ...DUMMY, slug: "other", industries: ["retail"] }] })
     );
+    // "All" starts selected; each industry is a toggle of its own.
     expect(two).toContain('aria-pressed="true"');
-    expect(two).toContain(">Sales<");
-    expect(two).toContain(">Admin<");
+    expect(two.match(/aria-pressed="false"/g)).toHaveLength(2);
+    expect(two).toContain(">General<");
+    expect(two).toContain(">Retail<");
+    expect(two).not.toContain(">F&amp;B<");
+  });
+
+  it("shows the tools for any industry picked, or all of them when none is", () => {
+    const list = [
+      { ...DUMMY, slug: "a", industries: ["general"] },
+      { ...DUMMY, slug: "b", industries: ["retail"] },
+      { ...DUMMY, slug: "c", industries: ["fnb", "logistics"] },
+    ];
+    const slugs = (picked) => appsForIndustries(list, picked).map((app) => app.slug);
+    expect(slugs([])).toEqual(["a", "b", "c"]);
+    expect(slugs(["general"])).toEqual(["a"]);
+    expect(slugs(["general", "retail"])).toEqual(["a", "b"]);
+    expect(slugs(["logistics"])).toEqual(["c"]);
+    expect(liveIndustries(list).map((industry) => industry.id)).toEqual(["general", "fnb", "retail", "logistics"]);
+  });
+
+  it("reads the industries in an /apps?industry= link, ignoring anything unknown", () => {
+    expect(parseIndustries("retail,general")).toEqual(["general", "retail"]);
+    expect(parseIndustries(" FNB , toys,retail,retail")).toEqual(["fnb", "retail"]);
+    expect(parseIndustries(null)).toEqual([]);
   });
 });
 
@@ -203,5 +250,17 @@ describe("the /apps head", () => {
       const subject = app.name.split(" ")[0].toLowerCase();
       expect(description, `${app.slug} is a draft`).not.toContain(subject);
     }
+  });
+});
+
+describe("the top bar", () => {
+  it("has the toolbox as its only destination, beside the call to action", () => {
+    const html = renderToStaticMarkup(React.createElement(Nav));
+    const links = [...html.matchAll(/<a [^>]*href="([^"]+)"[^>]*>/g)].map((m) => m[1]);
+    // The logo (twice: lockup and mark), the toolbox, and Book a call.
+    expect(links.filter((href) => !href.startsWith("#top") && href !== "/")).toEqual(["/apps", "#contact"]);
+    expect(html).toContain(">Toolbox<");
+    expect(html).toContain(">Book a call<");
+    expect(html).not.toMatch(/How we work|Questions|Open menu/);
   });
 });

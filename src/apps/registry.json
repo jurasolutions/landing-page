@@ -4,6 +4,11 @@
     "name": "Quote builder",
     "description": "Professional PDF quotes with your logo, in minutes.",
     "category": "Sales",
+    "industries": [
+      "general",
+      "retail",
+      "logistics"
+    ],
     "tier": "browser",
     "status": "live",
     "added": "2026-10-24",
@@ -14,9 +19,14 @@
     "name": "Receipt reader",
     "description": "Receipt photos to a clean table for Excel or your accounts.",
     "category": "Finance",
+    "industries": [
+      "general",
+      "fnb",
+      "retail"
+    ],
     "tier": "ai",
-    "status": "draft",
-    "added": "2026-10-24",
+    "status": "live",
+    "added": "2026-10-26",
     "prd": "APP-002"
   },
   {
@@ -24,6 +34,11 @@
     "name": "PDF merge and split",
     "description": "Join PDFs or pull out pages, right in your browser.",
     "category": "Documents",
+    "industries": [
+      "general",
+      "logistics",
+      "professional-services"
+    ],
     "tier": "browser",
     "status": "live",
     "added": "2026-10-24",

@@ -48,6 +48,7 @@ import {
   Upload,
   UserRound,
   Workflow,
+  Wrench,
   X,
 } from "lucide";
 
@@ -91,6 +92,7 @@ const icons = {
   Upload,
   UserRound,
   Workflow,
+  Wrench,
   X,
 };
 

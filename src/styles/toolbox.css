@@ -122,6 +122,12 @@
   margin-right: var(--space-2);
 }
 
+.tb-filters-hint {
+  flex-basis: 100%;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
 .tb-grid {
   list-style: none;
   margin: 0;
