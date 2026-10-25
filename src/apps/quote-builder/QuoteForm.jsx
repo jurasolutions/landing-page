@@ -14,10 +14,16 @@ const TAP_INPUT = { ...TAP, paddingLeft: "var(--space-3)" };
 // so an onBlur passed to it would replace the one that clears its focus
 // border. Blur handling sits on the Field wrapper instead (React's onBlur
 // bubbles from the input).
+//
+// The hint or error is rendered here rather than by Field, because Field's
+// note has no id, and the input needs one to point aria-describedby at:
+// without it a screen reader hears "invalid" but not why.
 function TextField({ id, label, hint, error, value, onChange, onBlur, multiline, rows = 3, ...rest }) {
   const Control = multiline ? Textarea : Input;
+  const note = error || hint;
+  const noteId = note ? `${id}-note` : undefined;
   return (
-    <Field label={label} hint={hint} error={error} htmlFor={id} onBlur={onBlur}>
+    <Field label={label} htmlFor={id} onBlur={onBlur}>
       <Control
         id={id}
         value={value}
@@ -25,9 +31,15 @@ function TextField({ id, label, hint, error, value, onChange, onBlur, multiline,
         onChange={(event) => onChange(event.target.value)}
         invalid={Boolean(error)}
         aria-invalid={Boolean(error) || undefined}
+        aria-describedby={noteId}
         style={multiline ? undefined : TAP_INPUT}
         {...rest}
       />
+      {note && (
+        <span id={noteId} className={error ? "qb-note qb-note--error" : "qb-note"}>
+          {note}
+        </span>
+      )}
     </Field>
   );
 }
@@ -182,7 +194,6 @@ export function QuoteForm({
   rememberBlocked,
   onLogo,
   logoError,
-  unsupported,
 }) {
   const B = copy.business;
   const C = copy.customer;
@@ -223,6 +234,7 @@ export function QuoteForm({
       return { ...current, items };
     });
 
+  const itemsFull = quote.items.length >= LIMITS.items;
   const addRef = React.useRef(null);
   const removeItem = (index) => () => {
     setQuote((current) => ({ ...current, items: current.items.filter((_, i) => i !== index) }));
@@ -276,16 +288,28 @@ export function QuoteForm({
               onFiles={(files) => onLogo(files[0])}
             />
           )}
-          {logoError && (
-            <Alert tone="danger" icon={<Icon name="alert-circle" size={18} />}>
-              {logoError}
-            </Alert>
-          )}
+          {/* In the page before any error, so the error is announced. */}
+          <div id="qb-logo-status" className="tb-live" aria-live="polite">
+            {logoError && (
+              <Alert tone="danger" icon={<Icon name="alert-circle" size={18} />}>
+                {logoError}
+              </Alert>
+            )}
+          </div>
         </div>
 
         <div>
-          <Checkbox label={copy.remember} checked={remember} onChange={(event) => onRemember(event.target.checked)} />
-          {rememberBlocked && <p className="qb-hint">{copy.rememberBlocked}</p>}
+          <Checkbox
+            label={copy.remember}
+            checked={remember}
+            onChange={(event) => onRemember(event.target.checked)}
+            aria-describedby={rememberBlocked ? "qb-remember-blocked" : undefined}
+          />
+          {rememberBlocked && (
+            <p className="qb-hint" id="qb-remember-blocked">
+              {copy.rememberBlocked}
+            </p>
+          )}
         </div>
       </Fieldset>
 
@@ -331,13 +355,19 @@ export function QuoteForm({
             type="button"
             variant="secondary"
             size="lg"
-            disabled={quote.items.length >= LIMITS.items}
+            disabled={itemsFull}
+            aria-describedby={itemsFull ? "qb-items-full" : undefined}
             onClick={() => setQuote((current) => ({ ...current, items: [...current.items, emptyItem()] }))}
             iconLeft={<Icon name="plus" size={20} />}
           >
             {copy.buttons.addItem}
           </Button>
         </span>
+        {itemsFull && (
+          <p className="qb-hint" id="qb-items-full">
+            {copy.itemsFull(LIMITS.items)}
+          </p>
+        )}
       </Fieldset>
 
       <Fieldset legend={copy.sections.totals}>
@@ -413,12 +443,6 @@ export function QuoteForm({
           onChange={(event) => setQuote((current) => ({ ...current, madeWith: event.target.checked }))}
         />
       </Fieldset>
-
-      {unsupported.length > 0 && (
-        <Alert tone="warning" icon={<Icon name="alert-circle" size={18} />}>
-          {copy.unsupported(unsupported.join(" "))}
-        </Alert>
-      )}
     </div>
   );
 }

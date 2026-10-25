@@ -86,6 +86,7 @@ export default {
   },
 
   emptyItems: "Add your first item to see the total.",
+  itemsFull: (n) => `You can add up to ${n} items to one quote.`,
   zeroQuantity: "Items with no quantity are left off the quote.",
 
   totals: {

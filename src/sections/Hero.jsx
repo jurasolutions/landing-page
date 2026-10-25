@@ -2,8 +2,12 @@ import React from "react";
 import { Button, Icon, MotionPanel, AutomationFlow } from "../ds.js";
 import { Section } from "../components/Section.jsx";
 import { HERO } from "../content.js";
+import { usePageHeading } from "../lib/router.js";
 
 export function Hero() {
+  // The page's heading, so arriving at / from another page starts here.
+  const heading = usePageHeading();
+
   return (
     <Section id="top" label={HERO.label} tone="wash" spine="start">
       {/* The claim sits above the diagram rather than beside it, so the flow
@@ -12,6 +16,7 @@ export function Hero() {
       <div className="stack-6">
         <div className="hero-copy stack-5">
           <h1
+            ref={heading}
             style={{
               fontSize: "var(--text-display-1)",
               letterSpacing: "var(--tracking-display)",

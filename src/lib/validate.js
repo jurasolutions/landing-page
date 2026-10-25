@@ -63,11 +63,15 @@ export const FIELD_ORDER = ["name", "email", "phone", "company", "message"];
  * `?from=apps/<slug>`, and the form passes that on so the email says which
  * tool brought the visitor in. Anything that does not match is dropped
  * quietly; it is a label, not an answer the visitor gave.
- * `functions/submit.js` applies the same pattern.
+ * `functions/submit.js` imports `cleanFrom`, so both sides apply one pattern.
  */
 export const FROM_PATTERN = /^apps\/[a-z0-9-]{1,60}$/;
 
+/** The value when it is a toolbox page, otherwise "". Safe on the server. */
+export function cleanFrom(value) {
+  return typeof value === "string" && FROM_PATTERN.test(value) ? value : "";
+}
+
 export function readFrom(search) {
-  const value = new URLSearchParams(search ?? "").get("from");
-  return value && FROM_PATTERN.test(value) ? value : "";
+  return cleanFrom(new URLSearchParams(search ?? "").get("from"));
 }

@@ -12,9 +12,10 @@
 
 .tb-page { display: block; }
 
-/* The shared nav marks the toolbox as the current section on these pages. */
-.navlink[aria-current="page"],
-.nav-sheet-link[aria-current="page"] { color: var(--text-brand); }
+/* A live region that is always in the page, so a message added to it is
+   announced (one that arrives already holding its text often is not).
+   While empty it is taken out of the flow, so it adds no gap to a stack. */
+.tb-live:empty { position: absolute; }
 
 .tb-band { padding-block: var(--section-y-tight); }
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Alert, Button, Dialog, Icon, Tabs, Toast } from "../../ds.js";
+import { Alert, Button, Dialog, Icon, Toast } from "../../ds.js";
 import { ExportButtons } from "../_shared/ExportButtons.jsx";
 import { readStored, removeStored, writeStored } from "../_shared/storage.js";
 import { safeFilename, saveBlob } from "../_shared/download.js";
@@ -158,23 +158,28 @@ export default function QuoteBuilder({ app, copy }) {
     requestAnimationFrame(() => newRef.current?.querySelector("button")?.focus());
   };
 
+  // `actions` renders in two places, beside the preview and under the form on
+  // a phone. CSS shows one at a time, and a hidden live region is silent, so
+  // each message is announced once.
   const actions = (
     <div className="qb-actions stack-3">
-      {pdfState === "failed" && (
-        <Alert tone="danger" icon={<Icon name="alert-circle" size={18} />}>
-          {copy.pdfFailed}
-        </Alert>
-      )}
-      {fileError && (
-        <Alert tone="danger" icon={<Icon name="alert-circle" size={18} />}>
-          {fileError}
-        </Alert>
-      )}
-      {unsupported.length > 0 && (
-        <Alert tone="warning" icon={<Icon name="alert-circle" size={18} />}>
-          {copy.unsupported(unsupported.join(" "))}
-        </Alert>
-      )}
+      <div className="tb-live stack-3" aria-live="polite">
+        {pdfState === "failed" && (
+          <Alert tone="danger" icon={<Icon name="alert-circle" size={18} />}>
+            {copy.pdfFailed}
+          </Alert>
+        )}
+        {fileError && (
+          <Alert tone="danger" icon={<Icon name="alert-circle" size={18} />}>
+            {fileError}
+          </Alert>
+        )}
+        {unsupported.length > 0 && (
+          <Alert tone="warning" icon={<Icon name="alert-circle" size={18} />}>
+            {copy.unsupported(unsupported.join(" "))}
+          </Alert>
+        )}
+      </div>
       <ExportButtons
         label={copy.sections.output}
         actions={[
@@ -210,16 +215,22 @@ export default function QuoteBuilder({ app, copy }) {
         onChange={openFile}
       />
 
+      {/* Two toggle buttons rather than Tabs: both views stay in the page
+          (side by side on a wide screen), so there is no tab panel. */}
       <div className="qb-switch">
-        <Tabs
-          aria-label={copy.view.label}
-          tabs={[
-            { id: "edit", label: copy.view.edit },
-            { id: "preview", label: copy.view.preview },
-          ]}
-          value={view}
-          onChange={setView}
-        />
+        <div className="qb-views" role="group" aria-label={copy.view.label}>
+          {["edit", "preview"].map((id) => (
+            <button
+              key={id}
+              type="button"
+              className="qb-view"
+              aria-pressed={view === id}
+              onClick={() => setView(id)}
+            >
+              {copy.view[id]}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className={`qb-grid qb-grid--${view}`}>
@@ -234,7 +245,6 @@ export default function QuoteBuilder({ app, copy }) {
             rememberBlocked={rememberBlocked}
             onLogo={onLogo}
             logoError={logoError}
-            unsupported={[]}
           />
         </div>
         <div className="qb-col-preview">

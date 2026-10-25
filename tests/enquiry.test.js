@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
 import { onRequestPost, onRequestGet } from "../functions/submit.js";
-import { FROM_PATTERN, readFrom } from "../src/lib/validate.js";
+import { FROM_PATTERN, cleanFrom, readFrom } from "../src/lib/validate.js";
 
 const ENQUIRY = {
   name: "Ada Tan",
@@ -100,5 +101,24 @@ describe("the form's reading of ?from=", () => {
 
   it("uses the same pattern as the Function", () => {
     expect(FROM_PATTERN.source).toBe("^apps\\/[a-z0-9-]{1,60}$");
+  });
+});
+
+describe("cleanFrom, shared by the form and the Function", () => {
+  it("keeps a toolbox slug", () => {
+    expect(cleanFrom("apps/quote-builder")).toBe("apps/quote-builder");
+  });
+
+  it.each(["apps/../x", "apps/", "elsewhere", "", 42, null, undefined, { from: "apps/x" }])(
+    "turns %j into an empty string",
+    (value) => {
+      expect(cleanFrom(value)).toBe("");
+    }
+  );
+
+  it("is what the Function applies: it has no copy of the pattern", () => {
+    const source = fs.readFileSync(new URL("../functions/submit.js", import.meta.url), "utf8");
+    expect(source).not.toMatch(/apps\\\/\[a-z0-9-\]/);
+    expect(source).toMatch(/import \{[^}]*\bcleanFrom\b[^}]*\} from "..\/src\/lib\/validate.js"/);
   });
 });

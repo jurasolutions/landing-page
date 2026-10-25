@@ -8,6 +8,7 @@ import { saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
 import { useToast } from "../_shared/useToast.js";
 import { MAX_FILES_CLIENT, fileMessage } from "./files.js";
+import { isOutOfTries, readBlocker, readBlockerText } from "./read-state.js";
 import { prepareFile } from "./prepare.js";
 import { SITE_KEY, createTurnstile } from "./turnstile.js";
 import { fetchLimit, sendReceipts } from "./api.js";
@@ -17,8 +18,6 @@ import { ReceiptResults } from "./ReceiptResults.jsx";
 import "./receipt-reader.css";
 
 let fileCounter = 0;
-
-const isOutOfTries = (limit) => Boolean(limit && (limit.capReached || limit.triesLeft <= 0));
 
 /**
  * The top of the upload area: the tries left, or why there are none. Out of
@@ -117,7 +116,9 @@ export default function ReceiptReader({ app, copy }) {
   const ready = files.filter((f) => f.status === "ready");
   const preparing = files.some((f) => f.status === "preparing");
   const outOfTries = isOutOfTries(limit);
-  const canRead = limit?.ready && !outOfTries && ready.length > 0 && !preparing && !sending && SITE_KEY;
+  const blocker = readBlocker({ limit, siteKey: SITE_KEY, readyCount: ready.length, preparing, sending });
+  const canRead = blocker === null;
+  const whyNot = readBlockerText(blocker, copy);
 
   const read = async () => {
     if (!canRead) return;
@@ -253,13 +254,21 @@ export default function ReceiptReader({ app, copy }) {
                   type="button"
                   size="lg"
                   disabled={!canRead}
+                  aria-describedby={whyNot ? "rr-read-why rr-one-try" : "rr-one-try"}
                   onClick={read}
                   iconLeft={<Icon name={sending ? "loader" : "scan-text"} size={20} />}
                 >
                   {sending ? copy.reading : copy.read}
                 </Button>
               </div>
-              <p className="rr-hint">{copy.oneTry}</p>
+              {whyNot && (
+                <p className="rr-hint" id="rr-read-why">
+                  {whyNot}
+                </p>
+              )}
+              <p className="rr-hint" id="rr-one-try">
+                {copy.oneTry}
+              </p>
               <div ref={widgetRef} className="rr-turnstile" />
             </div>
           </>

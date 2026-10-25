@@ -201,6 +201,17 @@
 
 .nav-sheet-link:hover { color: var(--text-brand); text-decoration: none; }
 
+/* The current section (the Toolbox link on the toolbox pages). Underlined as
+   well as coloured, so it does not rest on colour alone. After the hover
+   rules, which it ties with on specificity. */
+.navlink[aria-current="page"],
+.nav-sheet-link[aria-current="page"] {
+  color: var(--text-brand);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
 /* ---- Problem statements ---- */
 
 .reality-list {
