@@ -59,3 +59,17 @@ questions: -
 evidence:  merged branch: npm test -> 19 files, 250 passed; npm run build -> ok, 5 routes prerendered
            review 03 probes: cap 3 -> 3 API calls (was 10); 3 cookies 1 IP -> 6 then 429; draft API -> 404
 ```
+
+## 2026-10-25T17:10+08:00 developer, reviewer (ticket 04; appended by conductor)
+
+```
+status:    done
+persona:   developer, reviewer
+ticket:    04
+artifacts: merged crew/toolbox-prd-audit-04-ui-standards (23ad31e); reviews/code-review-04.md
+decisions: review round 1 changes-requested (U3 Remember hint unlinked); fix round linked it, fixed forward-after-back scroll, merged 03
+           conductor checked the fix (DS Checkbox spreads rest props onto the input) instead of a second review round
+           ticket 05 written for the should-fix items of reviews 01 and 03; refunds bounded per visitor (reviewer's recommendation)
+questions: -
+evidence:  merged branch: npm test -> 22 files, 296 passed; npm run build -> 5 routes prerendered
+```
