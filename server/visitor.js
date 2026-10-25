@@ -36,12 +36,38 @@ export function clientIp(request) {
 }
 
 /**
- * A salted SHA-256 of the connecting IP alone, for the per-IP ceiling
- * (AI_TRIES_PER_IP), so clearing cookies is not a way round the limit. The
- * "ip" segment keeps it from ever equalling an IP-and-cookie hash.
+ * The part of an address that identifies one connection's owner. An IPv4
+ * address is used whole. An IPv6 address is cut to its /64: a home or office
+ * is usually given a whole /64 and can pick any address in it, so counting
+ * full addresses would hand out fresh tries for the asking. An IPv6 address
+ * with an IPv4 address inside (::ffff:192.0.2.1) counts as that IPv4 address.
+ */
+export function networkOf(ip) {
+  if (!ip.includes(":")) return ip;
+  const address = ip.split("%")[0].toLowerCase();
+  const v4 = address.match(/:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (v4) return v4[1];
+  const [head, tail, extra] = address.split("::");
+  if (extra !== undefined) return ip;
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const groups =
+    tail === undefined ? left : [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right];
+  if (groups.length !== 8 || !groups.every((group) => /^[0-9a-f]{1,4}$/.test(group))) return ip;
+  return `${groups
+    .slice(0, 4)
+    .map((group) => Number.parseInt(group, 16).toString(16))
+    .join(":")}::/64`;
+}
+
+/**
+ * A salted SHA-256 of the connecting IP alone (its /64 for IPv6), for the
+ * per-IP ceiling (AI_TRIES_PER_IP), so clearing cookies is not a way round
+ * the limit. The "ip" segment keeps it from ever equalling an IP-and-cookie
+ * hash.
  */
 export function hashIp(request, salt) {
-  return sha256Hex(`${salt}|ip|${clientIp(request)}`);
+  return sha256Hex(`${salt}|ip|${networkOf(clientIp(request))}`);
 }
 
 /**

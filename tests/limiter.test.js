@@ -4,6 +4,7 @@ import { ENV, RECEIPT, apiError, cookieFrom, fakeHeic, fakeJpeg, fakePng, instal
 import { onRequestPost as readReceipts } from "../functions/api/apps/receipt-reader.js";
 import { onRequestGet as getLimit } from "../functions/api/apps/limit.js";
 import { limitConfig, takeTry } from "../server/limit.js";
+import { hashIp } from "../server/visitor.js";
 import registry from "../src/apps/registry.json";
 
 const good = () => message(JSON.stringify({ receipts: [RECEIPT] }));
@@ -198,6 +199,32 @@ describe("the per-IP ceiling", () => {
     // Another IP is unaffected.
     installNetwork({ anthropic: [good()] });
     expect((await readReceipts({ request: receiptRequest({ ip: "198.51.100.7" }), env })).status).toBe(200);
+  });
+
+  it("counts an IPv6 connection by its /64, which one home or office usually owns", async () => {
+    const { env } = await setup();
+    const net = installNetwork({ anthropic: Array.from({ length: 10 }, good) });
+    let successes = 0;
+    for (const ip of ["2001:db8:1:1::1", "2001:db8:1:1::2", "2001:db8:1:1:abcd::3", "2001:0db8:0001:0001::4", "2001:db8:1:1::5"]) {
+      for (let i = 0; i < 2; i += 1) {
+        if ((await readReceipts({ request: receiptRequest({ ip }), env })).status === 200) successes += 1;
+      }
+    }
+    expect(successes).toBe(6);
+    expect(net.anthropic).toHaveLength(6);
+
+    // The next /64 along is someone else.
+    installNetwork({ anthropic: [good()] });
+    expect((await readReceipts({ request: receiptRequest({ ip: "2001:db8:1:2::1" }), env })).status).toBe(200);
+  });
+
+  it("hashes two addresses in one IPv6 /64 alike, and IPv4 addresses whole", async () => {
+    const hash = (ip) => hashIp(new Request("https://x", { headers: { "CF-Connecting-IP": ip } }), "salt");
+    expect(await hash("2001:db8:1:1::1")).toBe(await hash("2001:DB8:1:1:ffff:ffff:ffff:ffff"));
+    expect(await hash("2001:db8:1:1::1")).not.toBe(await hash("2001:db8:1:2::1"));
+    expect(await hash("::1")).toBe(await hash("::2"));
+    expect(await hash("203.0.113.1")).not.toBe(await hash("203.0.113.2"));
+    expect(await hash("::ffff:203.0.113.1")).toBe(await hash("203.0.113.1"));
   });
 
   it("stores the IP only as a salted hash", async () => {
