@@ -73,6 +73,19 @@ describe("the quote form", () => {
     expect(textOf(markup, describedBy(markup, id))).toBe(quoteCopy.errors.invalidNumber);
   });
 
+  it("links the storage-blocked hint to the Remember checkbox", () => {
+    const markup = form(undefined, { remember: true, rememberBlocked: true });
+    const checkbox = markup.match(/<input[^>]*type="checkbox"[^>]*>/)?.[0] ?? "";
+    const why = checkbox.match(/aria-describedby="([^"]+)"/)?.[1] ?? "";
+    expect(textOf(markup, why)).toBe(quoteCopy.rememberBlocked);
+  });
+
+  it("does not describe the Remember checkbox while storage works", () => {
+    const checkbox = form().match(/<input[^>]*type="checkbox"[^>]*>/)?.[0] ?? "";
+    expect(checkbox).not.toBe("");
+    expect(checkbox).not.toContain("aria-describedby");
+  });
+
   it("leaves a field with no hint or error undescribed", () => {
     expect(describedBy(form(), "qb-business-name")).toBe("");
   });

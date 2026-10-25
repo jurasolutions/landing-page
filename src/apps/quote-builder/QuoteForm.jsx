@@ -299,8 +299,17 @@ export function QuoteForm({
         </div>
 
         <div>
-          <Checkbox label={copy.remember} checked={remember} onChange={(event) => onRemember(event.target.checked)} />
-          {rememberBlocked && <p className="qb-hint">{copy.rememberBlocked}</p>}
+          <Checkbox
+            label={copy.remember}
+            checked={remember}
+            onChange={(event) => onRemember(event.target.checked)}
+            aria-describedby={rememberBlocked ? "qb-remember-blocked" : undefined}
+          />
+          {rememberBlocked && (
+            <p className="qb-hint" id="qb-remember-blocked">
+              {copy.rememberBlocked}
+            </p>
+          )}
         </div>
       </Fieldset>
 
