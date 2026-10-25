@@ -13,6 +13,11 @@ export const ENV = {
   // where this is set (local runs). tests/limiter.test.js "draft tools"
   // covers the gate itself.
   AI_ALLOW_DRAFTS: "1",
+  // The limiter tests were written against 2 tries a visitor and 6 an IP, and
+  // keep those small numbers so each case stays short. The production
+  // defaults (5 and 15) are tested in tests/budget.test.js.
+  AI_TRIES_PER_DAY: "2",
+  AI_TRIES_PER_IP: "6",
 };
 
 export function message(text, { stop = "end_turn", input = 1500, output = 400 } = {}) {

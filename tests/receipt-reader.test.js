@@ -117,7 +117,7 @@ describe("privacy", () => {
     expect(all).not.toContain(Buffer.from(fakeJpeg(4096, marker)).toString("base64").slice(0, 40));
     const line = JSON.parse(logs.find((l) => l.includes('"ai-tool"')));
     expect(Object.keys(line).sort()).toEqual(
-      ["at", "day", "tool", "ok", "receipts", "repaired", "input_tokens", "output_tokens", "latency_ms"].sort()
+      ["at", "day", "tool", "ok", "receipts", "repaired", "input_tokens", "output_tokens", "cost_nano_usd", "latency_ms"].sort()
     );
     expect(line).toMatchObject({ tool: "receipt-reader", ok: true, receipts: 1, repaired: true, input_tokens: 3000 });
   });

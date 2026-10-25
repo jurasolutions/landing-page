@@ -154,12 +154,13 @@ describe("the try limit", () => {
   });
 
   it("is shared across AI tools by default, and per tool when configured", async () => {
-    expect(limitConfig({})).toEqual({ triesPerDay: 2, triesPerIp: 6, siteCap: 200, scope: "all" });
+    expect(limitConfig({})).toEqual({ triesPerDay: 5, triesPerIp: 15, budgetNano: 5_000_000_000, siteCap: null, scope: "all" });
     expect(
       limitConfig({ AI_TRIES_PER_DAY: "5", AI_TRIES_PER_IP: "10", AI_SITE_CAP: "50", AI_LIMIT_SCOPE: "per-tool" })
     ).toEqual({
       triesPerDay: 5,
       triesPerIp: 10,
+      budgetNano: 5_000_000_000,
       siteCap: 50,
       scope: "per-tool",
     });
@@ -324,7 +325,9 @@ describe("the site-wide cap", () => {
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(429);
     expect((await response.json()).error).toBe("cap");
-    expect(counts(DB)).toEqual({ tries: [0], calls: [200] });
+    // The budget is marked spent for the day; the call made is still counted.
+    expect(counts(DB)).toEqual({ tries: [0], calls: [1] });
+    expect(DB.rows("app_spend").map((r) => r.nano_usd)).toEqual([5_000_000_000]);
 
     const net = installNetwork({ anthropic: [] });
     const next = await readReceipts({ request: receiptRequest({ ip: "198.51.100.2" }), env });
@@ -381,7 +384,7 @@ describe("refunds", () => {
     installNetwork({ anthropic: [apiError(400, "invalid_request_error", "Your credit balance is too low")] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(429);
-    expect(counts(DB).calls).toEqual([200]);
+    expect(DB.rows("app_spend").map((r) => r.nano_usd)).toEqual([5_000_000_000]);
   });
 
   it("give back one failure per visitor per day: a second one the same day keeps the try", async () => {
@@ -477,7 +480,7 @@ describe("unexpected failures", () => {
 
 describe("a D1 statement that throws part-way", () => {
   const TAKE = /INSERT INTO app_tries/;
-  const config = { triesPerDay: 2, triesPerIp: 6, siteCap: 200, scope: "all" };
+  const config = { triesPerDay: 2, triesPerIp: 6, budgetNano: 5_000_000_000, siteCap: 200, scope: "all" };
   const args = { day: "2026-10-24", visitorHash: "h", ipHash: "i", key: "*", config };
 
   it("inside takeTry gives back the visitor's try when the IP take throws, then rethrows", async () => {
@@ -616,7 +619,7 @@ describe("checks before the counter", () => {
 describe("takeTry on its own", () => {
   it("never stores a count above the limit", async () => {
     const { DB } = await createD1().then((DB) => ({ DB }));
-    const config = { triesPerDay: 2, triesPerIp: 6, siteCap: 200, scope: "all" };
+    const config = { triesPerDay: 2, triesPerIp: 6, budgetNano: 5_000_000_000, siteCap: 200, scope: "all" };
     const args = { day: "2026-10-24", visitorHash: "h", ipHash: "i", key: "*", config };
     expect(await takeTry(DB, args)).toEqual({ ok: true, triesLeft: 1 });
     expect(await takeTry(DB, args)).toEqual({ ok: true, triesLeft: 0 });
@@ -631,7 +634,7 @@ describe("takeTry on its own", () => {
 
   it("never stores an IP count above the ceiling", async () => {
     const DB = await createD1();
-    const config = { triesPerDay: 2, triesPerIp: 3, siteCap: 200, scope: "all" };
+    const config = { triesPerDay: 2, triesPerIp: 3, budgetNano: 5_000_000_000, siteCap: 200, scope: "all" };
     const as = (visitorHash) => ({ day: "2026-10-24", visitorHash, ipHash: "i", key: "*", config });
     expect(await takeTry(DB, as("a"))).toEqual({ ok: true, triesLeft: 1 });
     expect(await takeTry(DB, as("a"))).toEqual({ ok: true, triesLeft: 0 });
@@ -647,7 +650,7 @@ describe("takeTry on its own", () => {
 
   it("refuses everything when the limit is set to 0", async () => {
     const DB = await createD1();
-    const config = { triesPerDay: 0, triesPerIp: 6, siteCap: 200, scope: "all" };
+    const config = { triesPerDay: 0, triesPerIp: 6, budgetNano: 5_000_000_000, siteCap: 200, scope: "all" };
     const args = { day: "d", visitorHash: "h", ipHash: "i", key: "*", config };
     expect(await takeTry(DB, args)).toEqual({ ok: false, reason: "limit" });
     expect(await takeTry(DB, { ...args, config: { ...config, triesPerDay: 2, triesPerIp: 0 } })).toEqual({

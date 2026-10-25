@@ -219,24 +219,39 @@ and download counts.
 ### AI tools: the shared limiter
 
 AI-tier tools call Claude from a Pages Function, so each try costs money. The
-rules (app factory PRD §5.4), in `server/limit.js`:
+rules (app factory PRD §5.4, changed by Ting Yu on 2026-10-25 to 5 tries a
+person and a US$5 daily budget), in `server/limit.js`:
 
-- **2 tries per visitor per SGT day** (`AI_TRIES_PER_DAY`), shared across all
-  AI tools (`AI_LIMIT_SCOPE=all`) or counted per tool (`per-tool`).
-- **6 tries per IP per SGT day** (`AI_TRIES_PER_IP`) on top of that, counted
+- **5 tries per visitor per SGT day** (`AI_TRIES_PER_DAY`), shared across all
+  AI tools (`AI_LIMIT_SCOPE=all`): a try in any AI tool counts toward the
+  same 5. `AI_LIMIT_SCOPE=per-tool` gives each tool its own count instead.
+- **15 tries per IP per SGT day** (`AI_TRIES_PER_IP`) on top of that, counted
   against a salted hash of the IP alone, so a private window or cleared
   cookies do not mean fresh tries. For IPv6 the hash is of the address's /64,
   because a home or office connection usually owns a whole /64 and can pick
-  any address in it. Six lets a shared office in three people's worth. Its
+  any address in it. Fifteen lets a shared office in three people's worth. Its
   rows live in `app_tries` with `tool` `#ip` (or `#ip:<slug>` per tool), so it
   needed no new table. Reserved keys start with `#`; slugs are `[a-z0-9-]`
   only, so the two never meet.
-- **A site-wide cap of 200 AI calls a day** (`AI_SITE_CAP`). Every request
-  actually sent to Anthropic takes a call first, the repair request included,
-  and a counted call is never given back, so the cap holds whatever the API or
-  the model answers. The SDK runs with `maxRetries: 0`, so nothing is sent
-  that was not counted. When the cap is reached every AI tool shows its "used
-  up for today" message.
+- **A site-wide budget of US$5 a day** (`AI_DAILY_BUDGET_USD`) on the Claude
+  API, for everyone together. Before any request is sent, its worst-case cost
+  (`reservationNano` in `server/anthropic.js`: the prompt plus 5,000 tokens an
+  image, and the full `max_tokens` of output) is reserved from the day's
+  budget in one conditional upsert on `app_spend`. If it would take the day
+  past the budget, the request is not sent and every AI tool shows its "used
+  up for today" message until midnight SGT. When the answer comes back, the
+  reservation is settled to the real cost, priced from the API's `usage` at
+  Haiku 5.5's list prices (`PRICE_NANO_USD`: US$0.10 in, US$0.50 out per
+  million tokens; thinking is billed as output). An error answer from the API
+  is not billed, so its reservation is released; a dropped connection or a
+  timeout may have been billed, so it keeps its reservation. Amounts are
+  whole nano-dollars (billionths of a dollar). The repair request reserves
+  and settles the same way, and the SDK runs with `maxRetries: 0`, so nothing
+  is sent that was not reserved. A typical one-receipt read costs a fraction
+  of a US cent, so US$5 is well over a thousand reads.
+- **An optional call cap** (`AI_SITE_CAP`, off by default). When set, it also
+  limits the number of AI calls a day; every request sent counts, the repair
+  included, and a counted call is never given back.
 - **The visitor** is a salted SHA-256 of `CF-Connecting-IP` and a random
   `jura_vid` cookie (HttpOnly, `Path=/api/apps`). Only the hash is stored.
   Cookie-less requests from one IP share one bucket, so refusing the cookie is
@@ -257,9 +272,10 @@ rules (app factory PRD §5.4), in `server/limit.js`:
   tools for the rest of the day; a rate limit shows the used-up message for
   that request (both fail closed).
 - **Refunds are bounded.** A visitor gets at most one try back per SGT day,
-  and an IP at most as many as its ceiling has visitors (6 ÷ 2 = 3 by
+  and an IP at most as many as its ceiling has visitors (15 ÷ 5 = 3 by
   default), so fresh cookies bring no fresh refunds. A second failure keeps
-  the try used, and one visitor cannot spend the site's cap on failures.
+  the try used, and one visitor cannot spend the site's budget on failures.
+  Money spent is never refunded to the budget.
   Refunds are recorded in `app_tries` under `tool` `#refund` (or
   `#refund:<slug>` per tool), before the try is given back. A refund is
   attempted at most once per request, and the answer's `triesLeft` counts it
@@ -267,10 +283,12 @@ rules (app factory PRD §5.4), in `server/limit.js`:
 - **A D1 error part-way** through taking a try gives back whatever was
   already taken and answers 503, so a transient error costs no one a try.
 - **Logs** are one JSON line per call: day, tool, ok, reason, receipt count,
-  tokens, latency. Never content. The SDK's own logging is off.
+  tokens, cost in nano-dollars (`cost_nano_usd`), latency. Never content. The
+  SDK's own logging is off.
 
 `GET /api/apps/limit?tool=<slug>` answers `{ triesLeft, triesPerDay,
-capReached, ready }` and issues the cookie. `ready: false` means the
+capReached, ready }` and issues the cookie. `capReached` is true once the
+day's budget is spent (or the call cap, if set, is reached). `ready: false` means the
 deployment is missing `DB`, `ANTHROPIC_API_KEY`, `TURNSTILE_SECRET` or
 `VISITOR_SALT`, which makes it a useful health check too.
 
@@ -416,9 +434,10 @@ setup is in `jurasolutions/outputs/growth/setup/toolbox-ai.md`.
 | `TURNSTILE_SECRET` | secret | AI tools | none: AI tools unavailable |
 | `VITE_TURNSTILE_SITE_KEY` | plain, **build time** | the AI tool pages | none in production; the dev server uses Cloudflare's test key |
 | `VISITOR_SALT` | secret | AI tools | none: AI tools unavailable |
-| `AI_TRIES_PER_DAY` | plain | AI tools | `2` |
-| `AI_TRIES_PER_IP` | plain | AI tools | `6` |
-| `AI_SITE_CAP` | plain | AI tools | `200` |
+| `AI_TRIES_PER_DAY` | plain | AI tools | `5` |
+| `AI_TRIES_PER_IP` | plain | AI tools | `15` |
+| `AI_DAILY_BUDGET_USD` | plain | AI tools | `5` (US dollars a day, all visitors together) |
+| `AI_SITE_CAP` | plain | AI tools | unset: no call cap, only the budget |
 | `AI_LIMIT_SCOPE` | plain | AI tools | `all` (or `per-tool`) |
 | `UNSUBSCRIBE_SECRET` | secret | `/unsubscribe` (same value as the growth CLI) | none: links do not verify |
 | `RESEND_WEBHOOK_SECRET` | secret | `/api/resend-webhook` | none: webhooks refused |
@@ -440,13 +459,15 @@ For local runs, Cloudflare's Turnstile test keys: site key
 
 ## D1
 
-One database, bound as `DB`. The schema is `migrations/0001_toolbox.sql`
-(wrangler's migrations format); every `day` is the SGT date:
+One database, bound as `DB`. The schema is `migrations/0001_toolbox.sql` and
+`migrations/0002_spend.sql` (wrangler's migrations format, applied in number
+order); every `day` is the SGT date:
 
 | Table | Holds |
 | --- | --- |
 | `app_tries(day, visitor_hash, tool, count)` | AI tries per visitor; `tool` is `*` when shared |
-| `app_calls(day, count)` | AI calls per day, for the site cap |
+| `app_calls(day, count)` | AI calls per day (and the optional call cap) |
+| `app_spend(day, nano_usd)` | what the AI tools spent on the Claude API that day, for the budget |
 | `app_usage(day, app_slug, opens, completions)` | anonymous counts |
 | `suppression(email_hash, email, reason, source, resend_email_id, created_at)` | addresses never to email |
 
@@ -473,6 +494,7 @@ built on sql.js with the real migrations.
 | `src/apps/pdf-merge-and-split/files.test.js`, `names.test.js` | the 20-file and 50 MB limits before reading, per-file messages, output names |
 | `src/apps/pdf-merge-and-split/offline.test.js`, `page.test.js` | no requests from the tool's code; the registry entry, the page as it opens, the left-out warning and the focusable thumbnails |
 | `tests/limiter.test.js` | the try limit, the per-IP ceiling (IPv6 by /64), site cap, bounded refunds, D1 errors part-way, upload checks, Turnstile |
+| `tests/budget.test.js` | the defaults (5 a visitor, 15 an IP, US$5 a day), pricing from `usage`, reserving and settling, the budget stopping everyone, unbilled errors, the next day |
 | `tests/receipt-reader.test.js` | the Claude request, the injection fixture, logs, storage |
 | `tests/unsubscribe.test.js` | the token contract (with a fixed vector), GET and one-click POST |
 | `tests/resend-webhook.test.js` | Svix verification, bounces, complaints, precedence, retries |
