@@ -389,6 +389,23 @@ describe("a D1 statement that throws part-way", () => {
     ]);
   });
 
+  it("during a refund never refunds twice, and only promises a try it gave back", async () => {
+    const DB = await createD1();
+    const cookie = `jura_vid=${crypto.randomUUID()}`;
+    installNetwork({ anthropic: [good()] });
+    expect((await readReceipts({ request: receiptRequest({ cookie }), env: { ...ENV, DB } })).status).toBe(200);
+
+    // The second try fails on the API's side. Its refund gives back the
+    // visitor's try, then the IP's, and that second give-back throws.
+    installNetwork({ anthropic: ["network"] });
+    const flaky = failingOn(DB, /SET count = count - 1/, 2);
+    const response = await readReceipts({ request: receiptRequest({ cookie }), env: { ...ENV, DB: flaky } });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 0 });
+    // Taken to 2, refunded once to 1: not twice, to 0.
+    expect(tries(DB)).toEqual([1]);
+  });
+
   it("answers 503 and leaves the visitor's tries as they were", async () => {
     const DB = await createD1();
     const net = installNetwork({ anthropic: [good()] });
