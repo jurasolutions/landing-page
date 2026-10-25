@@ -73,3 +73,48 @@ decisions: review round 1 changes-requested (U3 Remember hint unlinked); fix rou
 questions: -
 evidence:  merged branch: npm test -> 22 files, 296 passed; npm run build -> 5 routes prerendered
 ```
+
+## 2026-10-25T17:55+08:00 qa
+
+```
+status:    done
+persona:   qa
+ticket:    -
+artifacts: branch crew/toolbox-prd-audit-qa-01 (6b92253): reviews/qa-01.md, issues/06..11-defect-*.md,
+           tests/try-message.test.js (red); evidence in the session scratchpad qa/ (shots, downloads, fixtures, stub)
+decisions: env via wrangler --binding, not .dev.vars (card lists it read-only)
+           Anthropic and Turnstile stubbed locally; the Turnstile script answered by a Playwright route
+           APP-002 defect 06 is major but the tool is draft, so it does not block this ship
+questions: -
+evidence:  npm test -> 23 files, 319 passed; npm run build -> ok, 5 routes
+           qa branch: vitest -> 321 passed, 3 failed (tests/try-message.test.js, intended red; green with the copy fixed)
+           app factory 16P/0F; APP-001 13P/2F; APP-003 12P/2F; APP-002 10P/1F; scout 4P/0F
+           3rd try -> 429, stub calls stay 2; 5 MB -> 413 before counter; no file bytes in any request
+           prod build: /apps/receipt-reader -> not found; limit?tool=receipt-reader -> 404; limit -> ready:false
+```
+
+## 2026-10-25T18:30+08:00 reviewer (final; appended by conductor)
+
+```
+status:    done
+persona:   reviewer
+ticket:    final
+artifacts: reviews/code-review-final.md
+decisions: approve; pushing with no AI vars, D1 binding or migrations is safe (all Functions fail closed in JSON; /submit unchanged)
+           new should-fix N1: /apps description names receipts while APP-002 is draft -> folded into ticket 06-11 round
+           N2: refunds also capped per IP -> conductor keeps it (reviewer's recommendation)
+questions: -
+evidence:  npm test -> 319 passed; check-copy -> 352/352; workerd run with no D1/vars -> fail closed; security -> nothing >= 7
+```
+
+## 2026-10-25T18:35+08:00 conductor
+
+```
+status:    done
+persona:   conductor
+ticket:    06-11
+artifacts: merged crew/toolbox-prd-audit-qa-01 (6b92253) into crew/toolbox-prd-audit
+decisions: fix all six QA defects plus final-review N1 before shipping, in one developer round (ticket branch crew/toolbox-prd-audit-06-qa-fixes)
+questions: -
+evidence:  -
+```
