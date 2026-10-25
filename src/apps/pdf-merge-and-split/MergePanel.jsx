@@ -179,6 +179,7 @@ export function MergePanel({ app, copy, loadPdf }) {
         accept="application/pdf,.pdf"
         multiple
         dropNote={false}
+        chooseLabel={copy.buttons.choose}
         disabled={working}
         onFiles={addFiles}
       />

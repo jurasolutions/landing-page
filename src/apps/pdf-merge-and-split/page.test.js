@@ -3,7 +3,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import PdfMergeAndSplit from "./index.jsx";
-import { LeftOutNote } from "./MergePanel.jsx";
+import { LeftOutNote, MergePanel } from "./MergePanel.jsx";
 import { Thumbnails } from "./Thumbnails.jsx";
 import fs from "node:fs";
 import COPY from "./copy.js";
@@ -60,6 +60,12 @@ describe("the PDF merge and split page", () => {
     expect(html).toMatch(/<ol[^>]*tabindex="0"[^>]*aria-label="Pages in this file"|<ol[^>]*aria-label="Pages in this file"[^>]*tabindex="0"/);
     const css = fs.readFileSync(new URL("./pdf-merge-and-split.css", import.meta.url), "utf8");
     expect(css).toMatch(/\.pm-thumbs:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--border-focus\)/);
+  });
+
+  it("takes the Merge tab's Choose files button from the tool's own copy", () => {
+    const copy = { ...COPY, buttons: { ...COPY.buttons, choose: "Pick your PDFs" } };
+    const html = renderToStaticMarkup(React.createElement(MergePanel, { app, copy, loadPdf: async () => ({}) }));
+    expect(html).toContain(">Pick your PDFs<");
   });
 
   it("labels the file picker inputs", () => {
