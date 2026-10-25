@@ -1,6 +1,7 @@
 import React from "react";
 import { Alert, Button, Checkbox, Field, Icon, IconButton, Input, Select, Switch, Textarea } from "../../ds.js";
 import { FileDrop } from "../_shared/FileDrop.jsx";
+import { focusAction } from "../_shared/focus.js";
 import { formatCents, normaliseMoneyInput } from "./calc.js";
 import { LIMITS, VALID_DAYS, addDays, emptyItem } from "./model.js";
 
@@ -78,7 +79,7 @@ function ItemEditor({ item, index, count, figures, copy, update, move, remove })
   const set = (key) => (value) => update({ [key]: value });
 
   return (
-    <li className="qb-item">
+    <li className="qb-item" data-item={item.id}>
       <div className="qb-item-head">
         <h4 className="qb-item-title" id={id("title")}>
           {I.heading(n)}
@@ -89,6 +90,7 @@ function ItemEditor({ item, index, count, figures, copy, update, move, remove })
             size="lg"
             variant="ghost"
             label={I.moveUp(n)}
+            data-action="up"
             disabled={index === 0}
             onClick={() => move(-1)}
             icon={<Icon name="arrow-up" size={20} />}
@@ -98,6 +100,7 @@ function ItemEditor({ item, index, count, figures, copy, update, move, remove })
             size="lg"
             variant="ghost"
             label={I.moveDown(n)}
+            data-action="down"
             disabled={index === count - 1}
             onClick={() => move(1)}
             icon={<Icon name="arrow-down" size={20} />}
@@ -225,7 +228,20 @@ export function QuoteForm({
       items: current.items.map((item, i) => (i === index ? { ...item, ...changes } : item)),
     }));
 
-  const moveItem = (index) => (step) =>
+  // After a move, focus stays with the item: on the button pressed, or on its
+  // other move button once it reaches the top or the bottom.
+  const itemsRef = React.useRef(null);
+  const focusAfterMove = React.useRef(null);
+  React.useEffect(() => {
+    const target = focusAfterMove.current;
+    if (!target) return;
+    focusAfterMove.current = null;
+    focusAction(itemsRef.current?.querySelector(`[data-item="${target.id}"]`), target.action);
+  }, [quote.items]);
+
+  const moveItem = (index) => (step) => {
+    const moving = quote.items[index];
+    if (moving) focusAfterMove.current = { id: moving.id, action: step < 0 ? "up" : "down" };
     setQuote((current) => {
       const items = [...current.items];
       const target = index + step;
@@ -233,6 +249,7 @@ export function QuoteForm({
       [items[index], items[target]] = [items[target], items[index]];
       return { ...current, items };
     });
+  };
 
   const itemsFull = quote.items.length >= LIMITS.items;
   const addRef = React.useRef(null);
@@ -330,7 +347,7 @@ export function QuoteForm({
 
       <Fieldset legend={copy.sections.items}>
         {quote.items.length === 0 && <p className="qb-hint">{copy.emptyItems}</p>}
-        <ol className="qb-items">
+        <ol className="qb-items" ref={itemsRef}>
           {quote.items.map((item, index) => (
             <ItemEditor
               key={item.id}
