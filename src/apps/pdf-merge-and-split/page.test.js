@@ -3,6 +3,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import PdfMergeAndSplit from "./index.jsx";
+import { LeftOutNote } from "./MergePanel.jsx";
 import COPY from "./copy.js";
 import { REGISTRY, findApp } from "../registry.js";
 
@@ -32,6 +33,23 @@ describe("the PDF merge and split page", () => {
     // The Split panel is there but hidden until its tab is chosen.
     expect(html).toMatch(/role="tabpanel"[^>]*aria-label="Split"[^>]*hidden/);
     expect(html).toContain("Drop a PDF here, or choose a file");
+  });
+
+  it("warns above Merge and download that files with a problem are left out", () => {
+    const files = [
+      { id: "a", name: "a.pdf", status: "ready" },
+      { id: "b", name: "b.pdf", status: "problem", reason: "encrypted" },
+    ];
+    const html = renderToStaticMarkup(React.createElement(LeftOutNote, { files, copy: COPY })).replaceAll("&#x27;", "'");
+    expect(html).toContain("Files with a problem are left out. Remove them, or fix them and add them again.");
+  });
+
+  it("does not warn while every file is ready or still being checked", () => {
+    const files = [
+      { id: "a", name: "a.pdf", status: "ready" },
+      { id: "b", name: "b.pdf", status: "checking" },
+    ];
+    expect(renderToStaticMarkup(React.createElement(LeftOutNote, { files, copy: COPY }))).toBe("");
   });
 
   it("labels the file picker inputs", () => {

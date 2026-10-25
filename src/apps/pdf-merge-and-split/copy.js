@@ -29,6 +29,7 @@ export default {
     helper: "Add up to 20 files, under 50 MB in total. Drag to change the order.",
     listLabel: "Files to merge, in order",
     nameLabel: "Name for the new file",
+    leftOut: "Files with a problem are left out. Remove them, or fix them and add them again.",
     moved: (name, position, total) => `${name} is now file ${position} of ${total}.`,
   },
 

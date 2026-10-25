@@ -15,6 +15,19 @@ let counter = 0;
 const nextId = () => `pm-file-${(counter += 1)}`;
 
 /**
+ * Shown above "Merge and download" while any file has a problem, so a
+ * visitor is never handed a merged file that is quietly short of one.
+ */
+export function LeftOutNote({ files, copy }) {
+  if (!files.some((file) => file.status === "problem")) return null;
+  return (
+    <Alert tone="warning" icon={<Icon name="alert-circle" size={18} />}>
+      {copy.merge.leftOut}
+    </Alert>
+  );
+}
+
+/**
  * Merge: up to 20 PDFs, reordered by drag or by each file's Move up and Move
  * down buttons (the keyboard and touch equivalent of dragging), merged into
  * one download.
@@ -297,6 +310,7 @@ export function MergePanel({ app, copy, loadPdf }) {
               onChange={(event) => setName(event.target.value)}
             />
           </Field>
+          <LeftOutNote files={files} copy={copy} />
           <div>
             <Button
               type="button"
