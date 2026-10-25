@@ -5,6 +5,7 @@ import { readStored, removeStored, writeStored } from "../_shared/storage.js";
 import { safeFilename, saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
 import { useToast } from "../_shared/useToast.js";
+import { useFocusReturn } from "../_shared/focus.js";
 import { quoteTotals } from "./calc.js";
 import { newQuote } from "./model.js";
 import { parseQuoteFile, readBusiness, serialiseQuote } from "./quoteFile.js";
@@ -58,6 +59,8 @@ export default function QuoteBuilder({ app, copy }) {
   const [confirmNew, setConfirmNew] = React.useState(false);
   const openRef = React.useRef(null);
   const newRef = React.useRef(null);
+  // "Download PDF" is disabled while the PDF is made; focus goes back to it.
+  const holdFocus = useFocusReturn(pdfState === "working");
 
   const totals = React.useMemo(() => quoteTotals(quote), [quote]);
   const unsupported = React.useMemo(() => unprintableIn(allText(quote)), [quote]);
@@ -100,6 +103,7 @@ export default function QuoteBuilder({ app, copy }) {
 
   const downloadPdf = async () => {
     if (pdfState === "working") return;
+    holdFocus();
     setPdfState("working");
     try {
       const { buildQuotePdf } = await loadPdf();

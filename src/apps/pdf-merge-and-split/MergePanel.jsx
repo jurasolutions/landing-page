@@ -3,6 +3,7 @@ import { Alert, Button, Field, Icon, IconButton, Input } from "../../ds.js";
 import { FileDrop } from "../_shared/FileDrop.jsx";
 import { saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
+import { focusAction, useFocusReturn } from "../_shared/focus.js";
 import { admitFiles, problemMessage } from "./files.js";
 import { moveDown, moveItem, moveUp } from "./order.js";
 import { pdfFileName } from "./names.js";
@@ -50,6 +51,7 @@ export function MergePanel({ app, copy, loadPdf }) {
   const focusNext = React.useRef(null);
 
   const working = state === "working";
+  const holdFocus = useFocusReturn(working);
   const ready = files.filter((file) => file.status === "ready");
   const checking = files.some((file) => file.status === "checking");
 
@@ -59,10 +61,7 @@ export function MergePanel({ app, copy, loadPdf }) {
     if (!target) return;
     focusNext.current = null;
     const row = listRef.current?.querySelector(`[data-file="${target.id}"]`);
-    const wanted = row?.querySelector(`[data-action="${target.action}"]`);
-    const button = wanted && !wanted.disabled ? wanted : row?.querySelector("button:not([disabled])");
-    if (button) button.focus();
-    else focusFirstButton(panelRef.current);
+    if (!focusAction(row, target.action)) focusFirstButton(panelRef.current);
   }, [files]);
 
   const changed = () => {
@@ -118,6 +117,7 @@ export function MergePanel({ app, copy, loadPdf }) {
 
   const merge = async () => {
     if (working || ready.length === 0 || checking) return;
+    holdFocus();
     setState("working");
     await nextPaint();
     try {
