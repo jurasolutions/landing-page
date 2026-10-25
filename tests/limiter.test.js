@@ -14,8 +14,8 @@ async function setup(extra = {}) {
   return { DB, env: { ...ENV, DB, ...extra } };
 }
 
-/** The visitor's own counts (IP and cookie), leaving out the per-IP rows. */
-const tries = (DB) => DB.rows("app_tries").filter((r) => !r.tool.startsWith("#ip")).map((r) => r.count);
+/** The visitor's own counts (IP and cookie), leaving out the reserved '#' rows (per-IP, refunds). */
+const tries = (DB) => DB.rows("app_tries").filter((r) => !r.tool.startsWith("#")).map((r) => r.count);
 
 const counts = (DB) => ({
   tries: tries(DB),
@@ -329,6 +329,74 @@ describe("refunds", () => {
     expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
     expect(counts(DB)).toEqual({ tries: [0], calls: [1] });
     expect(DB.rows("app_tries").find((r) => r.tool === "#ip").count).toBe(0);
+  });
+
+  it("keep the try used when the API cannot process what was uploaded (400), as with a refusal", async () => {
+    const { DB, env } = await setup();
+    const cookie = `jura_vid=${crypto.randomUUID()}`;
+    const net = installNetwork({
+      anthropic: Array.from({ length: 5 }, () => apiError(400, "invalid_request_error", "Could not process image")),
+    });
+    const first = await readReceipts({ request: receiptRequest({ cookie }), env });
+    expect(first.status).toBe(502);
+    expect(await first.json()).toEqual({ error: "unreadable", triesLeft: 1 });
+    expect(tries(DB)).toEqual([1]);
+
+    // One visitor sending files the API rejects stops at their two tries.
+    const statuses = [];
+    for (let i = 0; i < 4; i += 1) statuses.push((await readReceipts({ request: receiptRequest({ cookie }), env })).status);
+    expect(statuses).toEqual([502, 429, 429, 429]);
+    expect(net.anthropic).toHaveLength(2);
+  });
+
+  it("still treat a 400 about the spend limit as a billing problem", async () => {
+    const { DB, env } = await setup();
+    installNetwork({ anthropic: [apiError(400, "invalid_request_error", "Your credit balance is too low")] });
+    const response = await readReceipts({ request: receiptRequest(), env });
+    expect(response.status).toBe(429);
+    expect(counts(DB).calls).toEqual([200]);
+  });
+
+  it("give back one failure per visitor per day: a second one the same day keeps the try", async () => {
+    const { DB, env } = await setup();
+    const cookie = `jura_vid=${crypto.randomUUID()}`;
+    installNetwork({ anthropic: ["network", "network"] });
+    const first = await readReceipts({ request: receiptRequest({ cookie }), env });
+    expect(await first.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    const second = await readReceipts({ request: receiptRequest({ cookie }), env });
+    expect(second.status).toBe(503);
+    expect(await second.json()).toEqual({ error: "unavailable", triesLeft: 1 });
+    expect(tries(DB)).toEqual([1]);
+
+    // A new SGT day brings a new refund.
+    installNetwork({ anthropic: ["network"] });
+    const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
+    const next = await readReceipts({ request: receiptRequest({ cookie }), env, now: tomorrow });
+    expect(await next.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+  });
+
+  it("stop one visitor using up the site cap with output that can never be repaired", async () => {
+    const { DB, env } = await setup({ AI_SITE_CAP: "20" });
+    const cookie = `jura_vid=${crypto.randomUUID()}`;
+    const net = installNetwork({ anthropic: Array.from({ length: 40 }, () => message("not json")) });
+    const statuses = [];
+    for (let i = 0; i < 6; i += 1) statuses.push((await readReceipts({ request: receiptRequest({ cookie }), env })).status);
+    // Refunded once, then two tries used: each try is a call and its repair.
+    expect(statuses).toEqual([502, 502, 502, 429, 429, 429]);
+    expect(net.anthropic).toHaveLength(6);
+    expect(counts(DB).calls).toEqual([6]);
+  });
+
+  it("give an IP as many refunds a day as its ceiling has visitors, so fresh cookies get no more", async () => {
+    // AI_TRIES_PER_IP 6 over AI_TRIES_PER_DAY 2: three visitors' worth.
+    const { env } = await setup();
+    installNetwork({ anthropic: Array.from({ length: 5 }, () => "network") });
+    const left = [];
+    for (let i = 0; i < 5; i += 1) {
+      const response = await readReceipts({ request: receiptRequest({ cookie: `jura_vid=${crypto.randomUUID()}` }), env });
+      left.push((await response.json()).triesLeft);
+    }
+    expect(left).toEqual([2, 2, 2, 1, 1]);
   });
 
   it("give the try back when the output cannot be repaired", async () => {

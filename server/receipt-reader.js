@@ -14,9 +14,10 @@
  *      visitor but takes its own call from the site cap (skipped at the cap)
  *   6. respond
  * An API or network failure, output that cannot be repaired, or anything
- * unexpected after step 3 gives the visitor's try back. A refusal does not:
- * it comes from what was uploaded. No call counted against the site cap is
- * ever given back.
+ * unexpected after step 3 gives the visitor's try back, once per visitor per
+ * SGT day (server/limit.js refundTry). A refusal, or an API 400 about what
+ * was sent, does not: it comes from what was uploaded. No call counted
+ * against the site cap is ever given back.
  * Nothing uploaded is stored anywhere: the images live in this request's
  * memory and go to Anthropic's API, and the result goes back to the browser.
  *
@@ -146,7 +147,7 @@ export async function handleReceiptRead({ request: incoming, env, registry, now 
  * whether the try came back.
  */
 function refundOnce(state) {
-  state.refund ??= refundTry(state.ctx.db, state.ctx).then(() => true);
+  state.refund ??= refundTry(state.ctx.db, state.ctx);
   return state.refund;
 }
 
@@ -175,13 +176,15 @@ async function readWithTry({ incoming, env, now, images, started, state }) {
     log({ ok: false, reason });
     return reply(ctx, { error, triesLeft: taken.triesLeft + (refunded ? 1 : 0) }, status);
   };
-  // The model declined what was uploaded: the try was used.
-  const refused = () => {
-    log({ ok: false, reason: "refusal" });
+  // The model declined what was uploaded, or the API could not process it:
+  // the try was used.
+  const refused = (reason = "refusal") => {
+    log({ ok: false, reason });
     return reply(ctx, { error: "unreadable", triesLeft: taken.triesLeft }, 502);
   };
   const apiFailure = async (error) => {
     const kind = classifyApiError(error);
+    if (kind === "input") return refused("api_400");
     if (kind === "billing") {
       const response = await fail("billing", 429, "cap");
       await closeForToday(ctx.db, ctx);
