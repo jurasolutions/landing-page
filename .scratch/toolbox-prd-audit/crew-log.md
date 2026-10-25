@@ -118,3 +118,20 @@ decisions: fix all six QA defects plus final-review N1 before shipping, in one d
 questions: -
 evidence:  -
 ```
+
+## 2026-10-25T19:20+08:00 developer (QA fixes; appended by conductor) and quality gate
+
+```
+status:    done
+persona:   developer, conductor (quality gate)
+ticket:    06-11, N1
+artifacts: merged crew/toolbox-prd-audit-06-qa-fixes (ea675ab); src/apps/_shared/{focus,controls}.js
+decisions: conductor reviewed the diff (small, targeted) instead of a further review round
+           GATE: go. Every review approves (01, 03, 04 after fix round, final); QA defects 06-11 fixed; N1 fixed
+           receipt reader stays draft (APP-002 open question 1: Ting Yu's own receipts); AI tools stay closed until the Pages setup is done
+           G4 (pre-answered by Ting Yu): fast-forward main to crew/toolbox-prd-audit and push -> Pages production build
+           PRDs stay in prd/pending until Ting Yu accepts the shipped build
+questions: -
+evidence:  npm test -> 25 files, 337 passed; npm run build -> ok, 5 routes prerendered
+           jura-growth check-copy -> 353/353; blocked-path diff vs origin/main -> empty; no crew worktree left
+```
