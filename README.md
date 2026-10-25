@@ -157,12 +157,17 @@ is `browser` or `ai`. Only `live` tools are listed on `/apps` or prerendered; a
 `copy.js` (default export: its words). `src/apps/loaders.js` finds both by
 folder name, so nothing else needs wiring. Every tool page gets the same shell
 (`src/apps/_shared/AppShell.jsx`): the one-line promise, the tool, a privacy
-note, then a talk-to-us card linking to `/?from=apps/<slug>#contact`.
+note, then a talk-to-us card linking to `/?from=apps/<slug>#contact`. A tool
+that shows the card itself (the receipt reader, under its out-of-tries notice)
+calls `useOwnTalkCard(true)`, and the shell leaves out its closing card so the
+page has it once.
 
 Shared pieces in `src/apps/_shared/`: `AppShell`, `FileDrop`, `ExportButtons`,
 `TryLimitNotice`, `TalkToUsCard`, `PrivacyNote`, plus `usage.js` (the
-fire-and-forget counter), `storage.js` (localStorage that never throws) and
-`download.js`.
+fire-and-forget counter), `storage.js` (localStorage that never throws),
+`download.js` and `pdfjs.js` (`openPdfjs`, the one way the tools load pdf.js:
+legacy build, worker by URL, no eval, and the loading task destroyed when a
+load fails; and `canvasToJpeg`).
 
 ### Usage counts
 
@@ -220,9 +225,12 @@ rules (app factory PRD §5.4), in `server/limit.js`:
   AI tools (`AI_LIMIT_SCOPE=all`) or counted per tool (`per-tool`).
 - **6 tries per IP per SGT day** (`AI_TRIES_PER_IP`) on top of that, counted
   against a salted hash of the IP alone, so a private window or cleared
-  cookies do not mean fresh tries. Six lets a shared office in three people's
-  worth. Its rows live in `app_tries` with `tool` `#ip` (or `#ip:<slug>` per
-  tool), so it needed no new table.
+  cookies do not mean fresh tries. For IPv6 the hash is of the address's /64,
+  because a home or office connection usually owns a whole /64 and can pick
+  any address in it. Six lets a shared office in three people's worth. Its
+  rows live in `app_tries` with `tool` `#ip` (or `#ip:<slug>` per tool), so it
+  needed no new table. Reserved keys start with `#`; slugs are `[a-z0-9-]`
+  only, so the two never meet.
 - **A site-wide cap of 200 AI calls a day** (`AI_SITE_CAP`). Every request
   actually sent to Anthropic takes a call first, the repair request included,
   and a counted call is never given back, so the cap holds whatever the API or
@@ -243,10 +251,21 @@ rules (app factory PRD §5.4), in `server/limit.js`:
   output (one repair, free to the visitor, skipped if the cap is reached) →
   respond. An API or network failure, output that cannot be repaired, or
   anything unexpected after the try is taken gives the visitor's try back
-  (never the site's call). A refusal (`stop_reason: "refusal"`) does not: it
-  comes from what was uploaded. A billing error from the API (spend limit
-  reached) closes the AI tools for the rest of the day; a rate limit shows the
-  used-up message for that request (both fail closed).
+  (never the site's call). A refusal (`stop_reason: "refusal"`) does not, and
+  nor does an API `400 invalid_request_error`: both come from what was
+  uploaded. A billing error from the API (spend limit reached) closes the AI
+  tools for the rest of the day; a rate limit shows the used-up message for
+  that request (both fail closed).
+- **Refunds are bounded.** A visitor gets at most one try back per SGT day,
+  and an IP at most as many as its ceiling has visitors (6 ÷ 2 = 3 by
+  default), so fresh cookies bring no fresh refunds. A second failure keeps
+  the try used, and one visitor cannot spend the site's cap on failures.
+  Refunds are recorded in `app_tries` under `tool` `#refund` (or
+  `#refund:<slug>` per tool), before the try is given back. A refund is
+  attempted at most once per request, and the answer's `triesLeft` counts it
+  only when it succeeded.
+- **A D1 error part-way** through taking a try gives back whatever was
+  already taken and answers 503, so a transient error costs no one a try.
 - **Logs** are one JSON line per call: day, tool, ok, reason, receipt count,
   tokens, latency. Never content. The SDK's own logging is off.
 
@@ -300,7 +319,7 @@ are the anonymous open and download counts.
 | `files.js` | the 20-file and 50 MB limits, checked from sizes before anything is read |
 | `names.js` | the names of the files handed back |
 | `pdf.js` | read, merge, keep pages and split, with pdf-lib, zipped with fflate |
-| `thumbs.js`, `Thumbnails.jsx` | page thumbnails for Split, drawn with pdf.js as they scroll into view |
+| `thumbs.js`, `Thumbnails.jsx` | page thumbnails for Split, drawn with pdf.js (through `_shared/pdfjs.js`) as they scroll into view; the list takes focus so the keyboard can scroll it |
 | `MergePanel.jsx`, `SplitPanel.jsx`, `Outcome.jsx`, `index.jsx` | the page: two tabs, both kept mounted |
 | `copy.js` | every word |
 | `__fixtures__/` | test PDFs: `fixtures.js` builds them, `make-fixtures.mjs` writes them out for trying by hand |
@@ -316,7 +335,8 @@ are the anonymous open and download counts.
   in its first 1024 bytes is "not a PDF", a pdf-lib encryption error is
   "password protected", any other failure (or no pages) is "damaged". The
   file keeps its place with its message and is left out of the merge; the
-  rest of the list is untouched. Encrypted files are never opened with
+  rest of the list is untouched. While any file has a problem, a warning
+  above "Merge and download" says it will be left out. Encrypted files are never opened with
   `ignoreEncryption`. pdf-lib's errors are ES5 classes, so `instanceof
   EncryptedPDFError` is false at run time; the check also reads the
   message, and `pdf.test.js` holds both libraries to the same answer on a
@@ -446,12 +466,13 @@ built on sql.js with the real migrations.
 | `src/apps/quote-builder/calc.test.js` | every money case in APP-001, rounding, float artefacts |
 | `src/apps/quote-builder/quote.test.js` | quote file round trip, PDF pagination and logos, WinAnsi |
 | `src/apps/receipt-reader/receipts.test.js` | the add-up check, CSV/XLSX/TSV exports, resize rules |
-| `src/apps/receipt-reader/read-state.test.js` | out of tries, and why Read receipts is off |
+| `src/apps/receipt-reader/read-state.test.js` | out of tries, why Read receipts is off, and when the tool shows its own talk-to-us card |
+| `src/apps/_shared/pdfjs.test.js` | opening a PDF with the shared pdf.js loader, cleaning up a failed load, JPEG encoding |
 | `src/apps/pdf-merge-and-split/ranges.test.js`, `order.test.js` | the page range parser and its messages; reordering by buttons and drag |
 | `src/apps/pdf-merge-and-split/pdf.test.js` | merging the three fixture page sizes, kept pages, split ZIPs, metadata, password, damaged and non-PDF files |
 | `src/apps/pdf-merge-and-split/files.test.js`, `names.test.js` | the 20-file and 50 MB limits before reading, per-file messages, output names |
-| `src/apps/pdf-merge-and-split/offline.test.js`, `page.test.js` | no requests from the tool's code; the registry entry and the page as it opens |
-| `tests/limiter.test.js` | the try limit, site cap, refunds, upload checks, Turnstile |
+| `src/apps/pdf-merge-and-split/offline.test.js`, `page.test.js` | no requests from the tool's code; the registry entry, the page as it opens, the left-out warning and the focusable thumbnails |
+| `tests/limiter.test.js` | the try limit, the per-IP ceiling (IPv6 by /64), site cap, bounded refunds, D1 errors part-way, upload checks, Turnstile |
 | `tests/receipt-reader.test.js` | the Claude request, the injection fixture, logs, storage |
 | `tests/unsubscribe.test.js` | the token contract (with a fixed vector), GET and one-click POST |
 | `tests/resend-webhook.test.js` | Svix verification, bounces, complaints, precedence, retries |
