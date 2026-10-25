@@ -2,14 +2,9 @@ import React from "react";
 import { Alert, Button, Checkbox, Field, Icon, IconButton, Input, Select, Switch, Textarea } from "../../ds.js";
 import { FileDrop } from "../_shared/FileDrop.jsx";
 import { focusAction } from "../_shared/focus.js";
+import { TAP, TAP_INPUT } from "../_shared/controls.js";
 import { formatCents, normaliseMoneyInput } from "./calc.js";
 import { LIMITS, VALID_DAYS, addDays, emptyItem } from "./model.js";
-
-// Form controls are 42px tall in the design system; the toolbox asks for 44.
-const TAP = { minHeight: "var(--tap-min)" };
-// The design system's Input clears its own left padding when it has no icon
-// (it sets paddingLeft: undefined after the padding shorthand), so restate it.
-const TAP_INPUT = { ...TAP, paddingLeft: "var(--space-3)" };
 
 // The design system's Input spreads its props after its own focus handlers,
 // so an onBlur passed to it would replace the one that clears its focus

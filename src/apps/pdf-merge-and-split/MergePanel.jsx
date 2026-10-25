@@ -3,14 +3,12 @@ import { Alert, Button, Field, Icon, IconButton, Input } from "../../ds.js";
 import { FileDrop } from "../_shared/FileDrop.jsx";
 import { saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
+import { TAP_INPUT } from "../_shared/controls.js";
 import { focusAction, useFocusReturn } from "../_shared/focus.js";
 import { admitFiles, problemMessage } from "./files.js";
 import { moveDown, moveItem, moveUp } from "./order.js";
 import { pdfFileName } from "./names.js";
 import { Outcome, focusFirstButton, nextPaint } from "./Outcome.jsx";
-
-// The design system's Input is 42px; tool pages lift every control to 44px.
-const TAP = { minHeight: "var(--tap-min)" };
 
 let counter = 0;
 const nextId = () => `pm-file-${(counter += 1)}`;
@@ -302,7 +300,7 @@ export function MergePanel({ app, copy, loadPdf }) {
             <Input
               id="pm-merge-name"
               name="fileName"
-              style={TAP}
+              style={TAP_INPUT}
               value={name}
               autoComplete="off"
               maxLength={120}
