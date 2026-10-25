@@ -135,3 +135,15 @@ questions: -
 evidence:  npm test -> 25 files, 337 passed; npm run build -> ok, 5 routes prerendered
            jura-growth check-copy -> 353/353; blocked-path diff vs origin/main -> empty; no crew worktree left
 ```
+
+## 2026-10-25T19:30+08:00 conductor (close)
+
+```
+status:    blocked
+persona:   conductor
+ticket:    -
+artifacts: origin/crew/toolbox-prd-audit pushed (Pages preview build); local main fast-forwarded to it
+decisions: `git push origin main` was denied by the session's permission settings; not worked around
+questions: Ting Yu to run `git push origin main` from repos/landing-page to deploy to production
+evidence:  git worktree list -> main checkout only
+```
