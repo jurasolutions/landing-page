@@ -1,9 +1,21 @@
 import { describe, expect, it } from "vitest";
 import COPY from "./copy.js";
-import { readBlocker, readBlockerText } from "./files.js";
+import { isOutOfTries, readBlocker, readBlockerText } from "./read-state.js";
 
 const OPEN = { limit: { ready: true, triesLeft: 2, capReached: false }, siteKey: "key", readyCount: 1, preparing: false, sending: false };
 const blocked = (changes) => readBlocker({ ...OPEN, ...changes });
+
+describe("out of tries", () => {
+  it("is true when the visitor's tries or the site's cap are used up", () => {
+    expect(isOutOfTries({ triesLeft: 0, capReached: false })).toBe(true);
+    expect(isOutOfTries({ triesLeft: 2, capReached: true })).toBe(true);
+  });
+
+  it("is false with a try left, or while the limit is loading", () => {
+    expect(isOutOfTries({ triesLeft: 1, capReached: false })).toBe(false);
+    expect(isOutOfTries(null)).toBe(false);
+  });
+});
 
 describe("why Read receipts is off", () => {
   it("is not off with a ready receipt, a try left and the service up", () => {

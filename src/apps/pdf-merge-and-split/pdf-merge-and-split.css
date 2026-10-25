@@ -1,0 +1,154 @@
+/* ---------------------------------------------------------------------------
+   PDF merge and split. Loaded with the tool's own chunk; classes prefixed pm-.
+   Tokens only.
+--------------------------------------------------------------------------- */
+
+.pm { max-width: var(--container-narrow); }
+
+/* Tabs set their padding inline with no sides; give each a 44px target. */
+.pm-tabs [role="tab"] {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  padding-inline: var(--space-3) !important;
+}
+
+.pm-empty {
+  font-size: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+/* ---- File list ---- */
+
+.pm-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pm-file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  transition: border-color var(--dur-fast) var(--ease-standard),
+    box-shadow var(--dur-fast) var(--ease-standard);
+}
+
+.pm-file[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+}
+.pm-file--dragging { opacity: 0.5; }
+.pm-file--target {
+  border-color: var(--brand);
+  box-shadow: var(--shadow-sm);
+}
+
+.pm-grip {
+  display: flex;
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.pm-file-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.pm-file-name {
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+
+.pm-file-status {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.pm-file-status--problem { color: var(--danger-fg); }
+
+.pm-file-tools {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-1);
+}
+
+/* ---- Thumbnails ---- */
+
+.pm-thumbs {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-4);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: var(--space-4);
+  max-height: 560px;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+}
+
+.pm-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  /* A long file has hundreds of these; let the browser skip the ones far
+     off screen. The size is a placeholder until the real one is known. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 112px auto 190px;
+}
+
+.pm-thumb-frame {
+  display: block;
+  width: 100%;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.pm-thumb-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pm-thumb-label {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+/* ---- Finishing ---- */
+
+.pm-finish { padding-top: var(--space-2); }
+
+/* Live regions stay in the page so screen readers hear what arrives in them,
+   but take no room (and no gap in the stack) while they are empty. */
+.pm-live:empty,
+.pm-outcome:empty { position: absolute; }
+
+@media (max-width: 560px) {
+  /* The name gets the full row; the three buttons sit beneath it. */
+  .pm-file:not(.pm-file--single) { flex-wrap: wrap; }
+  .pm-file:not(.pm-file--single) .pm-file-text { flex-basis: calc(100% - 2 * var(--space-5)); }
+  .pm-file:not(.pm-file--single) .pm-file-tools { margin-left: auto; }
+  .pm-thumbs {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    padding: var(--space-3);
+    gap: var(--space-3);
+  }
+  .pm-finish > div > button { width: 100%; }
+}

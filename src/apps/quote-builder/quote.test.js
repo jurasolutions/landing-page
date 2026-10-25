@@ -212,6 +212,17 @@ describe("the PDF", () => {
     expect(ops.some((o) => o.text.includes("jurasolutions"))).toBe(false);
   });
 
+  it("names Jura in the file's Creator and Producer only when the Made with line is on", async () => {
+    const metadata = async (madeWith) => {
+      const quote = sampleQuote(2, { madeWith });
+      const { bytes } = await buildQuotePdf(quote, quoteTotals(quote), COPY);
+      const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+      return [doc.getCreator() ?? "", doc.getProducer() ?? ""].join(" ");
+    };
+    expect(await metadata(true)).toContain("jurasolutions.sg/apps");
+    expect(await metadata(false)).not.toMatch(/jura/i);
+  });
+
   it("leaves out characters it cannot print instead of failing", async () => {
     const quote = sampleQuote(2);
     quote.business.name = "陈记 Trading";

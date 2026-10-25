@@ -3,10 +3,12 @@ import { Alert, Button, Icon, IconButton, Toast } from "../../ds.js";
 import { FileDrop } from "../_shared/FileDrop.jsx";
 import { ExportButtons } from "../_shared/ExportButtons.jsx";
 import { TryLimitNotice } from "../_shared/TryLimitNotice.jsx";
+import { TalkToUsCard } from "../_shared/TalkToUsCard.jsx";
 import { saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
 import { useToast } from "../_shared/useToast.js";
-import { MAX_FILES_CLIENT, fileMessage, readBlocker, readBlockerText } from "./files.js";
+import { MAX_FILES_CLIENT, fileMessage } from "./files.js";
+import { isOutOfTries, readBlocker, readBlockerText } from "./read-state.js";
 import { prepareFile } from "./prepare.js";
 import { SITE_KEY, createTurnstile } from "./turnstile.js";
 import { fetchLimit, sendReceipts } from "./api.js";
@@ -16,6 +18,28 @@ import { ReceiptResults } from "./ReceiptResults.jsx";
 import "./receipt-reader.css";
 
 let fileCounter = 0;
+
+/**
+ * The top of the upload area: the tries left, or why there are none. Out of
+ * tries, the upload area gives way to the come-back-tomorrow message with the
+ * talk-to-us card right under it (APP-002 §5.1 step 7).
+ */
+export function LimitArea({ limit, slug, copy }) {
+  if (limit && (!limit.ready || !SITE_KEY)) {
+    return (
+      <Alert tone="warning" icon={<Icon name="alert-circle" size={18} />}>
+        {copy.errors.notReady}
+      </Alert>
+    );
+  }
+  const limitCopy = { triesLeft: copy.triesLeft, limitReached: copy.limitReached, capReached: copy.capReached };
+  return (
+    <>
+      <TryLimitNotice limit={limit} copy={limitCopy} />
+      {isOutOfTries(limit) && <TalkToUsCard slug={slug} {...copy.talk} />}
+    </>
+  );
+}
 
 export default function ReceiptReader({ app, copy }) {
   const [limit, setLimit] = React.useState(null);
@@ -91,7 +115,7 @@ export default function ReceiptReader({ app, copy }) {
 
   const ready = files.filter((f) => f.status === "ready");
   const preparing = files.some((f) => f.status === "preparing");
-  const outOfTries = limit && (limit.capReached || limit.triesLeft <= 0);
+  const outOfTries = isOutOfTries(limit);
   const blocker = readBlocker({ limit, siteKey: SITE_KEY, readyCount: ready.length, preparing, sending });
   const canRead = blocker === null;
   const whyNot = readBlockerText(blocker, copy);
@@ -163,18 +187,10 @@ export default function ReceiptReader({ app, copy }) {
     },
   ];
 
-  const limitCopy = { triesLeft: copy.triesLeft, limitReached: copy.limitReached, capReached: copy.capReached };
-
   return (
     <div className="rr stack-6">
       <div className="rr-upload stack-4">
-        {limit && (!limit.ready || !SITE_KEY) ? (
-          <Alert tone="warning" icon={<Icon name="alert-circle" size={18} />}>
-            {copy.errors.notReady}
-          </Alert>
-        ) : (
-          <TryLimitNotice limit={limit} copy={limitCopy} />
-        )}
+        <LimitArea limit={limit} slug={app.slug} copy={copy} />
 
         {!outOfTries && (
           <>

@@ -24,7 +24,9 @@ export function anthropicClient(env) {
   return new Anthropic({
     apiKey: env.ANTHROPIC_API_KEY,
     baseURL: env.ANTHROPIC_BASE_URL || undefined,
-    maxRetries: 1,
+    // No retries inside the SDK: every request sent must be one the site
+    // cap has already counted (server/limit.js takeCall).
+    maxRetries: 0,
     timeout: 60_000,
     logLevel: "off",
   });

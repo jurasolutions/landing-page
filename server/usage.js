@@ -3,7 +3,8 @@
  * SGT day. No visitor identity, no content, no IP.
  */
 import { empty, json, readText, sgtDay } from "./http.js";
-import { isKnownSlug } from "./registry.js";
+import { findEntry } from "./registry.js";
+import { isServed } from "./drafts.js";
 
 const EVENTS = { open: "opens", complete: "completions" };
 
@@ -39,7 +40,9 @@ export async function handleUsage({ request, env, registry, now }) {
 
   const slug = payload?.slug;
   const event = payload?.event;
-  if (!isKnownSlug(slug, registry) || !Object.hasOwn(EVENTS, event ?? "")) {
+  // Only tools the site serves are counted, so the numbers the scout picks
+  // tools by cannot be padded with a draft slug.
+  if (!isServed(findEntry(slug, registry), env) || !Object.hasOwn(EVENTS, event ?? "")) {
     return json({ error: "bad_event" }, 400);
   }
 

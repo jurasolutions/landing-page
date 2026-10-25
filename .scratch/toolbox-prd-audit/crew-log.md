@@ -42,3 +42,20 @@ decisions: Ting Yu asked not to be consulted, so the reviewer's recommendations 
 questions: -
 evidence:  -
 ```
+
+## 2026-10-25T16:50+08:00 developer, reviewer (tickets 01, 03; appended by conductor)
+
+```
+status:    done
+persona:   developer (01, 03), reviewer (01, 03)
+ticket:    01, 03
+artifacts: merged crew/toolbox-prd-audit-01-app-003 (d104c94), crew/toolbox-prd-audit-03-ai-limiter (29c9c2d)
+           reviews/code-review-01.md (approve), reviews/code-review-03.md (approve)
+decisions: 01: APP-003 live; encrypted detection also by error message; split names pad to widest page number
+           03: per-IP via app_tries tool '#ip', no migration; AI_ALLOW_DRAFTS gates draft APIs; app_calls never decremented; maxRetries 0
+           should-fix items from both reviews go to ticket 05 after ticket 04 merges
+           setup guide (outputs/growth/setup/toolbox-ai.md) gains AI_TRIES_PER_IP, AI_ALLOW_DRAFTS, Web Analytics step
+questions: -
+evidence:  merged branch: npm test -> 19 files, 250 passed; npm run build -> ok, 5 routes prerendered
+           review 03 probes: cap 3 -> 3 API calls (was 10); 3 cookies 1 IP -> 6 then 429; draft API -> 404
+```

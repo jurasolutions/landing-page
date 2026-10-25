@@ -4,16 +4,21 @@ import { ENV, RECEIPT, apiError, cookieFrom, fakeHeic, fakeJpeg, fakePng, instal
 import { onRequestPost as readReceipts } from "../functions/api/apps/receipt-reader.js";
 import { onRequestGet as getLimit } from "../functions/api/apps/limit.js";
 import { limitConfig, takeTry } from "../server/limit.js";
+import registry from "../src/apps/registry.json";
 
 const good = () => message(JSON.stringify({ receipts: [RECEIPT] }));
+const refusal = () => message("", { stop: "refusal" });
 
 async function setup(extra = {}) {
   const DB = await createD1();
   return { DB, env: { ...ENV, DB, ...extra } };
 }
 
+/** The visitor's own counts (IP and cookie), leaving out the per-IP rows. */
+const tries = (DB) => DB.rows("app_tries").filter((r) => !r.tool.startsWith("#ip")).map((r) => r.count);
+
 const counts = (DB) => ({
-  tries: DB.rows("app_tries").map((r) => r.count),
+  tries: tries(DB),
   calls: DB.rows("app_calls").map((r) => r.count),
 });
 
@@ -28,7 +33,7 @@ describe("GET /api/apps/limit", () => {
   });
 
   it("says when the AI tools are not configured", async () => {
-    const response = await getLimit({ request: limitRequest(), env: {} });
+    const response = await getLimit({ request: limitRequest(), env: { AI_ALLOW_DRAFTS: "1" } });
     expect(await response.json()).toMatchObject({ ready: false, triesLeft: 0 });
   });
 
@@ -36,6 +41,57 @@ describe("GET /api/apps/limit", () => {
     const { env } = await setup();
     expect((await getLimit({ request: limitRequest({ tool: "quote-builder" }), env })).status).toBe(400);
     expect((await getLimit({ request: limitRequest({ tool: "nope" }), env })).status).toBe(400);
+  });
+});
+
+describe("draft tools", () => {
+  const entry = registry.find((e) => e.slug === "receipt-reader");
+  const asDraft = [{ ...entry, status: "draft" }];
+  const asLive = [{ ...entry, status: "live" }];
+  const production = async () => {
+    const { DB, env } = await setup();
+    delete env.AI_ALLOW_DRAFTS;
+    return { DB, env };
+  };
+
+  it("answer 404 from the AI Function before Turnstile, the counter or the API", async () => {
+    const { DB, env } = await production();
+    const net = installNetwork({ anthropic: [good()] });
+    const response = await readReceipts({ request: receiptRequest(), env, registry: asDraft });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "not_found" });
+    expect(net.turnstile).toHaveLength(0);
+    expect(net.anthropic).toHaveLength(0);
+    expect(DB.rows("app_tries")).toEqual([]);
+  });
+
+  it("answer 404 from /api/apps/limit", async () => {
+    const { env } = await production();
+    const response = await getLimit({ request: limitRequest(), env, registry: asDraft });
+    expect(response.status).toBe(404);
+    expect(response.headers.get("Set-Cookie")).toBeNull();
+  });
+
+  it("are served where AI_ALLOW_DRAFTS=1 (local runs only)", async () => {
+    const { env } = await production();
+    env.AI_ALLOW_DRAFTS = "1";
+    installNetwork({ anthropic: [good()] });
+    expect((await readReceipts({ request: receiptRequest(), env, registry: asDraft })).status).toBe(200);
+    expect((await getLimit({ request: limitRequest(), env, registry: asDraft })).status).toBe(200);
+  });
+
+  it("do not include live tools, which need no flag", async () => {
+    const { env } = await production();
+    installNetwork({ anthropic: [good()] });
+    expect((await readReceipts({ request: receiptRequest(), env, registry: asLive })).status).toBe(200);
+    expect((await getLimit({ request: limitRequest(), env, registry: asLive })).status).toBe(200);
+  });
+
+  it("follow the real registry when no list is passed", async () => {
+    const { env } = await production();
+    installNetwork({ anthropic: [good()] });
+    const expected = entry.status === "live" ? 200 : 404;
+    expect((await readReceipts({ request: receiptRequest(), env })).status).toBe(expected);
   });
 });
 
@@ -97,9 +153,12 @@ describe("the try limit", () => {
   });
 
   it("is shared across AI tools by default, and per tool when configured", async () => {
-    expect(limitConfig({})).toEqual({ triesPerDay: 2, siteCap: 200, scope: "all" });
-    expect(limitConfig({ AI_TRIES_PER_DAY: "5", AI_SITE_CAP: "50", AI_LIMIT_SCOPE: "per-tool" })).toEqual({
+    expect(limitConfig({})).toEqual({ triesPerDay: 2, triesPerIp: 6, siteCap: 200, scope: "all" });
+    expect(
+      limitConfig({ AI_TRIES_PER_DAY: "5", AI_TRIES_PER_IP: "10", AI_SITE_CAP: "50", AI_LIMIT_SCOPE: "per-tool" })
+    ).toEqual({
       triesPerDay: 5,
+      triesPerIp: 10,
       siteCap: 50,
       scope: "per-tool",
     });
@@ -107,12 +166,59 @@ describe("the try limit", () => {
     const { DB, env } = await setup({ AI_LIMIT_SCOPE: "per-tool" });
     installNetwork({ anthropic: [good()] });
     await readReceipts({ request: receiptRequest(), env });
-    expect(DB.rows("app_tries")[0].tool).toBe("receipt-reader");
+    expect(DB.rows("app_tries").map((r) => r.tool).sort()).toEqual(["#ip:receipt-reader", "receipt-reader"]);
 
     const shared = await setup();
     installNetwork({ anthropic: [good()] });
     await readReceipts({ request: receiptRequest(), env: shared.env });
-    expect(shared.DB.rows("app_tries")[0].tool).toBe("*");
+    expect(shared.DB.rows("app_tries").map((r) => r.tool).sort()).toEqual(["#ip", "*"]);
+  });
+});
+
+describe("the per-IP ceiling", () => {
+  it("stops fresh cookies from one IP at 6 calls a day", async () => {
+    const { DB, env } = await setup();
+    const net = installNetwork({ anthropic: Array.from({ length: 12 }, good) });
+    const statuses = [];
+    for (let v = 0; v < 4; v += 1) {
+      const cookie = `jura_vid=${crypto.randomUUID()}`;
+      for (let i = 0; i < 3; i += 1) statuses.push((await readReceipts({ request: receiptRequest({ cookie }), env })).status);
+    }
+    expect(statuses.filter((s) => s === 200)).toHaveLength(6);
+    expect(net.anthropic).toHaveLength(6);
+    expect(counts(DB).calls).toEqual([6]);
+
+    const fresh = `jura_vid=${crypto.randomUUID()}`;
+    const refused = await readReceipts({ request: receiptRequest({ cookie: fresh }), env });
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toEqual({ error: "limit", triesLeft: 0 });
+    const left = await getLimit({ request: limitRequest({ cookie: fresh }), env });
+    expect(await left.json()).toMatchObject({ triesLeft: 0, capReached: false });
+
+    // Another IP is unaffected.
+    installNetwork({ anthropic: [good()] });
+    expect((await readReceipts({ request: receiptRequest({ ip: "198.51.100.7" }), env })).status).toBe(200);
+  });
+
+  it("stores the IP only as a salted hash", async () => {
+    const { DB, env } = await setup();
+    installNetwork({ anthropic: [good()] });
+    await readReceipts({ request: receiptRequest({ ip: "203.0.113.77" }), env });
+    const stored = JSON.stringify(DB.rows("app_tries"));
+    expect(stored).not.toContain("203.0.113.77");
+    expect(DB.rows("app_tries").map((r) => r.tool).sort()).toEqual(["#ip", "*"]);
+  });
+
+  it("is configurable with AI_TRIES_PER_IP and gives its try back on a refund", async () => {
+    const { DB, env } = await setup({ AI_TRIES_PER_IP: "1" });
+    installNetwork({ anthropic: ["network", good()] });
+    const first = await readReceipts({ request: receiptRequest({ cookie: `jura_vid=${crypto.randomUUID()}` }), env });
+    expect(first.status).toBe(503);
+    const second = await readReceipts({ request: receiptRequest({ cookie: `jura_vid=${crypto.randomUUID()}` }), env });
+    expect(second.status).toBe(200);
+    const third = await readReceipts({ request: receiptRequest({ cookie: `jura_vid=${crypto.randomUUID()}` }), env });
+    expect(third.status).toBe(429);
+    expect(DB.rows("app_tries").find((r) => r.tool === "#ip").count).toBe(1);
   });
 });
 
@@ -128,12 +234,61 @@ describe("the site-wide cap", () => {
     expect(await fourth.json()).toEqual({ error: "cap", triesLeft: 0 });
     expect(net.anthropic).toHaveLength(3);
     expect(counts(DB).calls).toEqual([3]);
-    // The refused visitor keeps their own tries for when the cap resets.
-    const fourthVisitor = DB.rows("app_tries").filter((r) => r.count > 0);
-    expect(fourthVisitor).toHaveLength(3);
+    // The refused visitor keeps their own tries (and their IP's) for when the cap resets.
+    expect(DB.rows("app_tries").filter((r) => r.count > 0)).toHaveLength(6);
+    expect(tries(DB).filter((n) => n > 0)).toHaveLength(3);
 
     const someoneNew = await getLimit({ request: limitRequest({ ip: "192.0.2.9" }), env });
     expect(await someoneNew.json()).toMatchObject({ triesLeft: 2, capReached: true });
+  });
+
+  it("holds at a test cap of 3 when the model refuses: five refusals make at most 3 API calls", async () => {
+    const { DB, env } = await setup({ AI_SITE_CAP: "3" });
+    const net = installNetwork({ anthropic: Array.from({ length: 5 }, refusal) });
+    for (const ip of ["192.0.2.1", "192.0.2.2", "192.0.2.3", "192.0.2.4", "192.0.2.5"]) {
+      await readReceipts({ request: receiptRequest({ ip }), env });
+    }
+    expect(net.anthropic.length).toBeLessThanOrEqual(3);
+    expect(counts(DB).calls).toEqual([3]);
+  });
+
+  it("counts a refusal as a used try: it comes from what was uploaded", async () => {
+    const { DB, env } = await setup();
+    installNetwork({ anthropic: [refusal()] });
+    const response = await readReceipts({ request: receiptRequest(), env });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "unreadable", triesLeft: 1 });
+    expect(tries(DB)).toEqual([1]);
+  });
+
+  it("counts the repair call against the cap", async () => {
+    const { DB, env } = await setup({ AI_SITE_CAP: "3" });
+    const net = installNetwork({ anthropic: [message("not json"), good(), good()] });
+    expect((await readReceipts({ request: receiptRequest({ ip: "192.0.2.1" }), env })).status).toBe(200);
+    expect(counts(DB).calls).toEqual([2]);
+    expect((await readReceipts({ request: receiptRequest({ ip: "192.0.2.2" }), env })).status).toBe(200);
+    expect(counts(DB).calls).toEqual([3]);
+    const third = await readReceipts({ request: receiptRequest({ ip: "192.0.2.3" }), env });
+    expect(third.status).toBe(429);
+    expect(net.anthropic).toHaveLength(3);
+  });
+
+  it("skips the repair when the cap is reached, gives the try back and answers unavailable", async () => {
+    const { DB, env } = await setup({ AI_SITE_CAP: "1" });
+    const net = installNetwork({ anthropic: [message("not json")] });
+    const response = await readReceipts({ request: receiptRequest(), env });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(net.anthropic).toHaveLength(1);
+    expect(counts(DB).calls).toEqual([1]);
+    expect(tries(DB)).toEqual([0]);
+  });
+
+  it("never retries a failed call behind the counter's back", async () => {
+    const { env } = await setup();
+    const net = installNetwork({ anthropic: ["network", good()] });
+    await readReceipts({ request: receiptRequest(), env });
+    expect(net.anthropic).toHaveLength(1);
   });
 
   it("closes for the day when the API reports a billing problem, and refunds the try", async () => {
@@ -156,7 +311,7 @@ describe("the site-wide cap", () => {
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(429);
     expect((await response.json()).error).toBe("cap");
-    expect(counts(DB)).toEqual({ tries: [0], calls: [0] });
+    expect(counts(DB)).toEqual({ tries: [0], calls: [1] });
   });
 });
 
@@ -172,7 +327,8 @@ describe("refunds", () => {
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
-    expect(counts(DB)).toEqual({ tries: [0], calls: [0] });
+    expect(counts(DB)).toEqual({ tries: [0], calls: [1] });
+    expect(DB.rows("app_tries").find((r) => r.tool === "#ip").count).toBe(0);
   });
 
   it("give the try back when the output cannot be repaired", async () => {
@@ -182,7 +338,32 @@ describe("refunds", () => {
     expect(response.status).toBe(502);
     expect((await response.json()).error).toBe("unreadable");
     expect(net.anthropic).toHaveLength(2);
-    expect(counts(DB)).toEqual({ tries: [0], calls: [0] });
+    expect(counts(DB)).toEqual({ tries: [0], calls: [2] });
+  });
+});
+
+describe("unexpected failures", () => {
+  it("answer 503 unavailable when D1 is bound but the tables are missing", async () => {
+    const DB = await createD1({ migrate: false });
+    const net = installNetwork({ anthropic: [good()] });
+    const response = await readReceipts({ request: receiptRequest(), env: { ...ENV, DB } });
+    expect(response.status).toBe(503);
+    expect((await response.json()).error).toBe("unavailable");
+    expect(net.anthropic).toHaveLength(0);
+  });
+
+  it("give the try back when something throws after it was taken", async () => {
+    const { DB, env } = await setup();
+    installNetwork({ anthropic: [good()] });
+    // The model answered, but responding fails: an unexpected throw.
+    vi.spyOn(console, "log").mockImplementationOnce(() => {
+      throw new Error("log sink down");
+    });
+    const response = await readReceipts({ request: receiptRequest(), env });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(tries(DB)).toEqual([0]);
+    expect(counts(DB).calls).toEqual([1]);
   });
 });
 
@@ -276,19 +457,43 @@ describe("checks before the counter", () => {
 describe("takeTry on its own", () => {
   it("never stores a count above the limit", async () => {
     const { DB } = await createD1().then((DB) => ({ DB }));
-    const config = { triesPerDay: 2, siteCap: 200, scope: "all" };
-    const args = { day: "2026-10-24", visitorHash: "h", key: "*", config };
+    const config = { triesPerDay: 2, triesPerIp: 6, siteCap: 200, scope: "all" };
+    const args = { day: "2026-10-24", visitorHash: "h", ipHash: "i", key: "*", config };
     expect(await takeTry(DB, args)).toEqual({ ok: true, triesLeft: 1 });
     expect(await takeTry(DB, args)).toEqual({ ok: true, triesLeft: 0 });
     expect(await takeTry(DB, args)).toEqual({ ok: false, reason: "limit" });
     expect(await takeTry(DB, args)).toEqual({ ok: false, reason: "limit" });
-    expect(DB.rows("app_tries")).toEqual([{ day: "2026-10-24", visitor_hash: "h", tool: "*", count: 2 }]);
+    expect(DB.rows("app_tries")).toEqual([
+      { day: "2026-10-24", visitor_hash: "h", tool: "*", count: 2 },
+      { day: "2026-10-24", visitor_hash: "i", tool: "#ip", count: 2 },
+    ]);
     expect(DB.rows("app_calls")).toEqual([{ day: "2026-10-24", count: 2 }]);
+  });
+
+  it("never stores an IP count above the ceiling", async () => {
+    const DB = await createD1();
+    const config = { triesPerDay: 2, triesPerIp: 3, siteCap: 200, scope: "all" };
+    const as = (visitorHash) => ({ day: "2026-10-24", visitorHash, ipHash: "i", key: "*", config });
+    expect(await takeTry(DB, as("a"))).toEqual({ ok: true, triesLeft: 1 });
+    expect(await takeTry(DB, as("a"))).toEqual({ ok: true, triesLeft: 0 });
+    expect(await takeTry(DB, as("b"))).toEqual({ ok: true, triesLeft: 0 }); // the IP's last one
+    expect(await takeTry(DB, as("b"))).toEqual({ ok: false, reason: "limit" });
+    expect(DB.rows("app_tries").map((r) => [r.visitor_hash, r.count])).toEqual([
+      ["a", 2],
+      ["i", 3],
+      ["b", 1],
+    ]);
+    expect(DB.rows("app_calls")).toEqual([{ day: "2026-10-24", count: 3 }]);
   });
 
   it("refuses everything when the limit is set to 0", async () => {
     const DB = await createD1();
-    const config = { triesPerDay: 0, siteCap: 200, scope: "all" };
-    expect(await takeTry(DB, { day: "d", visitorHash: "h", key: "*", config })).toEqual({ ok: false, reason: "limit" });
+    const config = { triesPerDay: 0, triesPerIp: 6, siteCap: 200, scope: "all" };
+    const args = { day: "d", visitorHash: "h", ipHash: "i", key: "*", config };
+    expect(await takeTry(DB, args)).toEqual({ ok: false, reason: "limit" });
+    expect(await takeTry(DB, { ...args, config: { ...config, triesPerDay: 2, triesPerIp: 0 } })).toEqual({
+      ok: false,
+      reason: "limit",
+    });
   });
 });
