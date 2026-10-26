@@ -195,3 +195,15 @@ decisions: conductor ratified the timeout rule (a timed-out picture ends and kee
 questions: -
 evidence:  developer: npm test 497/498 (ticket-02 folder test), build ok; B1 test red->green, removing the fix fails 2 tests
 ```
+
+## 2026-10-27T05:00:00+08:00 conductor (ticket 02 fixes merged, ticket 03 go-live commit)
+
+```
+status:    done
+persona:   conductor
+ticket:    02, 03
+artifacts: ticket 02 fix round e8808e4, fa8992c (all six should-fix items and nit 8) merged; 4ab403e registry live, README APP-004 section, limiter "second cost", env var AI_IMAGE_MODEL, AI binding, health check row, tests table, operating card test count
+decisions: draft-404 test now injects a draft registry, as limiter.test.js does
+questions: -
+evidence:  npx vitest run -> 34 files, 546 passed; npm run build -> prerenders apps/product-photo-studio.html
+```
