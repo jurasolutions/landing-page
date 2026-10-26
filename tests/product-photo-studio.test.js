@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createD1 } from "./helpers/d1.js";
-import { ENV, aiFailure, aiPicture, aiQuota, cookieFrom, fakeAi, fakeHeic, fakeJpeg, installNetwork, jpegOf, limitRequest, message, receiptRequest, RECEIPT } from "./helpers/ai.js";
+import { ENV, apiError, aiFailure, aiPicture, aiQuota, cookieFrom, fakeAi, fakeHeic, fakeJpeg, installNetwork, jpegOf, limitRequest, message, receiptRequest, RECEIPT } from "./helpers/ai.js";
 import { NO_PRODUCT, STUDIO, studioRequest, withPost } from "./helpers/studio.js";
 import { onRequestPost as studio } from "../functions/api/apps/product-photo-studio.js";
 import { onRequestPost as readReceipts } from "../functions/api/apps/receipt-reader.js";
@@ -190,6 +190,22 @@ describe("the Workers AI daily allocation", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).posts.map((post) => "image" in post)).toEqual([true, true, false]);
     expect(await limitFor(env, "product-photo-studio", NOW)).toMatchObject({ capReached: true });
+  });
+});
+
+describe("an Anthropic billing error on a studio try", () => {
+  it("closes every AI tool for the day, with the pictures' reservation released before the close, not after", async () => {
+    const { DB, env, ai } = await setup();
+    installNetwork({ anthropic: [apiError(402, "billing_error", "Your credit balance is too low")] });
+    const response = await call(env);
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: "cap", triesLeft: 2 });
+    expect(ai.calls).toHaveLength(0);
+    expect(spend(DB)).toBeGreaterThanOrEqual(5_000_000_000);
+    for (const tool of ["receipt-reader", "quote-builder", "product-photo-studio"]) {
+      const limit = await (await getLimit({ request: limitRequest({ tool }), env })).json();
+      expect(limit, tool).toMatchObject({ capReached: true });
+    }
   });
 });
 

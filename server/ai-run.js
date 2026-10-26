@@ -7,9 +7,9 @@
  *   5. validate the output, with one repair attempt that is free to the
  *      visitor but reserves its own cost from the budget (skipped when the
  *      budget would not cover it)
- *   5b. a tool's optional `finish` step: a second, non-Claude cost (the food
- *      post maker's pictures) reserved with the try at step 3 and settled
- *      here; it can answer with its own status or fail the try
+ *   5b. a tool's optional `finish` step: a second, non-Claude cost (the
+ *      product photo studio's pictures) reserved with the try at step 3 and
+ *      settled here; it can answer with its own status or fail the try
  *   6. respond
  * An API or network failure, output that cannot be repaired, or anything
  * unexpected after step 3 gives the visitor's try back, once per visitor per
@@ -20,7 +20,7 @@
  *
  * Responses (`error` is a code; the page owns the words):
  *   200 the tool's own body, plus triesLeft (a finish step may answer with
- *       another status, such as the food post maker's 422 no_food)
+ *       another status, such as the product photo studio's 422 no_product)
  *   429 { error: "limit" | "cap", triesLeft }      502 { error: "unreadable" }
  *   503 { error: "unavailable" }
  */
@@ -81,8 +81,20 @@ export async function runAiTry({ incoming, env, now, started, tool, reserve, req
     const triesLeft = taken?.ok ? { triesLeft: taken.triesLeft + (refunded ? 1 : 0) } : {};
     return reply(ctx, { error: "unavailable", ...triesLeft }, 503);
   } finally {
-    if (state.held > 0) await settleQuietly(state.ctx.db, state.ctx, -state.held);
+    await releaseHeld(state);
   }
+}
+
+/**
+ * Releases the finish step's reservation if it is still held, once. Runs on
+ * every exit before that step, and before anything that sets the day's spend
+ * outright (closeForToday), so a later release cannot take the spend back
+ * below the budget and reopen the tools.
+ */
+async function releaseHeld(state) {
+  const held = state.held;
+  state.held = 0;
+  if (held > 0) await settleQuietly(state.ctx.db, state.ctx, -held);
 }
 
 /**
@@ -148,6 +160,8 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
     if (kind === "input") return refused("api_400");
     if (kind === "billing") {
       const response = await fail("billing", 429, "cap");
+      // Released first: the close must be the last word on today's spend.
+      await releaseHeld(state);
       await closeForToday(ctx.db, ctx);
       return response;
     }

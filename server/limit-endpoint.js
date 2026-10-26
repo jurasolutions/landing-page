@@ -7,7 +7,7 @@
  *
  * `ready` is false when the AI tools are not configured on this deployment
  * (no D1 binding, API key, Turnstile secret or visitor salt, or a binding only
- * that tool needs, such as the food post maker's Workers AI), so the page can
+ * that tool needs, such as the product photo studio's Workers AI), so the page can
  * say the tool is unavailable instead of failing on the first try. It also
  * makes this a health check: `curl https://jurasolutions.sg/api/apps/limit`.
  * The first call issues the visitor cookie.
