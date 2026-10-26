@@ -4,7 +4,7 @@ import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 
 import COPY from "./copy.js";
 import { quoteTotals } from "./calc.js";
-import { addDays, displayDate, newQuote, suggestNumber, DEFAULT_GST_RATE } from "./model.js";
+import { DEFAULT_BUSINESS_NAME, addDays, displayDate, effectiveQuote, newQuote, nextNumber, DEFAULT_GST_RATE } from "./model.js";
 import { FILE_FORMAT, parseQuoteFile, readBusiness, serialiseQuote } from "./quoteFile.js";
 import { toPrintable, unprintableIn } from "./winansi.js";
 import { A4, buildQuotePdf, fitLogo } from "./pdf.js";
@@ -49,11 +49,35 @@ describe("the default GST rate", () => {
 });
 
 describe("quote numbers and dates", () => {
-  it("suggests Q-YYYYMMDD-01 and counts up on the same day", () => {
-    expect(suggestNumber("2026-10-24")).toBe("Q-20261024-01");
-    expect(suggestNumber("2026-10-24", "Q-20261024-01")).toBe("Q-20261024-02");
-    expect(suggestNumber("2026-10-25", "Q-20261024-07")).toBe("Q-20261025-01");
-    expect(suggestNumber("2026-10-24", "my own number")).toBe("Q-20261024-01");
+  it("runs Q-0001, Q-0002 and follows a number the visitor typed (APP-001a)", () => {
+    expect(nextNumber()).toBe("Q-0001");
+    expect(nextNumber("Q-0001")).toBe("Q-0002");
+    expect(nextNumber("Q-0099")).toBe("Q-0100");
+    expect(nextNumber("INV-2026-014")).toBe("INV-2026-015");
+    expect(nextNumber("Q-20261024-01")).toBe("Q-20261024-02");
+    expect(nextNumber("999")).toBe("1000");
+    expect(nextNumber("7A")).toBe("8A");
+    expect(nextNumber("my own number")).toBe("Q-0001");
+  });
+
+  it("starts with an empty number and business name, which print as their placeholders", () => {
+    const quote = newQuote({ today: "2026-10-26" });
+    expect(quote.details.number).toBe("");
+    expect(quote.business.name).toBe("");
+    const shown = effectiveQuote(quote, "Q-0003");
+    expect(shown.details.number).toBe("Q-0003");
+    expect(shown.business.name).toBe(DEFAULT_BUSINESS_NAME);
+    expect(DEFAULT_BUSINESS_NAME).toBe("Jura Solutions");
+  });
+
+  it("uses what the visitor typed over a placeholder", () => {
+    const quote = newQuote({ today: "2026-10-26" });
+    quote.details.number = "JS-77";
+    quote.business.name = "Tan Brothers";
+    const shown = effectiveQuote(quote, "Q-0003");
+    expect(shown.details.number).toBe("JS-77");
+    expect(shown.business.name).toBe("Tan Brothers");
+    expect(effectiveQuote({ ...quote, business: { ...quote.business, name: "   " } }, "Q-1").business.name).toBe(DEFAULT_BUSINESS_NAME);
   });
 
   it("is valid for 30 days by default", () => {

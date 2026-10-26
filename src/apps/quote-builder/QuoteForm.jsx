@@ -4,7 +4,7 @@ import { FileDrop } from "../_shared/FileDrop.jsx";
 import { focusAction } from "../_shared/focus.js";
 import { TAP, TAP_INPUT } from "../_shared/controls.js";
 import { formatCents, normaliseMoneyInput } from "./calc.js";
-import { LIMITS, VALID_DAYS, addDays, emptyItem } from "./model.js";
+import { DEFAULT_BUSINESS_NAME, LIMITS, VALID_DAYS, addDays, emptyItem } from "./model.js";
 
 // The design system's Input spreads its props after its own focus handlers,
 // so an onBlur passed to it would replace the one that clears its focus
@@ -192,6 +192,7 @@ export function QuoteForm({
   rememberBlocked,
   onLogo,
   logoError,
+  numberPlaceholder = "",
 }) {
   const B = copy.business;
   const C = copy.customer;
@@ -266,7 +267,7 @@ export function QuoteForm({
   return (
     <div className="qb-form stack-6">
       <Fieldset legend={copy.sections.business}>
-        <TextField id="qb-business-name" label={B.name} value={quote.business.name} onChange={business("name")} autoComplete="organization" maxLength={LIMITS.short} />
+        <TextField id="qb-business-name" label={B.name} value={quote.business.name} placeholder={DEFAULT_BUSINESS_NAME} onChange={business("name")} autoComplete="organization" maxLength={LIMITS.short} />
         <TextField id="qb-business-address" label={B.address} value={quote.business.address} onChange={business("address")} multiline maxLength={LIMITS.address} />
         <div className="qb-row qb-row--2">
           <TextField id="qb-business-uen" label={B.uen} hint={B.uenHint} value={quote.business.uen} onChange={business("uen")} maxLength={LIMITS.short} />
@@ -333,7 +334,7 @@ export function QuoteForm({
       </Fieldset>
 
       <Fieldset legend={copy.sections.details}>
-        <TextField id="qb-number" label={D.number} value={quote.details.number} onChange={setDetail("number")} maxLength={LIMITS.number} />
+        <TextField id="qb-number" label={D.number} value={quote.details.number} placeholder={numberPlaceholder} onChange={setDetail("number")} maxLength={LIMITS.number} />
         <div className="qb-row qb-row--2">
           <TextField id="qb-date" label={D.date} type="date" value={quote.details.date} onChange={setDetail("date")} />
           <TextField id="qb-valid" label={D.validUntil} type="date" value={quote.details.validUntil} onChange={setDetail("validUntil")} />

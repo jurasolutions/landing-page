@@ -11,7 +11,7 @@ import { useToast } from "../_shared/useToast.js";
 import { MAX_FILES_CLIENT, fileMessage } from "./files.js";
 import { failureMessage, isOutOfTries, readBlocker, readBlockerText, showsTalkCard } from "./read-state.js";
 import { prepareFile } from "./prepare.js";
-import { SITE_KEY, createTurnstile } from "./turnstile.js";
+import { SITE_KEY, createTurnstile } from "../_shared/turnstile.js";
 import { fetchLimit, sendReceipts } from "./api.js";
 import { fromApi } from "./model.js";
 import { receiptTable, toCsv, toTsv, toXlsx } from "./exports.js";
@@ -66,7 +66,7 @@ export default function ReceiptReader({ app, copy }) {
   React.useEffect(() => {
     if (!SITE_KEY || !widgetRef.current) return undefined;
     let cancelled = false;
-    createTurnstile(widgetRef.current)
+    createTurnstile(widgetRef.current, () => cancelled)
       .then((widget) => {
         if (cancelled) widget.remove();
         else turnstile.current = widget;

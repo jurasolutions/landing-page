@@ -82,6 +82,7 @@ functions/               Cloudflare Pages Functions (each file is a route)
   api/apps/usage.js      POST /api/apps/usage, anonymous open/complete counts
   api/apps/limit.js      GET /api/apps/limit, AI tries left today
   api/apps/receipt-reader.js  POST, APP-002
+  api/apps/quote-builder.js   POST, APP-001a (draft a quote with AI)
 server/                  code the Functions share; outside functions/ so it is never a route
 migrations/              D1 schema, wrangler migrations format
 scripts/                 design system sync, per-route <head> prerender
@@ -151,7 +152,7 @@ because the Functions and the growth CLI (`repos/growth`) read it too:
 { "slug": "quote-builder", "name": "Quote builder",
   "description": "Professional PDF quotes with your logo, in minutes.",
   "category": "Sales", "industries": ["general", "retail", "logistics"],
-  "tier": "browser", "status": "live", "added": "2026-10-24", "prd": "APP-001" }
+  "tier": "ai", "status": "live", "added": "2026-10-24", "prd": "APP-001" }
 ```
 
 `category` is what the tool does: one of Sales, Finance, Admin, HR,
@@ -176,7 +177,8 @@ calls `useOwnTalkCard(true)`, and the shell leaves out its closing card so the
 page has it once.
 
 Shared pieces in `src/apps/_shared/`: `AppShell`, `FileDrop`, `ExportButtons`,
-`TryLimitNotice`, `TalkToUsCard`, `PrivacyNote`, plus `usage.js` (the
+`TryLimitNotice`, `TalkToUsCard`, `PrivacyNote`, plus `turnstile.js` and
+`ai-limit.js` (the AI tools' bot check and tries-left call), `usage.js` (the
 fire-and-forget counter), `storage.js` (localStorage that never throws),
 `download.js` and `pdfjs.js` (`openPdfjs`, the one way the tools load pdf.js:
 legacy build, worker by URL, no eval, and the loading task destroyed when a
@@ -193,8 +195,23 @@ cookie, no content.
 
 ### APP-001 Quote builder (`src/apps/quote-builder/`)
 
-Browser tier: nothing leaves the visitor's browser except the anonymous open
-and download counts.
+AI tier since APP-001a. The quote itself never leaves the visitor's browser;
+the only thing sent is the job described in the "Draft with AI" box, which
+goes to `POST /api/apps/quote-builder` and on to Claude. The rest of the tool
+works with the AI unavailable.
+
+- **Draft with AI** (`AiDraft.jsx`, `draft.js`; server side `server/quotes.js`
+  and `server/quote-drafter.js`). The example request shows as the box's
+  light-grey placeholder and is sent when the box is empty. The Function
+  checks Turnstile and the request's length (2,000 characters), then runs the
+  same try, budget and repair path as the receipt reader (`server/ai-run.js`).
+  The draft replaces the items, fills any customer field it names, and puts a
+  one-line "Scope:" at the top of the notes. It never invents a price.
+- **Placeholders.** The quote number and business name start empty and show
+  the next running number (Q-0001, Q-0002 …, or the next after a number the
+  visitor typed) and "Jura Solutions" in light grey. `effectiveQuote` in
+  `model.js` swaps them in for the preview, PDF, file name and saved file.
+  "Remember" keeps the last number used along with the business details.
 
 | File | Does |
 | --- | --- |
@@ -502,7 +519,8 @@ built on sql.js with the real migrations.
 | File | Covers |
 | --- | --- |
 | `src/apps/quote-builder/calc.test.js` | every money case in APP-001, rounding, float artefacts |
-| `src/apps/quote-builder/quote.test.js` | quote file round trip, PDF pagination and logos, WinAnsi |
+| `src/apps/quote-builder/quote.test.js` | quote file round trip, PDF pagination and logos, WinAnsi, running numbers and placeholders |
+| `src/apps/quote-builder/draft.test.js` | applying an AI draft to the quote, and what a failed draft says |
 | `src/apps/receipt-reader/receipts.test.js` | the add-up check, CSV/XLSX/TSV exports, resize rules |
 | `src/apps/receipt-reader/read-state.test.js` | out of tries, why Read receipts is off, and when the tool shows its own talk-to-us card |
 | `src/apps/_shared/pdfjs.test.js` | opening a PDF with the shared pdf.js loader, cleaning up a failed load, JPEG encoding |
@@ -513,6 +531,7 @@ built on sql.js with the real migrations.
 | `tests/limiter.test.js` | the try limit, the per-IP ceiling (IPv6 by /64), site cap, bounded refunds, D1 errors part-way, upload checks, Turnstile |
 | `tests/budget.test.js` | the defaults (5 a visitor, 15 an IP, US$5 a day), pricing from `usage`, reserving and settling, the budget stopping everyone, unbilled errors, the next day |
 | `tests/receipt-reader.test.js` | the Claude request, the injection fixture, logs, storage |
+| `tests/quote-drafter.test.js` | the quote draft request, input checks, repair, refunds, shared tries, logs, validation |
 | `tests/unsubscribe.test.js` | the token contract (with a fixed vector), GET and one-click POST |
 | `tests/resend-webhook.test.js` | Svix verification, bounces, complaints, precedence, retries |
 | `tests/usage.test.js`, `tests/enquiry.test.js`, `tests/shell.test.js` | counter, `from` value, registry, routes, pages, prerendered heads |

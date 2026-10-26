@@ -40,7 +40,7 @@ describe("GET /api/apps/limit", () => {
 
   it("refuses a slug that is not an AI tool", async () => {
     const { env } = await setup();
-    expect((await getLimit({ request: limitRequest({ tool: "quote-builder" }), env })).status).toBe(400);
+    expect((await getLimit({ request: limitRequest({ tool: "pdf-merge-and-split" }), env })).status).toBe(400);
     expect((await getLimit({ request: limitRequest({ tool: "nope" }), env })).status).toBe(400);
   });
 });
