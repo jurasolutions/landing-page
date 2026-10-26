@@ -178,9 +178,14 @@ calls `useOwnTalkCard(true)`, and the shell leaves out its closing card so the
 page has it once.
 
 Shared pieces in `src/apps/_shared/`: `AppShell`, `FileDrop`, `ExportButtons`,
-`TryLimitNotice`, `TalkToUsCard`, `PrivacyNote`, plus `turnstile.js` and
-`ai-limit.js` (the AI tools' bot check and tries-left call), `usage.js` (the
-fire-and-forget counter), `storage.js` (localStorage that never throws),
+`TryLimitNotice`, `LimitArea` (the tries-left notice, or the not-ready alert,
+with the out-of-tries talk card), `TalkToUsCard`, `PrivacyNote`, plus
+`turnstile.js` and `ai-limit.js` (the AI tools' bot check, tries-left call and
+out-of-tries rules), `usage.js` (the fire-and-forget counter), `storage.js`
+(localStorage and sessionStorage that never throw), `photos.js` (decode a
+photo once and make JPEGs at any long edge), `useBlobUrl.js` (an object URL
+that lives exactly as long as its blob), `controls.js`, `focus.js`,
+`useToast.js`,
 `download.js` and `pdfjs.js` (`openPdfjs`, the one way the tools load pdf.js:
 legacy build, worker by URL, no eval, and the loading task destroyed when a
 load fails; and `canvasToJpeg`).
@@ -467,7 +472,17 @@ stays in the tab's `sessionStorage`, so a reload after switching apps keeps it.
   dearer of the model and its fallback, and settles each picture drawn at its
   list price (`PRICES` in `image-gen.js`: about US$0.002 a 4B picture, US$0.016
   a 9B one, checked 2026-10-27). At least one picture or the try is refunded
-  and the answer is 503; `no_product` is 422 and keeps the try.
+  and the answer is 503. `no_product` is 422 and the try stays used (no picture is drawn, and the pictures' reservation is released).
+- **The endpoint.** `POST /api/apps/product-photo-studio`, multipart: `token`,
+  1 to 4 `files` (JPG, PNG or WEBP, 4 MB each), the same number of `refs`
+  (JPEG, at most 512 px and 300 KB), optional `name` (80) and `instruction`
+  (500). Answers `200 { products, posts: [{ look, caption, hashtags, alt,
+  image? }] x 3, triesLeft }`, `422 no_product`, `429 limit | cap`,
+  `400 bad_request | count`, `403 bot_check`, `413 too_large`,
+  `415 heic | type`, `502 unreadable`, `503 unavailable`. The header comment
+  of `server/product-photo-studio.js` is the full contract.
+- **Preview deploys** carry no `AI` binding (it is set on Production only), so
+  the studio reports itself unavailable there; that is expected.
 - **Local runs** have no `AI` binding, so the tool reports itself unavailable
   under `npm run dev:functions`. Adding `--ai AI` to the `wrangler pages dev`
   command uses the real, billed Workers AI.

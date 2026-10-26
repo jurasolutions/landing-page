@@ -207,3 +207,17 @@ decisions: draft-404 test now injects a draft registry, as limiter.test.js does
 questions: -
 evidence:  npx vitest run -> 34 files, 546 passed; npm run build -> prerenders apps/product-photo-studio.html
 ```
+
+## 2026-10-27T05:20:00+08:00 reviewer (final, appended by conductor)
+
+```
+status:    done
+persona:   reviewer
+ticket:    final
+artifacts: reviews/code-review-final.md
+decisions: approve; no blocking findings; contract, error codes and the pre-press closed state agree; receipt reader and quote builder unchanged in behaviour; no blocked path, no wrangler.toml, no secrets
+           should fix (README only) S1 shared pieces list, S2 endpoint contract and Preview ready:false, S3 no_product wording: fixed by the conductor
+           watch item: on the Workers free plan a 1102 at the live check would mean CPU
+questions: -
+evidence:  vitest 34 files 546 passed; build ok, prerendered head ok; jura-growth check pass; security pass 0 findings
+```
