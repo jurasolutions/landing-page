@@ -101,3 +101,31 @@ decisions: G2 and G3 opened by Ting Yu's standing instruction; every review reco
 questions: -
 evidence:  Workers AI -> 4006 "used up your daily free allocation of 10,000 neurons" after testing; resets 00:00 UTC (08:00 SGT)
 ```
+
+## 2026-10-27T02:45:00+08:00 conductor (infra: AI binding)
+
+```
+status:    done
+persona:   conductor (infra step of ticket 03)
+ticket:    03
+artifacts: Cloudflare Pages project landing-page, production deployment config
+decisions: added ai_bindings {"AI": {}} to production via PATCH /accounts/:id/pages/projects/landing-page with the logged-in wrangler OAuth token; no secret touched; takes effect on the next deploy
+questions: -
+evidence:  PATCH -> success; production now ai_bindings AI, d1 DB, the same 11 env var names as before
+```
+
+## 2026-10-27T03:00:00+08:00 conductor (direction change)
+
+```
+status:    done
+persona:   conductor
+ticket:    01, 02
+artifacts: reviews/direction-change.md; PRD renamed to prd-app-004-product-photo-studio-2026-10-27.md and rewritten; CONTEXT.md; spec.md
+decisions: Ting Yu changed APP-004 to a general product photo studio: 1-4 product photos + instruction with example prompts, 3 posts per try in social-post frames, caption choice and edit
+           photos now go to the image model as references (reverses the "photo never reaches the image model" decision); own product branding kept, nothing added
+           slug product-photo-studio, industries general/retail/fnb; feature folder keeps its name for history
+           both running developers redirected by message, P1/P2 commits kept
+           APP-001a reached main via PR #1 (646a1cb), so tech B4 is resolved
+questions: -
+evidence:  git log origin/main -> 646a1cb Merge pull request #1 from jurasolutions/crew/quote-ai-draft
+```
