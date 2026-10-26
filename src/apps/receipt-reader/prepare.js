@@ -7,65 +7,31 @@
  * { ok: false, reason: "heic" | "type" | "tooBig" | "unopenable" }.
  */
 import { canvasToJpeg, openPdfjs } from "../_shared/pdfjs.js";
+import { decodeImage, drawJpeg, fitLongEdge as fitEdge, imageKind, whiteCanvas } from "../_shared/photos.js";
 
 export const LONG_EDGE = 1600;
 export const QUALITY = 0.8;
 export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
-const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-
 export function kindOf(file) {
   const name = (file.name ?? "").toLowerCase();
   const type = (file.type ?? "").toLowerCase();
-  if (type === "image/heic" || type === "image/heif" || /\.(heic|heif)$/.test(name)) return "heic";
+  const kind = imageKind(file);
+  if (kind === "heic") return "heic";
   if (type === "application/pdf" || name.endsWith(".pdf")) return "pdf";
-  if (IMAGE_TYPES.includes(type) || /\.(jpe?g|png|webp)$/.test(name)) return "image";
-  return null;
+  return kind;
 }
 
 /** Width and height that fit the long edge, never enlarging. */
-export function fitLongEdge(width, height, edge = LONG_EDGE) {
-  const scale = Math.min(1, edge / Math.max(width, height));
-  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
-}
-
-function canvasFor(width, height) {
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  // JPEG has no transparency: give a PNG's clear areas a white background.
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, width, height);
-  return { canvas, context };
-}
-
-async function decode(file) {
-  if ("createImageBitmap" in window) {
-    try {
-      return await createImageBitmap(file, { imageOrientation: "from-image" });
-    } catch {
-      // Fall back to an <img> below.
-    }
-  }
-  const url = URL.createObjectURL(file);
-  try {
-    const image = new Image();
-    image.src = url;
-    await image.decode();
-    return image;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
+export const fitLongEdge = (width, height, edge = LONG_EDGE) => fitEdge(width, height, edge);
 
 async function fromImage(file) {
-  const source = await decode(file);
-  const { width, height } = fitLongEdge(source.width, source.height);
-  const { canvas, context } = canvasFor(width, height);
-  context.drawImage(source, 0, 0, width, height);
-  source.close?.();
-  return canvasToJpeg(canvas, QUALITY);
+  const source = await decodeImage(file);
+  try {
+    return await drawJpeg(source, LONG_EDGE, QUALITY);
+  } finally {
+    source.close?.();
+  }
 }
 
 async function fromPdf(file) {
@@ -75,7 +41,7 @@ async function fromPdf(file) {
     const base = page.getViewport({ scale: 1 });
     const { width, height } = fitLongEdge(base.width * 4, base.height * 4);
     const viewport = page.getViewport({ scale: width / base.width });
-    const { canvas, context } = canvasFor(width, height);
+    const { canvas, context } = whiteCanvas(width, height);
     await page.render({ canvasContext: context, viewport }).promise;
     return canvasToJpeg(canvas, QUALITY);
   } finally {

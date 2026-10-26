@@ -1,0 +1,309 @@
+/* ---------------------------------------------------------------------------
+   Product photo studio. Loaded with the tool's own chunk; classes prefixed
+   pps-. Tokens only.
+--------------------------------------------------------------------------- */
+
+.pps-upload { max-width: var(--container-narrow); }
+/* Focused only from code, after Start again with no tries left, as the results heading is. */
+.pps-upload:focus { outline: none; }
+
+.pps-hint {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.pps-label {
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+/* ---- Photos ---- */
+
+.pps-photos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pps-photo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+}
+
+.pps-thumb {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.pps-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: var(--surface-sunken);
+}
+
+.pps-photo-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+
+.pps-photo-name {
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.pps-photo-status {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pps-photo-status--error { color: var(--danger-fg); white-space: normal; }
+
+/* ---- Example instructions: a real button around the design system's Tag ---- */
+
+.pps-examples {
+  list-style: none;
+  margin: calc(-1 * var(--space-2)) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.pps-example {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+}
+
+.pps-example:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.pps-example:hover > span { border-color: var(--brand-border) !important; }
+.pps-example:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.pps-turnstile:empty { display: none; }
+
+/* ---- Results ---- */
+
+.pps-results-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.pps-results-heading { font-size: var(--text-h2); text-wrap: balance; }
+.pps-results-heading:focus { outline: none; }
+.pps-results-hint { margin-top: calc(-1 * var(--space-3)); max-width: var(--measure-prose); }
+
+.pps-products-heading { font-size: var(--text-h4); }
+
+.pps-products-list {
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--text-body-sm);
+  color: var(--text-body);
+  max-width: var(--measure-prose);
+}
+
+.pps-frames {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.pps-frame {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  overflow: hidden;
+  transition: border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard);
+}
+
+.pps-frame--picked {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand);
+}
+
+/* The social-post look: a header, the picture edge to edge, an action row,
+   then the caption. Plain, with no platform's name or marks. */
+.pps-post { border-bottom: 1px solid var(--border-subtle); }
+
+.pps-post-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.pps-avatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--brand);
+  color: var(--brand-on);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.pps-avatar--icon {
+  background: var(--brand-subtle);
+  color: var(--text-brand);
+}
+
+.pps-post-name {
+  min-width: 0;
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pps-picture {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  background: var(--surface-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pps-picture--square { aspect-ratio: 1 / 1; }
+
+.pps-picture img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.pps-picture-note {
+  padding: var(--space-5);
+  text-align: center;
+  font-size: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.pps-post-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  color: var(--text-strong);
+}
+
+.pps-post-actions-gap { flex: 1; }
+
+.pps-post-caption {
+  padding: 0 var(--space-3) var(--space-4);
+  font-size: var(--text-body-sm);
+  color: var(--text-body);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.pps-post-caption strong { color: var(--text-strong); }
+
+.pps-controls { padding: var(--space-4); }
+
+.pps-controls-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.pps-choice {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.pps-choice legend {
+  padding: 0;
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.pps-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-3);
+}
+
+.pps-ai-note {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.pps-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pps-actions > button { width: 100%; }
+
+.pps-toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translateX(-50%);
+  z-index: 50;
+  width: min(420px, calc(100% - 2 * var(--gutter)));
+}
+
+/* Three across on a wide screen; one column, kept to a phone's post width,
+   below that. */
+@media (max-width: 1023px) {
+  .pps-frames {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 480px;
+  }
+}
+
+@media (max-width: 560px) {
+  .pps-send button { width: 100%; }
+}
