@@ -129,3 +129,69 @@ decisions: Ting Yu changed APP-004 to a general product photo studio: 1-4 produc
 questions: -
 evidence:  git log origin/main -> 646a1cb Merge pull request #1 from jurasolutions/crew/quote-ai-draft
 ```
+
+## 2026-10-27T04:00:00+08:00 developer (ticket 01, appended by conductor)
+
+```
+status:    done (one known failure, cleared by merging ticket 02)
+persona:   developer
+ticket:    01 (rebuilt to direction-change.md: product-photo-studio)
+artifacts: branch crew/food-post-maker-01-server: P1 1d31795, P2 6d54ad3, e2257c8 image-gen, 4a5bfeb upload/ref checks, 6faa2ee prompt+schema+check, ea0162c registry, 7f14eec handler+closed marker, 1feafff ADRs 0001/0002
+decisions: timeout ends that picture and keeps its price; repeated hashtags dropped, fewer than 5 distinct -> repair; claim words in the typed name count as owner-given; edit prompt checked only for TM/R/C and image numbers; closed check before Turnstile; shell.test.js unchanged
+questions: -
+evidence:  npm test -> 490/491 (only "folder for every registered tool", ticket 02's folder); npm run build -> exit 0; after P1 385/385, after P2 386/386; mutation check on all-pictures-failed -> caught
+```
+
+## 2026-10-27T04:10:00+08:00 developer (ticket 02, appended by conductor)
+
+```
+status:    done
+persona:   developer
+ticket:    02 (rebuilt as the Product photo studio)
+artifacts: branch crew/food-post-maker-02-browser: 364e3c3 shared photo prep + session storage, 3e026a6 the page as a draft; src/apps/product-photo-studio/*, src/apps/_shared/{photos,storage}.js, registry, icons, content.js, tests/product-photo-studio-ui.test.js
+decisions: image path moved to _shared/photos.js (1600 and 512 px from one decode); each frame keeps its own copy of the 3 captions; Start again confirms inline; business name stored with the result
+questions: -
+evidence:  vitest -> 29 files, 431 passed; build ok, pdf.js lazy only; jura-growth check 76 strings -> pass; Playwright with stubbed API -> 3 frames, both JPG sizes, share, copy, 422/503, reload restore, 360 px ok
+```
+
+## 2026-10-27T04:20:00+08:00 reviewer (ticket 01, appended by conductor)
+
+```
+status:    done
+persona:   reviewer
+ticket:    01
+artifacts: reviews/code-review-01.md
+decisions: changes-requested; B1 billing error: finally releases the held picture reservation after closeForToday; S1 claim words from name; S2 /\b4006\b/ matches inside a request id; S3 tests for finish throwing and billing-with-finish, stale comments
+questions: -
+evidence:  vitest -> 490/491 (expected ticket-02 folder test); build ok; repros for B1, S2, S1 confirmed
+```
+Conductor: fix round sent for B1, S2, S3; S1 kept as the developer built it (a claim in the owner's typed business name is owner-given).
+
+## 2026-10-27T03:20:00+08:00 reviewer (ticket 02)
+
+```
+status:    done
+persona:   reviewer
+ticket:    02
+artifacts: .scratch/food-post-maker/reviews/code-review-02.md
+decisions: verdict approve: no blocking findings; contract matches 01 field for field; no blocked path touched
+           should fix (6): focus lost on Keep/Clear (index.jsx:390,393); preview URL leak for photos removed while preparing (index.jsx:124-142, prepare.js:37); "Choose this one" label flips with aria-pressed (PostFrame.jsx:136-145); /privacy omits the tab-kept result (content.js:147); LimitArea copies receipt-reader's (index.jsx:31-46); pictureName re-implements safeFilename (compose.js:35-45)
+           receipt-reader prepare refactor: behaviour unchanged; CONTEXT.md drift dismissed (base branch has the new glossary)
+questions: -
+evidence:  vitest (02) -> 29 files, 431 passed; vitest (01+02 trial merge) -> 537 passed
+           npm run build -> ok, pdf.js lazy only
+           jura-growth check --file (79 strings + privacy paragraph) -> pass
+           security pass -> no findings; grep for unsafe sinks -> none
+```
+
+## 2026-10-27T04:40:00+08:00 developer fix round 01 + merge (appended by conductor)
+
+```
+status:    done
+persona:   developer, then conductor
+ticket:    01
+artifacts: b030a77 B1 releaseHeld before closeForToday, 50c5c2b S3 tests, 58ddc7c S2 4006 only from code or leading code, 38db83e S1 comment+test, 662c60b nits; merged into crew/food-post-maker
+decisions: conductor ratified the timeout rule (a timed-out picture ends and keeps its price); conductor read the B1 and S2 diffs instead of a second full review
+questions: -
+evidence:  developer: npm test 497/498 (ticket-02 folder test), build ok; B1 test red->green, removing the fix fails 2 tests
+```
