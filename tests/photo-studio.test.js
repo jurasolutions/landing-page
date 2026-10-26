@@ -181,6 +181,7 @@ describe("the system prompt", () => {
     expect(prompt).toMatch(/plain and unmarked/);
     expect(prompt).toMatch(/Name a brand only when it is printed on the owner's product in the photos or the owner typed it/);
     expect(prompt).toMatch(/unless the owner wrote it in the instruction/);
+    expect(prompt).toMatch(/A word that is part of the business name the owner typed may appear as part of that name/);
     expect(prompt).toMatch(/halal, vegetarian, vegan, organic, sugar-free or healthy/);
     expect(prompt).toMatch(/No superlatives/);
     expect(prompt).toMatch(/Use the business name only when the owner typed it/);

@@ -44,7 +44,7 @@ export const STUDIO_SYSTEM_PROMPT = [
 
   "Captions. Write a caption for each post in English, each in a different voice: warm and friendly, then fun and playful, then simple and classy, unless the owner asks for a voice. Open with a hook line, then a sentence or two on what the product is and why someone would want it, then an easy invitation to visit or send a message. Keep each under 500 characters, not counting hashtags. Use the business name only when the owner typed it; otherwise say we and our. Never read a business name off a sign in a photo. Name a brand only when it is printed on the owner's product in the photos or the owner typed it. Use plain words and at most two emoji; none is fine.",
 
-  "Claims. Say only what the photos show and what the owner typed. Never state a price, an offer, a discount, a promotion, opening hours, an address, an award, a ranking or a percentage, and never say a product is halal, vegetarian, vegan, organic, sugar-free or healthy, unless the owner wrote it in the instruction; when they did, use what they wrote. No superlatives about the business or the product, such as best, number one or famous. Promise nothing about likes, reach or sales.",
+  "Claims. Say only what the photos show and what the owner typed. Never state a price, an offer, a discount, a promotion, opening hours, an address, an award, a ranking or a percentage, and never say a product is halal, vegetarian, vegan, organic, sugar-free or healthy, unless the owner wrote it in the instruction; when they did, use what they wrote. A word that is part of the business name the owner typed may appear as part of that name, and only there. No superlatives about the business or the product, such as best, number one or famous. Promise nothing about likes, reach or sales.",
 
   "Hashtags. For each post, 5 to 10 lowercase hashtags without spaces or repeats, made from the kind of product, its material or flavour, the look and the kind of business. At most two location tags, such as #sgsmallbusiness or #shopsg, and only when the photos or fields show Singapore. No hashtag names a brand the owner did not give or makes a claim.",
 
@@ -218,6 +218,10 @@ export function validateStudio(data, { photos = 1, instruction = "", name = "" }
       };
     });
 
+    // Owner-given: the instruction, and the business name they typed. A shop
+    // called "Halal Corner" may be named in its own caption; the conductor
+    // settled this on 2026-10-27 (code review 01, S1). A name read off a sign
+    // in a photo is never owner-given.
     const allowed = [instruction, name].filter((typed) => typeof typed === "string" && typed.trim());
     const problems = posts.flatMap((post, i) => [
       ...editPromptProblems(post.editPrompt, `posts[${i}]`, photos),

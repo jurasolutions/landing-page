@@ -358,6 +358,12 @@ describe("the check on Claude's output", () => {
     expect(spend(DB)).toBe(2 * CLAUDE_COST);
   });
 
+  it("lets a claim word through when it is part of the business name the owner typed (the conductor's call)", async () => {
+    const { env } = await setup({ ai: () => aiPicture() });
+    installNetwork({ anthropic: [good(withPost(0, { caption: "Fresh from the kitchen at Halal Corner." }))] });
+    expect((await call(env, studioRequest({ name: "Halal Corner" }))).status).toBe(200);
+  });
+
   it("lets a claim through when the owner wrote it in the instruction", async () => {
     const { env } = await setup({ ai: () => aiPicture() });
     installNetwork({ anthropic: [good(withPost(2, { caption: "Halal and hand-poured." }))] });
