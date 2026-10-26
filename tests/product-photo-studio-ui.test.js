@@ -443,7 +443,7 @@ describe("a post frame", () => {
 });
 
 describe("the studio in the toolbox", () => {
-  it("is in the registry as the spec writes it, as a draft until go-live", () => {
+  it("is in the registry as the spec writes it, live since go-live", () => {
     expect(REGISTRY.find((entry) => entry.slug === "product-photo-studio")).toEqual({
       slug: "product-photo-studio",
       name: "Product photo studio",
@@ -451,7 +451,7 @@ describe("the studio in the toolbox", () => {
       category: "Marketing",
       industries: ["general", "retail", "fnb"],
       tier: "ai",
-      status: "draft",
+      status: "live",
       added: "2026-10-27",
       prd: "APP-004",
     });

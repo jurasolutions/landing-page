@@ -1,3 +1,4 @@
+import { REGISTRY } from "../src/apps/registry.js";
 import { describe, expect, it, vi } from "vitest";
 import { createD1 } from "./helpers/d1.js";
 import { ENV, apiError, aiFailure, aiPicture, aiQuota, cookieFrom, fakeAi, fakeHeic, fakeJpeg, installNetwork, jpegOf, limitRequest, message, receiptRequest, RECEIPT } from "./helpers/ai.js";
@@ -277,11 +278,12 @@ describe("readiness", () => {
     expect((await call(env)).status).toBe(503);
   });
 
-  it("answers 404 for the draft tool where drafts are not served", async () => {
+  it("answers 404 while the tool is a draft and drafts are not served", async () => {
     const { env } = await setup();
     delete env.AI_ALLOW_DRAFTS;
+    const asDraft = REGISTRY.map((entry) => (entry.slug === "product-photo-studio" ? { ...entry, status: "draft" } : entry));
     const net = installNetwork({});
-    expect((await call(env)).status).toBe(404);
+    expect((await call(env, studioRequest(), { registry: asDraft })).status).toBe(404);
     expect(net.turnstile).toHaveLength(0);
   });
 });

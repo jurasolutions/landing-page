@@ -7,7 +7,7 @@ _Read by every crew persona before acting. Repo rules outrank crew defaults. Las
 | Purpose | Command | Verified |
 |---|---|---|
 | Install dependencies | `npm install` | verified 2026-10-24 (Node 20.20.2; `node_modules/` present, lockfile committed) |
-| Test, all | `npm test` | verified 2026-10-24: 10 files, 178 tests passed in 1.1s. `vitest.config.js` includes only `src/**/*.test.js` and `tests/**/*.test.js`, so `.claude/worktrees/` is never swept up |
+| Test, all | `npm test` | verified 2026-10-27: 34 files, 546 tests passed in 2.7s. `vitest.config.js` includes only `src/**/*.test.js` and `tests/**/*.test.js`, so `.claude/worktrees/` is never swept up |
 | Test, one file | `npx vitest run tests/usage.test.js` | verified 2026-10-24 |
 | Typecheck | none | unverified: plain JS and JSX, no TypeScript or JSDoc checking configured |
 | Lint | none | unverified: no linter configured |

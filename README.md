@@ -83,6 +83,7 @@ functions/               Cloudflare Pages Functions (each file is a route)
   api/apps/limit.js      GET /api/apps/limit, AI tries left today
   api/apps/receipt-reader.js  POST, APP-002
   api/apps/quote-builder.js   POST, APP-001a (draft a quote with AI)
+  api/apps/product-photo-studio.js  POST, APP-004 (three product pictures and captions)
 server/                  code the Functions share; outside functions/ so it is never a route
 migrations/              D1 schema, wrangler migrations format
 scripts/                 design system sync, per-route <head> prerender
@@ -320,7 +321,19 @@ person and a US$5 daily budget), in `server/limit.js`:
 capReached, ready }` and issues the cookie. `capReached` is true once the
 day's budget is spent (or the call cap, if set, is reached). `ready: false` means the
 deployment is missing `DB`, `ANTHROPIC_API_KEY`, `TURNSTILE_SECRET` or
-`VISITOR_SALT`, which makes it a useful health check too.
+`VISITOR_SALT`, which makes it a useful health check too. With `?tool=<slug>`
+it also checks that tool's own needs (`TOOL_NEEDS` in `server/ai-tool.js`):
+the product photo studio is not ready without the `AI` binding and a priced
+`AI_IMAGE_MODEL`, and reports `capReached` while it is closed for the day
+after a Workers AI quota error.
+
+**A second cost.** A tool can pass `runAiTry` a `finish` step: a cost that is
+not Claude's (the photo studio's pictures), reserved in the same statement as
+the try, run after Claude's output validates, and settled to what it really
+cost. Every early exit releases it, once, and a billing error releases it
+before `closeForToday`, so the close stays the last word on the day's spend.
+The budget therefore covers Claude and Workers AI together
+(`docs/adr/0001-image-cost-shares-the-ai-budget.md`).
 
 Shared server code lives in `server/`, not `functions/`. Pages turns any file
 in `functions/` that exports an `onRequest*` handler into a public route, and
@@ -405,6 +418,62 @@ are the anonymous open and download counts.
   is idle or the first file is added; pdf.js the library only for Split.
   None of it reaches any other page.
 
+### APP-004 Product photo studio (`src/apps/product-photo-studio/`, `server/product-photo-studio.js`)
+
+The visitor adds 1 to 4 product photos and, if they like, an instruction
+("Remove the background and put it on clean white"; the box rotates example
+prompts and offers them as chips) and their business name. One try gives
+three posts, each in a frame styled like a social media post (no Instagram
+name or marks): a header with the business name, the picture, an action row,
+the caption. Each frame can switch between the three captions or edit one,
+save the picture as 1080 x 1350 or a 1080 x 1080 square (through the share
+sheet where the browser offers it), and copy its caption. The last result
+stays in the tab's `sessionStorage`, so a reload after switching apps keeps it.
+
+- **The browser** decodes each photo once and makes two JPEGs: 1600 px at
+  0.8 for Claude (`files`) and 512 px at 0.85 for the image model (`refs`),
+  in `src/apps/_shared/photos.js`.
+- **Claude** (Haiku 5.5, structured output, `server/photo-studio.js`) reads the
+  photos and fields as data and returns the products it sees, three posts
+  (`look`, `edit_prompt`, `caption`, `hashtags`, `alt`) and `no_product`.
+  The system prompt is a product photographer's brief: keep each product
+  exactly as it is, change only background, surface, props, light and framing,
+  positive phrasing only (FLUX has no negative prompt), and three looks that
+  differ unless the instruction fixes one. Captions make no claim (price,
+  offer, halal, vegan, health, award) the owner did not type, and name a brand
+  only when it is on the product or typed. The server checks the output again:
+  ™ ® © and image numbers that do not exist in an edit prompt, claim words
+  the owner did not give, 5 to 10 distinct hashtags. A failure is repaired
+  once, then refunded.
+- **The pictures** are Cloudflare Workers AI FLUX.2 [klein] through the `AI`
+  binding (`server/image-gen.js`): the edit prompt plus a fixed brand-safe
+  suffix, 1024 x 1280, and the refs as `input_image_0` to `input_image_3`.
+  The photos do reach the image model, on purpose
+  (`docs/adr/0002-product-photos-go-to-the-image-model.md`). The three are
+  drawn in parallel. Each gets up to 3 attempts on `AI_IMAGE_MODEL` (default
+  `@cf/black-forest-labs/flux-2-klein-4b`), then one on the other klein model;
+  9B answered a fast HTTP 500 (code 3043) on about 40% of calls when tested on
+  2026-10-27. A timed-out picture ends there and keeps its price.
+- **Plan and quota.** The account is on the Workers free plan: 10,000 neurons
+  a day, reset at 00:00 UTC (08:00 SGT). A 4B picture with references is
+  about 180 neurons, so the site manages about 18 tries a day; 9B is about
+  1,450 a picture. A quota error (code 4006, "used up your daily free
+  allocation") closes this tool only, until 00:00 UTC: a row in `app_tries`
+  under `#site` / `#closed:product-photo-studio` for the UTC day, checked
+  before Turnstile and the try. The other AI tools stay open. Moving to
+  Workers Paid lifts the quota; then set `AI_IMAGE_MODEL` to
+  `@cf/black-forest-labs/flux-2-klein-9b` for better, faster pictures.
+- **Money.** A try reserves Claude's worst case plus three pictures at the
+  dearer of the model and its fallback, and settles each picture drawn at its
+  list price (`PRICES` in `image-gen.js`: about US$0.002 a 4B picture, US$0.016
+  a 9B one, checked 2026-10-27). At least one picture or the try is refunded
+  and the answer is 503; `no_product` is 422 and keeps the try.
+- **Local runs** have no `AI` binding, so the tool reports itself unavailable
+  under `npm run dev:functions`. Adding `--ai AI` to the `wrangler pages dev`
+  command uses the real, billed Workers AI.
+- **The browser's pure pieces**: `compose.js` (crop geometry and file names),
+  `post-state.js` (blockers and messages), `session.js` (the kept result).
+
 ## Unsubscribe and bounces (scout PRD §5.5, §5.9)
 
 The growth CLI (`repos/growth`) sends the outreach emails; this site holds the
@@ -473,6 +542,7 @@ setup is in `jurasolutions/outputs/growth/setup/toolbox-ai.md`.
 | `AI_DAILY_BUDGET_USD` | plain | AI tools | `5` (US dollars a day, all visitors together) |
 | `AI_SITE_CAP` | plain | AI tools | unset: no call cap, only the budget |
 | `AI_LIMIT_SCOPE` | plain | AI tools | `all` (or `per-tool`) |
+| `AI_IMAGE_MODEL` | plain | product photo studio | `@cf/black-forest-labs/flux-2-klein-4b` (or `-9b` on Workers Paid) |
 | `UNSUBSCRIBE_SECRET` | secret | `/unsubscribe` (same value as the growth CLI) | none: links do not verify |
 | `RESEND_WEBHOOK_SECRET` | secret | `/api/resend-webhook` | none: webhooks refused |
 
@@ -532,6 +602,8 @@ built on sql.js with the real migrations.
 | `tests/budget.test.js` | the defaults (5 a visitor, 15 an IP, US$5 a day), pricing from `usage`, reserving and settling, the budget stopping everyone, unbilled errors, the next day |
 | `tests/receipt-reader.test.js` | the Claude request, the injection fixture, logs, storage |
 | `tests/quote-drafter.test.js` | the quote draft request, input checks, repair, refunds, shared tries, logs, validation |
+| `tests/product-photo-studio.test.js`, `tests/photo-studio.test.js`, `tests/image-gen.test.js`, `tests/ai-run.test.js` | the studio's Function (pictures, money, partial and failed pictures, the quota close), its output check, the Workers AI adapter, the shared `finish` step |
+| `tests/product-photo-studio-ui.test.js` | the studio page: blockers, messages, request fields, crops, kept results |
 | `tests/unsubscribe.test.js` | the token contract (with a fixed vector), GET and one-click POST |
 | `tests/resend-webhook.test.js` | Svix verification, bounces, complaints, precedence, retries |
 | `tests/usage.test.js`, `tests/enquiry.test.js`, `tests/shell.test.js` | counter, `from` value, registry, routes, pages, prerendered heads |
@@ -597,7 +669,9 @@ a broken one otherwise look identical from the browser.
 only the Function paths (`/submit`, `/unsubscribe`, `/api/*`) invoke a
 Function and everything else is served as static files.
 
-The Functions need the D1 binding `DB` and the variables in "Environment
+The Functions need the D1 binding `DB`, the Workers AI binding `AI` (Production
+only; added through the Cloudflare API on 2026-10-27, used by the product photo
+studio) and the variables in "Environment
 variables" above, on **Production and Preview**. None of them is ever
 committed. The full setup, click by click, is in
 `jurasolutions/outputs/growth/setup/toolbox-ai.md`.
@@ -617,6 +691,7 @@ key:
 | --- | --- |
 | `GET /submit` → `canSend: false` | `RESEND_API_KEY` not visible to this deployment |
 | `GET /api/apps/limit` → `ready: false` | `DB`, `ANTHROPIC_API_KEY`, `TURNSTILE_SECRET` or `VISITOR_SALT` missing |
+| `GET /api/apps/limit?tool=product-photo-studio` → `ready: false` | the `AI` binding is missing, or `AI_IMAGE_MODEL` is not a priced model |
 | `GET /api/resend-webhook` → `canVerify` / `canStore: false` | `RESEND_WEBHOOK_SECRET` / `DB` missing |
 | HTML instead of JSON from any of them | the Functions are not deployed at all |
 
