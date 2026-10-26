@@ -1,15 +1,15 @@
 import React from "react";
 import { Alert, Button, Field, Icon, IconButton, Input, Tag, Textarea, Toast } from "../../ds.js";
 import { FileDrop } from "../_shared/FileDrop.jsx";
-import { TryLimitNotice } from "../_shared/TryLimitNotice.jsx";
-import { TalkToUsCard } from "../_shared/TalkToUsCard.jsx";
+import { LimitArea } from "../_shared/LimitArea.jsx";
 import { useOwnTalkCard } from "../_shared/AppShell.jsx";
+import { isOutOfTries, showsTalkCard } from "../_shared/ai-limit.js";
 import { TAP_INPUT } from "../_shared/controls.js";
 import { trackUsage } from "../_shared/usage.js";
+import { useBlobUrl } from "../_shared/useBlobUrl.js";
 import { useToast } from "../_shared/useToast.js";
 import { SITE_KEY, createTurnstile } from "../_shared/turnstile.js";
 import { fileMessage } from "../receipt-reader/files.js";
-import { isOutOfTries, showsTalkCard } from "../receipt-reader/read-state.js";
 import { FIELD_LIMITS, MAX_PHOTOS, fetchLimit, sendPosts } from "./api.js";
 import { preparePhoto } from "./prepare.js";
 import { blockerText, failureMessage, makeBlocker, resultFromApi } from "./post-state.js";
@@ -21,29 +21,6 @@ let photoCounter = 0;
 
 /** How often the instruction box's example placeholder changes. */
 const PLACEHOLDER_MS = 4000;
-
-/**
- * The top of the upload area: the tries left, or why there are none. Out of
- * tries, the talk-to-us card sits right under the notice, and the page leaves
- * out the shell's closing card (useOwnTalkCard below), as the receipt reader
- * does.
- */
-export function LimitArea({ limit, slug, copy }) {
-  if (limit && (!limit.ready || !SITE_KEY)) {
-    return (
-      <Alert tone="warning" icon={<Icon name="alert-circle" size={18} />}>
-        {copy.errors.notReady}
-      </Alert>
-    );
-  }
-  const limitCopy = { triesLeft: copy.triesLeft, limitReached: copy.limitReached, capReached: copy.capReached };
-  return (
-    <>
-      <TryLimitNotice limit={limit} copy={limitCopy} />
-      {showsTalkCard(limit, SITE_KEY) && <TalkToUsCard slug={slug} {...copy.talk} />}
-    </>
-  );
-}
 
 /** Cycles the examples as the box's placeholder, unless the visitor prefers less motion. */
 function useRotatingExample(examples, paused) {
@@ -57,6 +34,17 @@ function useRotatingExample(examples, paused) {
   return examples[at];
 }
 
+/** A photo's thumbnail. Its object URL lives and dies with this element. */
+function PhotoThumb({ photo }) {
+  const url = useBlobUrl(photo.ref);
+  if (url) return <img src={url} alt="" width={48} height={48} className="pps-thumb" />;
+  return (
+    <span className="pps-thumb pps-thumb--empty" aria-hidden="true">
+      <Icon name={photo.status === "error" ? "alert-circle" : "image"} size={20} />
+    </span>
+  );
+}
+
 export default function ProductPhotoStudio({ app, copy }) {
   const R = copy.results;
   const [limit, setLimit] = React.useState(null);
@@ -67,11 +55,18 @@ export default function ProductPhotoStudio({ app, copy }) {
   const [sending, setSending] = React.useState(false);
   const [error, setError] = React.useState("");
   const [result, setResult] = React.useState(null);
+  // Counts the tries on this page, so each try's frames start with fresh state.
+  const [tryCount, setTryCount] = React.useState(0);
+  // True when this try's pictures didn't fit in the tab's storage.
+  const [picturesAtRisk, setPicturesAtRisk] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
   const [toast, setToast] = useToast();
   const widgetRef = React.useRef(null);
   const turnstile = React.useRef(null);
   const resultsRef = React.useRef(null);
   const used = React.useRef(false);
+  // The id of the element to focus after the next render, or "".
+  const focusNext = React.useRef("");
   const placeholder = useRotatingExample(copy.examples, instruction !== "");
 
   React.useEffect(() => {
@@ -100,15 +95,11 @@ export default function ProductPhotoStudio({ app, copy }) {
     };
   }, []);
 
-  // Preview URLs are released when the photos go.
-  const photosRef = React.useRef(photos);
-  photosRef.current = photos;
-  React.useEffect(() => () => photosRef.current.forEach((p) => p.previewUrl && URL.revokeObjectURL(p.previewUrl)), []);
-
-  const clearPhotos = () => {
-    photos.forEach((p) => p.previewUrl && URL.revokeObjectURL(p.previewUrl));
-    setPhotos([]);
-  };
+  React.useEffect(() => {
+    if (!focusNext.current) return;
+    document.getElementById(focusNext.current)?.focus();
+    focusNext.current = "";
+  });
 
   const addPhotos = async (incoming) => {
     setNotice("");
@@ -125,7 +116,7 @@ export default function ProductPhotoStudio({ app, copy }) {
           current.map((entry) =>
             entry.id === entries[i].id
               ? made.ok
-                ? { ...entry, status: "ready", file: made.file, ref: made.ref, previewUrl: made.previewUrl }
+                ? { ...entry, status: "ready", file: made.file, ref: made.ref }
                 : { ...entry, status: "error", reason: made.reason }
               : entry
           )
@@ -134,12 +125,7 @@ export default function ProductPhotoStudio({ app, copy }) {
     );
   };
 
-  const removePhoto = (id) =>
-    setPhotos((current) => {
-      const gone = current.find((p) => p.id === id);
-      if (gone?.previewUrl) URL.revokeObjectURL(gone.previewUrl);
-      return current.filter((p) => p.id !== id);
-    });
+  const removePhoto = (id) => setPhotos((current) => current.filter((p) => p.id !== id));
 
   const ready = photos.filter((p) => p.status === "ready");
   const preparing = photos.some((p) => p.status === "preparing");
@@ -172,11 +158,14 @@ export default function ProductPhotoStudio({ app, copy }) {
 
     if (status === 200 && Array.isArray(body.posts)) {
       const next = { ...resultFromApi(body), name: name.trim() };
-      keepResult(next);
+      const { picturesKept } = keepResult(next);
+      setPicturesAtRisk(!picturesKept && next.posts.some((p) => p.image));
       setResult(next);
+      setTryCount((n) => n + 1);
+      setConfirming(false);
       used.current = false;
       setLimit((current) => ({ ...current, triesLeft: body.triesLeft ?? 0 }));
-      clearPhotos();
+      setPhotos([]);
       requestAnimationFrame(() => resultsRef.current?.focus());
       return;
     }
@@ -195,17 +184,25 @@ export default function ProductPhotoStudio({ app, copy }) {
       return next;
     });
 
-  // Start again throws away a try's posts, so it asks first, in place.
-  const [confirming, setConfirming] = React.useState(false);
-  React.useEffect(() => {
-    if (confirming) document.getElementById("pps-keep")?.focus();
-  }, [confirming]);
+  // Start again throws away a try's posts, so it asks first, in place, and
+  // focus goes to where the visitor's next step is.
+  const askStartAgain = () => {
+    focusNext.current = "pps-keep";
+    setConfirming(true);
+  };
+
+  const keepPosts = () => {
+    focusNext.current = "pps-start-again";
+    setConfirming(false);
+  };
 
   const startAgain = () => {
+    focusNext.current = outOfTries ? "pps-upload" : "pps-instruction";
     setConfirming(false);
     forgetResult();
     setResult(null);
-    clearPhotos();
+    setPicturesAtRisk(false);
+    setPhotos([]);
     setInstruction("");
     setError("");
     setNotice("");
@@ -218,7 +215,7 @@ export default function ProductPhotoStudio({ app, copy }) {
 
   return (
     <div className="pps stack-7">
-      <div className="pps-upload stack-5">
+      <div className="pps-upload stack-5" id="pps-upload" tabIndex={-1}>
         <LimitArea limit={limit} slug={app.slug} copy={copy} />
 
         {!outOfTries && (
@@ -244,13 +241,7 @@ export default function ProductPhotoStudio({ app, copy }) {
               <ul className="pps-photos" aria-label={copy.uploadLabel}>
                 {photos.map((photo, index) => (
                   <li key={photo.id} className="pps-photo">
-                    {photo.previewUrl ? (
-                      <img src={photo.previewUrl} alt="" width={48} height={48} className="pps-thumb" />
-                    ) : (
-                      <span className="pps-thumb pps-thumb--empty" aria-hidden="true">
-                        <Icon name={photo.status === "error" ? "alert-circle" : "image"} size={20} />
-                      </span>
-                    )}
+                    <PhotoThumb photo={photo} />
                     <span className="pps-photo-text">
                       <span className="pps-photo-name">{copy.files.label(index + 1)}</span>
                       <span className={`pps-photo-status${photo.status === "error" ? " pps-photo-status--error" : ""}`}>
@@ -294,13 +285,7 @@ export default function ProductPhotoStudio({ app, copy }) {
             <ul className="pps-examples" aria-label={copy.examplesLabel}>
               {copy.examples.map((example) => (
                 <li key={example}>
-                  <button
-                    type="button"
-                    className="pps-example"
-                    aria-pressed={instruction === example ? "true" : "false"}
-                    disabled={sending}
-                    onClick={() => pickExample(example)}
-                  >
+                  <button type="button" className="pps-example" disabled={sending} onClick={() => pickExample(example)}>
                     <Tag selected={instruction === example}>{example}</Tag>
                   </button>
                 </li>
@@ -373,9 +358,10 @@ export default function ProductPhotoStudio({ app, copy }) {
             {!confirming && (
               <Button
                 type="button"
+                id="pps-start-again"
                 variant="secondary"
                 size="lg"
-                onClick={() => setConfirming(true)}
+                onClick={askStartAgain}
                 iconLeft={<Icon name="rotate-ccw" size={18} />}
               >
                 {R.startAgain}
@@ -390,7 +376,7 @@ export default function ProductPhotoStudio({ app, copy }) {
                   <Button type="button" size="lg" onClick={startAgain}>
                     {R.clear}
                   </Button>
-                  <Button type="button" id="pps-keep" variant="secondary" size="lg" onClick={() => setConfirming(false)}>
+                  <Button type="button" id="pps-keep" variant="secondary" size="lg" onClick={keepPosts}>
                     {R.keep}
                   </Button>
                 </span>
@@ -399,10 +385,16 @@ export default function ProductPhotoStudio({ app, copy }) {
           )}
           <p className="pps-hint pps-results-hint">{R.hint}</p>
 
-          {result.posts.some((p) => p.lost) && (
+          {result.posts.some((p) => p.lost) ? (
             <Alert tone="info" icon={<Icon name="info" size={18} />}>
               {R.picturesLost}
             </Alert>
+          ) : (
+            picturesAtRisk && (
+              <Alert tone="info" icon={<Icon name="info" size={18} />}>
+                {R.picturesNotKept}
+              </Alert>
+            )
           )}
 
           {result.products.length > 0 && (
@@ -422,7 +414,7 @@ export default function ProductPhotoStudio({ app, copy }) {
           <ul className="pps-frames">
             {result.posts.map((post, index) => (
               <PostFrame
-                key={index}
+                key={`${tryCount}-${index}`}
                 post={post}
                 index={index}
                 name={result.name ?? ""}

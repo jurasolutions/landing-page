@@ -4,7 +4,8 @@
  * without a DOM.
  *   limit  what GET /api/apps/limit returned, or null while it is loading
  */
-import { failureMessage as readFailure, isOutOfTries } from "../receipt-reader/read-state.js";
+import { isOutOfTries } from "../_shared/ai-limit.js";
+import { failureMessage as readFailure } from "../receipt-reader/read-state.js";
 
 /**
  * Why "Make my posts" cannot be pressed yet, or null when it can. The first

@@ -6,6 +6,7 @@
  * unit-tested; the canvas draw is checked in a real browser.
  */
 import { canvasToJpeg } from "../_shared/pdfjs.js";
+import { safeFilename } from "../_shared/download.js";
 
 export const SHAPES = {
   portrait: { width: 1080, height: 1350 },
@@ -29,19 +30,11 @@ export function cropRect(shape, w, h) {
 }
 
 /**
- * `<look-slug>-<shape>.jpg`. Accents are dropped ("Café" gives "cafe"); a
- * look with nothing a file name can keep gives "product-photo".
+ * `<look-slug>-<shape>.jpg`, through the toolbox's `safeFilename`. A look
+ * with nothing a file name can keep gives "product-photo".
  */
 export function pictureName(look, shape) {
-  const slug = String(look ?? "")
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60)
-    .replace(/-+$/, "");
-  return `${slug || "product-photo"}-${shape}.jpg`;
+  return `${safeFilename(String(look ?? "").toLowerCase(), "product-photo")}-${shape}.jpg`;
 }
 
 /**

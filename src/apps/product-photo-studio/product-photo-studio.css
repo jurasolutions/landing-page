@@ -4,6 +4,8 @@
 --------------------------------------------------------------------------- */
 
 .pps-upload { max-width: var(--container-narrow); }
+/* Focused only from code, after Start again with no tries left, as the results heading is. */
+.pps-upload:focus { outline: none; }
 
 .pps-hint {
   font-size: var(--text-caption);

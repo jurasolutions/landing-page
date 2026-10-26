@@ -5,7 +5,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { REGISTRY } from "../src/apps/registry.js";
 import { registerIcons } from "../src/lib/icons.js";
 import { PRIVACY } from "../src/content.js";
-import ProductPhotoStudio, { LimitArea } from "../src/apps/product-photo-studio/index.jsx";
+import ProductPhotoStudio from "../src/apps/product-photo-studio/index.jsx";
+import { LimitArea } from "../src/apps/_shared/LimitArea.jsx";
 import { PostFrame } from "../src/apps/product-photo-studio/PostFrame.jsx";
 import { base64ToBlob, cropRect, pictureName, saveMode } from "../src/apps/product-photo-studio/compose.js";
 import {
@@ -286,6 +287,15 @@ describe("the last result, kept for the session (S4)", () => {
     expect(restoreResult()).toBeNull();
     expect(() => forgetResult()).not.toThrow();
   });
+
+  it("drops a kept result it can't read, such as an older format, rather than breaking the page", () => {
+    const session = fakeSession();
+    vi.stubGlobal("window", { sessionStorage: session });
+    session.setItem("product-photo-studio:result", JSON.stringify({ dishes: [], posts: [{ dish: "Laksa", text: "Old" }] }));
+    expect(restoreResult()).toBeNull();
+    session.setItem("product-photo-studio:result", "not json");
+    expect(restoreResult()).toBeNull();
+  });
 });
 
 describe("getting a photo ready to send", () => {
@@ -409,9 +419,11 @@ describe("a post frame", () => {
     expect(out).toContain(">Edit caption<");
   });
 
-  it("shows a chosen frame as chosen", () => {
-    expect(frame({ ...posts[0], picked: true })).toMatch(/aria-pressed="true"[^>]*>.*Chosen/);
-    expect(frame({ ...posts[0], picked: true })).toContain("pps-frame--picked");
+  it("shows a chosen frame as chosen through the pressed state and the highlight, keeping the toggle's name", () => {
+    const out = frame({ ...posts[0], picked: true });
+    expect(out).toMatch(/aria-pressed="true"[^>]*>.*Choose this one/);
+    expect(out).not.toContain("Chosen");
+    expect(out).toContain("pps-frame--picked");
   });
 
   it("puts the AI note above the save button, and offers Download picture and Copy caption", () => {
@@ -472,6 +484,13 @@ describe("the studio in the toolbox", () => {
     expect(ai).toMatch(/Product photo studio/);
     expect(ai).toMatch(/Cloudflare Workers AI/);
     expect(ai).toMatch(/photos/);
+  });
+
+  it("says on /privacy that the studio keeps the last posts in the browser tab until it closes or Start again", () => {
+    const ai = PRIVACY.sections.find((s) => s.heading === "Tools that use AI").paragraphs.join(" ");
+    expect(ai).toContain(
+      "The Product photo studio keeps your last posts in this browser tab so a reload doesn't lose them. They stay on your device and are gone when you close the tab or press Start again."
+    );
   });
 });
 

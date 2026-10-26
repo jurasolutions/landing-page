@@ -35,10 +35,14 @@ export function keepWords(result) {
   writeSession(WORDS, words(result));
 }
 
-/** The kept result, or null when there is none. */
+/** A post as this version keeps it: three captions and a chosen one. */
+const readable = (post) =>
+  Boolean(post) && Array.isArray(post.captions) && post.captions.every((c) => typeof c === "string") && Number.isInteger(post.choice);
+
+/** The kept result, or null when there is none or it can't be read (an older format, say). */
 export function restoreResult() {
   const kept = readSession(WORDS);
-  if (!kept || !Array.isArray(kept.posts)) return null;
+  if (!kept || !Array.isArray(kept.posts) || !kept.posts.every(readable)) return null;
   const pictures = readSession(PICTURES) ?? [];
   return {
     ...kept,

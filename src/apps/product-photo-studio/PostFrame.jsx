@@ -1,23 +1,9 @@
 import React from "react";
 import { Badge, Button, Icon, Radio, Textarea } from "../../ds.js";
 import { saveBlob } from "../_shared/download.js";
+import { useBlobUrl } from "../_shared/useBlobUrl.js";
 import { base64ToBlob, composeJpeg, pictureName, saveMode } from "./compose.js";
 import { avatarInitial, chooseCaption, editCaption, shownCaption } from "./post-state.js";
-
-/** An object URL for the base64 picture, released when it changes or goes. */
-function usePictureUrl(base64) {
-  const [url, setUrl] = React.useState("");
-  React.useEffect(() => {
-    if (!base64) return undefined;
-    const made = URL.createObjectURL(base64ToBlob(base64));
-    setUrl(made);
-    return () => {
-      URL.revokeObjectURL(made);
-      setUrl("");
-    };
-  }, [base64]);
-  return url;
-}
 
 /** "share" where this browser can hand a JPG to the share sheet, else "download". */
 function useSaveMode() {
@@ -48,7 +34,8 @@ export function PostFrame({ post, index, name, copy, onChange, onUsed, onToast }
   const [shape, setShape] = React.useState("portrait");
   const [editing, setEditing] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const url = usePictureUrl(post.image);
+  const picture = React.useMemo(() => (post.image ? base64ToBlob(post.image) : null), [post.image]);
+  const url = useBlobUrl(picture);
   const mode = useSaveMode();
   const caption = shownCaption(post);
   const shown = name.trim() || R.yourBusiness;
@@ -59,14 +46,16 @@ export function PostFrame({ post, index, name, copy, onChange, onUsed, onToast }
   const save = async () => {
     setSaving(true);
     try {
-      const blob = await composeJpeg(base64ToBlob(post.image), shape);
+      const blob = await composeJpeg(picture, shape);
       const filename = pictureName(post.look, shape);
       const file = new File([blob], filename, { type: "image/jpeg" });
       if (saveMode(navigator, file) === "share") {
         try {
           await navigator.share({ files: [file] });
         } catch (error) {
-          if (error?.name !== "AbortError") saveBlob(blob, filename);
+          // The visitor closed the share sheet: nothing was saved, so nothing is counted.
+          if (error?.name === "AbortError") return;
+          saveBlob(blob, filename);
         }
       } else {
         saveBlob(blob, filename);
@@ -141,7 +130,7 @@ export function PostFrame({ post, index, name, copy, onChange, onUsed, onToast }
               onClick={() => onChange({ ...post, picked: !post.picked })}
               iconLeft={<Icon name={post.picked ? "check" : "plus"} size={18} />}
             >
-              {post.picked ? R.chosen : R.choose}
+              {R.choose}
             </Button>
           </div>
 
@@ -185,7 +174,7 @@ export function PostFrame({ post, index, name, copy, onChange, onUsed, onToast }
               variant="ghost"
               size="lg"
               aria-expanded={editing ? "true" : "false"}
-              aria-controls={`${id}-edit`}
+              aria-controls={editing ? `${id}-edit` : undefined}
               onClick={() => setEditing((open) => !open)}
               iconLeft={<Icon name={editing ? "check" : "pencil"} size={18} />}
             >
@@ -217,7 +206,7 @@ export function PostFrame({ post, index, name, copy, onChange, onUsed, onToast }
                 onClick={save}
                 iconLeft={<Icon name={mode === "share" ? "share-2" : "download"} size={20} />}
               >
-                {mode === "share" ? R.share : R.download}
+                {saving ? R.saving : mode === "share" ? R.share : R.download}
               </Button>
             )}
             <Button type="button" variant="secondary" size="lg" onClick={copyCaption} iconLeft={<Icon name="copy" size={20} />}>
