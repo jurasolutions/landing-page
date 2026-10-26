@@ -13,7 +13,8 @@ export const MAX_PHOTOS = 4;
 export const MAX_NAME_CHARS = 80;
 export const MAX_INSTRUCTION_CHARS = 500;
 const MAX_PRODUCTS = 8;
-const POSTS = 3;
+/** Posts, and so pictures, a try makes. */
+export const POSTS = 3;
 const MAX_LOOK_CHARS = 40;
 const MAX_EDIT_PROMPT_CHARS = 900;
 const MAX_CAPTION_CHARS = 600;

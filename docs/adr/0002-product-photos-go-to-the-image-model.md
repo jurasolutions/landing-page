@@ -34,6 +34,10 @@ the same, plus plain unmarked props and nobody in the frame (`server/image-gen.j
   `/privacy` say so, and neither stores them for Jura.
 - Each reference adds to the picture's price (an input tile on 4B, input megapixels on 9B), and
   the reservation counts them.
+- The server cannot tell that each reference is a smaller copy of its photo without decoding images
+  in the Worker. A visitor could send a product photo for Claude to read and a different picture as
+  the reference. This is an accepted risk: Claude's edit prompt describes only the products it saw,
+  the suffix keeps people out of the frame, and tries are rate-limited.
 - The model may still change a product slightly. Every frame carries the note: "This picture is
   made by AI from your photos. Check your product looks right before you post."
 

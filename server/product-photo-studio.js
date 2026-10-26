@@ -44,6 +44,7 @@ import {
   MAX_INSTRUCTION_CHARS,
   MAX_NAME_CHARS,
   MAX_PHOTOS,
+  POSTS,
   STUDIO_SCHEMA,
   STUDIO_SYSTEM_PROMPT,
   readStudioOutput,
@@ -198,7 +199,7 @@ export async function handlePhotoStudio({ request: incoming, env, registry, now,
     request: request(uploads.images, fields),
     repair: repairRequest,
     read: (text) => readStudioOutput(text, { photos: uploads.images.length, ...fields }),
-    finish: { reserve: 3 * pictureReserveNano(imageModel(env), refs), run: finish },
+    finish: { reserve: POSTS * pictureReserveNano(imageModel(env), refs), run: finish },
     logDefaults: { photos: uploads.images.length, products: 0, pictures: 0 },
   });
 }
