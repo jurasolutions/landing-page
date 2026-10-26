@@ -1,20 +1,9 @@
 /** The receipt reader's two calls: tries left, and reading the receipts. */
+import { fetchLimit as fetchToolLimit } from "../_shared/ai-limit.js";
+
 export const TOOL = "receipt-reader";
 
-export async function fetchLimit() {
-  try {
-    const response = await fetch(`/api/apps/limit?tool=${TOOL}`, { credentials: "same-origin" });
-    if (!response.headers.get("content-type")?.includes("application/json")) return { ready: false };
-    const body = await response.json();
-    return {
-      ready: body.ready === true,
-      triesLeft: Number(body.triesLeft) || 0,
-      capReached: body.capReached === true,
-    };
-  } catch {
-    return { ready: false };
-  }
-}
+export const fetchLimit = () => fetchToolLimit(TOOL);
 
 /** Returns { status, body }; status 0 when the network failed. */
 export async function sendReceipts(blobs, token) {

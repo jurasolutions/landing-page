@@ -25,6 +25,8 @@ export const LIMITS = {
   amount: 20,
   notes: 4000,
   items: 200,
+  // The Draft with AI request; server/quotes.js holds the Function to it too.
+  aiPrompt: 2000,
 };
 
 /** Local calendar date as YYYY-MM-DD. */
@@ -50,14 +52,21 @@ export function displayDate(iso, months = COPY.pdf.months) {
 }
 
 /**
- * Q-YYYYMMDD-01, or the next number up if the previous quote was made on
- * the same day with the same pattern.
+ * Shown in light grey in the business name field, and used on the quote while
+ * the field is empty, so the example quote reads as a real one.
  */
-export function suggestNumber(iso, previous = "") {
-  const stamp = iso.replace(/-/g, "");
-  const match = new RegExp(`^Q-${stamp}-(\\d{2,})$`).exec(previous);
-  const next = match ? Number(match[1]) + 1 : 1;
-  return `Q-${stamp}-${String(next).padStart(2, "0")}`;
+export const DEFAULT_BUSINESS_NAME = "Jura Solutions";
+
+/**
+ * The running quote number after `previous`: the last run of digits goes up
+ * by one and keeps its width (Q-0007 -> Q-0008, INV-2026-099 -> INV-2026-100).
+ * A number with no digits, or none at all, starts the run at Q-0001.
+ */
+export function nextNumber(previous = "") {
+  const match = /^(.*?)(\d+)(\D*)$/.exec(String(previous).trim());
+  if (!match) return "Q-0001";
+  const [, before, digits, after] = match;
+  return `${before}${String(Number(digits) + 1).padStart(digits.length, "0")}${after}`;
 }
 
 let counter = 0;
@@ -82,12 +91,16 @@ export function emptyBusiness() {
   return { name: "", address: "", uen: "", phone: "", email: "", logo: null };
 }
 
-export function newQuote({ business = emptyBusiness(), gst, previousNumber = "", today = isoDate() } = {}) {
+/**
+ * The quote number starts empty: the form shows the next running number as
+ * its placeholder, and effectiveQuote uses it while the field stays empty.
+ */
+export function newQuote({ business = emptyBusiness(), gst, today = isoDate() } = {}) {
   return {
     business,
     customer: { company: "", contact: "", address: "", email: "" },
     details: {
-      number: suggestNumber(today, previousNumber),
+      number: "",
       date: today,
       validUntil: addDays(today, VALID_DAYS),
     },
@@ -96,5 +109,20 @@ export function newQuote({ business = emptyBusiness(), gst, previousNumber = "",
     gst: gst ?? { on: false, rate: DEFAULT_GST_RATE, regNo: "" },
     notes: COPY.defaultNotes,
     madeWith: true,
+  };
+}
+
+/**
+ * The quote as it prints: an empty business name or quote number takes the
+ * value the form shows in light grey. Preview, PDF, file name and saved file
+ * all use this, so what the visitor sees is what they get.
+ */
+export function effectiveQuote(quote, suggestedNumber) {
+  const name = quote.business.name.trim() ? quote.business.name : DEFAULT_BUSINESS_NAME;
+  const number = quote.details.number.trim() ? quote.details.number : suggestedNumber;
+  return {
+    ...quote,
+    business: { ...quote.business, name },
+    details: { ...quote.details, number },
   };
 }

@@ -7,12 +7,14 @@ import { trackUsage } from "../_shared/usage.js";
 import { useToast } from "../_shared/useToast.js";
 import { useFocusReturn } from "../_shared/focus.js";
 import { quoteTotals } from "./calc.js";
-import { newQuote } from "./model.js";
+import { LIMITS, effectiveQuote, newQuote, nextNumber } from "./model.js";
 import { parseQuoteFile, readBusiness, serialiseQuote } from "./quoteFile.js";
 import { readLogo, logoForPdf, rasteriseLogo } from "./logo.js";
 import { unprintableIn } from "./winansi.js";
 import { QuoteForm } from "./QuoteForm.jsx";
 import { QuotePreview } from "./QuotePreview.jsx";
+import { AiDraft } from "./AiDraft.jsx";
+import { applyDraft } from "./draft.js";
 import "./quote-builder.css";
 
 const STORE_KEY = "jura.quote-builder.business.v1";
@@ -21,10 +23,15 @@ const STORE_KEY = "jura.quote-builder.business.v1";
 // is idle so the first download is quick.
 const loadPdf = () => import("./pdf.js");
 
+/** The last quote number used on this device, kept with the business details. */
+function storedNumber(stored) {
+  return typeof stored?.lastNumber === "string" ? stored.lastNumber.slice(0, LIMITS.number) : "";
+}
+
 function rememberedStart() {
   const stored = readStored(STORE_KEY);
   const business = stored ? readBusiness(stored.business) : null;
-  if (!business) return { quote: newQuote(), remember: false };
+  if (!business) return { quote: newQuote(), remember: false, lastNumber: "" };
   const gst = stored.gst && typeof stored.gst === "object"
     ? {
         on: stored.gst.on === true,
@@ -32,7 +39,7 @@ function rememberedStart() {
         regNo: typeof stored.gst.regNo === "string" ? stored.gst.regNo.slice(0, 120) : "",
       }
     : undefined;
-  return { quote: newQuote({ business, gst }), remember: true };
+  return { quote: newQuote({ business, gst }), remember: true, lastNumber: storedNumber(stored) };
 }
 
 function allText(quote) {
@@ -50,6 +57,11 @@ export default function QuoteBuilder({ app, copy }) {
   const start = React.useMemo(rememberedStart, []);
   const [quote, setQuote] = React.useState(start.quote);
   const [remember, setRemember] = React.useState(start.remember);
+  // The running number: the next quote's number follows `lastNumber`, the
+  // number of the quote before this one. `usedNumber` is the last number
+  // downloaded or moved past, which is what "Remember" keeps for next time.
+  const [lastNumber, setLastNumber] = React.useState(start.lastNumber);
+  const [usedNumber, setUsedNumber] = React.useState(start.lastNumber);
   const [rememberBlocked, setRememberBlocked] = React.useState(false);
   const [view, setView] = React.useState("edit");
   const [logoError, setLogoError] = React.useState("");
@@ -62,8 +74,11 @@ export default function QuoteBuilder({ app, copy }) {
   // "Download PDF" is disabled while the PDF is made; focus goes back to it.
   const holdFocus = useFocusReturn(pdfState === "working");
 
+  const suggestedNumber = nextNumber(lastNumber);
+  // What prints: placeholders stand in for an empty business name and number.
+  const shown = React.useMemo(() => effectiveQuote(quote, suggestedNumber), [quote, suggestedNumber]);
   const totals = React.useMemo(() => quoteTotals(quote), [quote]);
-  const unsupported = React.useMemo(() => unprintableIn(allText(quote)), [quote]);
+  const unsupported = React.useMemo(() => unprintableIn(allText(shown)), [shown]);
 
   React.useEffect(() => {
     const warm = () => loadPdf().catch(() => {});
@@ -79,13 +94,13 @@ export default function QuoteBuilder({ app, copy }) {
     if (!remember) return undefined;
     const timer = setTimeout(() => {
       const saved =
-        writeStored(STORE_KEY, { business: quote.business, gst: quote.gst }) ||
+        writeStored(STORE_KEY, { business: quote.business, gst: quote.gst, lastNumber: usedNumber }) ||
         // A large logo can fill the browser's quota; keep the words at least.
-        writeStored(STORE_KEY, { business: { ...quote.business, logo: null }, gst: quote.gst });
+        writeStored(STORE_KEY, { business: { ...quote.business, logo: null }, gst: quote.gst, lastNumber: usedNumber });
       setRememberBlocked(!saved);
     }, 300);
     return () => clearTimeout(timer);
-  }, [remember, quote.business, quote.gst]);
+  }, [remember, quote.business, quote.gst, usedNumber]);
 
   const onRemember = (next) => {
     setRemember(next);
@@ -105,7 +120,7 @@ export default function QuoteBuilder({ app, copy }) {
     setQuote((current) => ({ ...current, business: { ...current.business, logo: result.logo } }));
   };
 
-  const fileBase = safeFilename(quote.details.number, "quote");
+  const fileBase = safeFilename(shown.details.number, "quote");
 
   const downloadPdf = async () => {
     if (pdfState === "working") return;
@@ -113,18 +128,19 @@ export default function QuoteBuilder({ app, copy }) {
     setPdfState("working");
     try {
       const { buildQuotePdf } = await loadPdf();
-      let logo = await logoForPdf(quote.business.logo);
+      let logo = await logoForPdf(shown.business.logo);
       let result;
       try {
-        result = await buildQuotePdf(quote, totals, copy, { logo });
+        result = await buildQuotePdf(shown, totals, copy, { logo });
       } catch (error) {
         if (!logo) throw error;
         // An unusual PNG or JPG that pdf-lib cannot embed: redraw it as a plain PNG.
-        logo = await rasteriseLogo(quote.business.logo);
-        result = await buildQuotePdf(quote, totals, copy, { logo });
+        logo = await rasteriseLogo(shown.business.logo);
+        result = await buildQuotePdf(shown, totals, copy, { logo });
       }
       saveBlob(new Blob([result.bytes], { type: "application/pdf" }), `${fileBase}.pdf`);
       trackUsage(app.slug, "complete");
+      setUsedNumber(shown.details.number);
       setPdfState("idle");
     } catch (error) {
       console.error("Quote PDF failed", error);
@@ -133,7 +149,7 @@ export default function QuoteBuilder({ app, copy }) {
   };
 
   const saveFile = () => {
-    saveBlob(new Blob([serialiseQuote(quote)], { type: "application/json" }), `${fileBase}.quote.json`);
+    saveBlob(new Blob([serialiseQuote(shown)], { type: "application/json" }), `${fileBase}.quote.json`);
   };
 
   const openFile = async (event) => {
@@ -151,9 +167,12 @@ export default function QuoteBuilder({ app, copy }) {
   };
 
   const startNew = () => {
-    // A new quote keeps the business, its GST setting and the Made with choice.
+    // A new quote keeps the business, its GST setting and the Made with
+    // choice, and takes the next running number.
+    setLastNumber(shown.details.number);
+    setUsedNumber(shown.details.number);
     setQuote((current) => ({
-      ...newQuote({ business: current.business, gst: current.gst, previousNumber: current.details.number }),
+      ...newQuote({ business: current.business, gst: current.gst }),
       madeWith: current.madeWith,
     }));
     setConfirmNew(false);
@@ -161,6 +180,11 @@ export default function QuoteBuilder({ app, copy }) {
     setPdfState("idle");
     setView("edit");
     requestAnimationFrame(() => document.getElementById("qb-customer-company")?.focus());
+  };
+
+  const onDraft = (draft) => {
+    setQuote((current) => applyDraft(current, draft, copy));
+    setToast(copy.ai.done);
   };
 
   const closeDialog = () => {
@@ -244,7 +268,8 @@ export default function QuoteBuilder({ app, copy }) {
       </div>
 
       <div className={`qb-grid qb-grid--${view}`}>
-        <div className="qb-col-form">
+        <div className="qb-col-form stack-6">
+          <AiDraft copy={copy} onDraft={onDraft} />
           <QuoteForm
             quote={quote}
             setQuote={setQuote}
@@ -255,11 +280,12 @@ export default function QuoteBuilder({ app, copy }) {
             rememberBlocked={rememberBlocked}
             onLogo={onLogo}
             logoError={logoError}
+            numberPlaceholder={suggestedNumber}
           />
         </div>
         <div className="qb-col-preview">
           <div className="qb-sticky stack-5">
-            <QuotePreview quote={quote} totals={totals} copy={copy} />
+            <QuotePreview quote={shown} totals={totals} copy={copy} />
             {actions}
           </div>
         </div>

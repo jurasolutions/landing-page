@@ -369,3 +369,43 @@
   .qb-actions > span > a,
   .qb-actions > span > button { width: 100%; }
 }
+
+/* Placeholders read as placeholders: the example request, the suggested
+   quote number and the default business name are light grey until the
+   visitor types over them (APP-001a). */
+.qb ::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}
+
+/* Draft with AI: a card above the form. */
+.qb-ai {
+  padding: var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+
+.qb-ai-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.qb-ai-title {
+  margin: 0;
+  font-size: var(--text-h4);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.qb-ai-send {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.qb-ai-send .qb-hint { margin: 0; }

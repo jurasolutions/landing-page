@@ -1,8 +1,8 @@
 /**
- * Cloudflare Turnstile in the browser. The script is added only by this
- * tool's page, on demand. The widget runs when "Read receipts" is pressed
- * (execution: "execute") and stays invisible unless Cloudflare needs the
- * visitor to tick a box (appearance: "interaction-only").
+ * Cloudflare Turnstile in the browser, for the AI tools. The script is added
+ * only by an AI tool's page, on demand. The widget runs when the tool's AI
+ * button is pressed (execution: "execute") and stays invisible unless
+ * Cloudflare needs the visitor to tick a box (appearance: "interaction-only").
  *
  * The site key is set at build time as VITE_TURNSTILE_SITE_KEY. On the local
  * dev server, without one, Cloudflare's invisible always-pass test key is
@@ -33,9 +33,15 @@ export function loadTurnstile() {
   return loading;
 }
 
-/** Renders the widget into `container` and returns { token(), reset(), remove() }. */
-export async function createTurnstile(container) {
+/**
+ * Renders the widget into `container` and returns { token(), reset(), remove() }.
+ * `cancelled` is checked once the script has loaded: an effect cleaned up
+ * while it loaded (React's double effect run in development, say) must not
+ * render, or its widget takes the container and the live one is refused.
+ */
+export async function createTurnstile(container, cancelled = () => false) {
   const turnstile = await loadTurnstile();
+  if (cancelled()) throw new Error("turnstile-cancelled");
   let pending = null;
   const settle = (fn, value) => {
     const current = pending;
