@@ -204,6 +204,7 @@ describe("the privacy and unsubscribe pages", () => {
     const privacy = renderToStaticMarkup(React.createElement(Privacy));
     expect(privacy).toContain("Tools that use AI");
     expect(privacy).toContain("Anthropic");
+    expect(privacy).toContain("Cloudflare Workers AI");
     expect(privacy).toContain("Emails we send to businesses");
     expect(privacy).toContain('href="mailto:info@jurasolutions.sg"');
     const done = renderToStaticMarkup(React.createElement(Unsubscribed));

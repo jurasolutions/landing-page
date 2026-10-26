@@ -118,7 +118,7 @@ export const PRIVACY = {
   label: "Privacy",
   heading: "How we handle your data",
   lede: "What this site, its free tools and our emails collect, why, and how to stop it. If anything here is unclear, ask us.",
-  updated: "Last updated 25 October 2026",
+  updated: "Last updated 27 October 2026",
   sections: [
     {
       heading: "Who we are",
@@ -144,6 +144,7 @@ export const PRIVACY = {
       heading: "Tools that use AI",
       paragraphs: [
         "Tools marked “Uses AI” send what you give them, such as photos of receipts, over an encrypted connection to Anthropic's Claude API to be read. Anthropic processes it under its commercial terms and returns the result, which we pass straight back to your browser. We do not store your images, your files or the results, and we do not log what is in them.",
+        "The Product photo studio also sends your photos, made smaller, with Claude's written instructions over an encrypted connection to Cloudflare Workers AI, which draws the new pictures from them and returns them to your browser. Cloudflare does not keep them for us, and we do not store your photos or the pictures.",
         "To keep the free tries fair, we count how many you have used today. The count is kept against two scrambled codes, one made from your connection's IP address and a random cookie and one from the IP address alone, never against the address itself. The cookie is called jura_vid, holds nothing but that random code, is only sent with the tools' own requests, and expires after a year.",
         "Before a try is sent, Cloudflare Turnstile checks that you are a person and not a bot. It runs on the AI tool pages only.",
       ],
