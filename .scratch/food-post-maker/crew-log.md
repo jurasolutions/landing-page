@@ -286,3 +286,15 @@ decisions: G4 = merge to main and push, Ting Yu's standing instruction ("push / 
 questions: -
 evidence:  qa-lead gate -> GO, rules 1-7 met; npm test 547 passed; build ok
 ```
+
+## 2026-10-27T06:00:00+08:00 conductor (push to main refused)
+
+```
+status:    blocked
+persona:   conductor
+ticket:    03
+artifacts: origin/crew/food-post-maker pushed (a9ed8c8); reviews/release.md (PR body, rollback, live check)
+decisions: the push to main was refused by the permission check, as with APP-001a; not worked around. The branch is on GitHub for Ting Yu to merge as PR #1 was
+questions: Ting Yu: merge crew/food-post-maker into main (open the PR from reviews/release.md), then the live check runs after 08:00 SGT
+evidence:  git push origin crew/food-post-maker -> new branch; git push origin crew/food-post-maker:main -> denied by the permission check
+```
