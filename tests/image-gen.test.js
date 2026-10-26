@@ -50,6 +50,12 @@ describe("Workers AI error classes", () => {
     expect(classifyImageError("timeout")).toBe("unavailable");
     expect(classifyImageError(undefined)).toBe("unavailable");
   });
+
+  it("never reads a 4006 inside a request id as the cap", () => {
+    expect(classifyImageError(aiError("AiError: AiError: Internal server error (1b4e28ba-2fa1-4006-a716-446655440000)"))).toBe("unavailable");
+    expect(classifyImageError(aiError("AiError: Internal server error (3043) request 4006"))).toBe("unavailable");
+    expect(classifyImageError(aiError("AiError: AiError: 4006: daily limit"))).toBe("cap");
+  });
 });
 
 describe("drawing a picture through the AI binding", () => {

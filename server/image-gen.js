@@ -79,11 +79,14 @@ export const imageReady = (env) => typeof env.AI?.run === "function" && imagePri
  *                  the free plan): close this tool until 00:00 UTC
  *   "unavailable"  anything else, such as 3043 "Internal server error" or a
  *                  timeout: worth another attempt
- * The binding throws plain Errors; the code is matched in the message too.
+ * The binding throws plain Errors. The code counts only as the error's `code`
+ * or as the message's leading code ("AiError: 4006: ..."), never as a number
+ * anywhere in it: a request id such as 1b4e28ba-2fa1-4006-... must not close
+ * the tool for the day.
  */
 export function classifyImageError(error) {
   const message = String(error?.message ?? error ?? "");
-  if (error?.code === 4006 || /\b4006\b/.test(message)) return "cap";
+  if (Number(error?.code) === 4006 || /^(?:AiError:\s*)*4006\b/.test(message)) return "cap";
   if (/daily free allocation|neurons|upgrade to Cloudflare's Workers Paid/i.test(message)) return "cap";
   return "unavailable";
 }
