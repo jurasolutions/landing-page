@@ -297,3 +297,31 @@ export async function closeForToday(db, { day, config }) {
     .bind(day, config.budgetNano)
     .run();
 }
+
+/**
+ * One tool closed for the rest of the day, while the others stay open: the
+ * product photo studio, when Workers AI says the account's daily allocation
+ * is used up. That allocation resets at 00:00 UTC (08:00 SGT), so this one
+ * marker is keyed by the UTC date, not the SGT day every other row uses. It
+ * is an app_tries row with `visitor_hash` '#site' and `tool`
+ * '#closed:<slug>': reserved keys, so no migration was needed and it never
+ * meets a visitor's row.
+ */
+export const closedKey = (tool) => `#closed:${tool}`;
+const CLOSED_BY = "#site";
+const utcDay = (now = Date.now()) => new Date(now).toISOString().slice(0, 10);
+
+export async function closeToolForToday(db, { tool, now }) {
+  await db
+    .prepare("INSERT INTO app_tries (day, visitor_hash, tool, count) VALUES (?1, ?2, ?3, 1) ON CONFLICT DO NOTHING")
+    .bind(utcDay(now), CLOSED_BY, closedKey(tool))
+    .run();
+}
+
+export async function toolClosed(db, { tool, now }) {
+  const row = await db
+    .prepare("SELECT count FROM app_tries WHERE day = ?1 AND visitor_hash = ?2 AND tool = ?3")
+    .bind(utcDay(now), CLOSED_BY, closedKey(tool))
+    .first("count");
+  return row != null;
+}

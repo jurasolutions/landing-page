@@ -13,7 +13,7 @@
  * The first call issues the visitor cookie.
  */
 import { json } from "./http.js";
-import { remaining } from "./limit.js";
+import { remaining, toolClosed } from "./limit.js";
 import { aiReady, isAiTool, isServedAiTool, reply, visitorContext } from "./ai-tool.js";
 
 export async function handleLimit({ request, env, registry, now }) {
@@ -28,6 +28,9 @@ export async function handleLimit({ request, env, registry, now }) {
   const ctx = await visitorContext(request, env, tool ?? "*", now);
   try {
     const left = await remaining(ctx.db, ctx);
+    // A tool closed on its own (server/limit.js closeToolForToday) reports
+    // its cap reached; the others, and the health check, are unaffected.
+    if (tool !== null && (await toolClosed(ctx.db, { tool, now }))) left.capReached = true;
     return reply(ctx, { ...left, triesPerDay: ctx.config.triesPerDay, ready: true });
   } catch (error) {
     console.error(JSON.stringify({ at: "limit", ok: false, error: String(error?.name ?? "error") }));

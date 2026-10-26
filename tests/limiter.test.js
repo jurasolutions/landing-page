@@ -40,14 +40,14 @@ describe("GET /api/apps/limit", () => {
 
   it("says a tool is not ready when a binding only it needs is missing, and leaves the others ready", async () => {
     const reader = registry.find((e) => e.slug === "receipt-reader");
-    const list = [reader, { ...reader, slug: "food-post-maker", name: "Food post maker", prd: "APP-004" }];
+    const list = [reader, { ...reader, slug: "product-photo-studio", name: "Product photo studio", prd: "APP-004" }];
     const { env } = await setup();
     const ask = async (tool, extra = {}) =>
       (await getLimit({ request: limitRequest({ tool }), env: { ...env, ...extra }, registry: list })).json();
-    expect(await ask("food-post-maker")).toMatchObject({ ready: false, triesLeft: 0 });
+    expect(await ask("product-photo-studio")).toMatchObject({ ready: false, triesLeft: 0 });
     expect(await ask("receipt-reader")).toMatchObject({ ready: true, triesLeft: 2 });
     expect(await ask(null)).toMatchObject({ ready: true });
-    expect(await ask("food-post-maker", { AI: { run: async () => ({}) } })).toMatchObject({ ready: true, triesLeft: 2 });
+    expect(await ask("product-photo-studio", { AI: { run: async () => ({}) } })).toMatchObject({ ready: true, triesLeft: 2 });
   });
 
   it("refuses a slug that is not an AI tool", async () => {

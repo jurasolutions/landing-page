@@ -8,14 +8,15 @@ import { hashIp, identifyVisitor } from "./visitor.js";
 import { limitConfig, limitKey } from "./limit.js";
 import { findEntry } from "./registry.js";
 import { isServed } from "./drafts.js";
+import { imageReady } from "./image-gen.js";
 
 /**
  * What a tool needs on top of what every AI tool needs, keyed by slug. Kept
  * on the server: the registry ships in the browser bundle.
  */
 const TOOL_NEEDS = {
-  // The pictures: a Workers AI binding.
-  "food-post-maker": (env) => typeof env.AI?.run === "function",
+  // The pictures: a Workers AI binding, and an image model with a price.
+  "product-photo-studio": imageReady,
 };
 
 /**
