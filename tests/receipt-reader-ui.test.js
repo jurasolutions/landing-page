@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { LimitArea } from "../src/apps/receipt-reader/index.jsx";
+import { LimitArea } from "../src/apps/_shared/LimitArea.jsx";
 import copy from "../src/apps/receipt-reader/copy.js";
 
 const render = (limit) =>

@@ -3,15 +3,10 @@
  *   limit  what GET /api/apps/limit returned, or null while it is loading
  */
 
-/** True when today's tries are used up, the visitor's or the site's. */
-export const isOutOfTries = (limit) => Boolean(limit && (limit.capReached || limit.triesLeft <= 0));
+import { isOutOfTries, showsTalkCard } from "../_shared/ai-limit.js";
 
-/**
- * True when the tool shows the talk-to-us card under the out-of-tries notice
- * (APP-002 §5.1 step 7). Not when the AI tools are not ready: the page then
- * shows the not-ready alert, and the shell's own closing card stays.
- */
-export const showsTalkCard = (limit, siteKey) => Boolean(limit?.ready && siteKey && isOutOfTries(limit));
+// Shared by the AI tools; kept exported here for the receipt reader's callers.
+export { isOutOfTries, showsTalkCard };
 
 /**
  * Why "Read receipts" cannot be pressed yet, or null when it can. The first

@@ -2,8 +2,7 @@ import React from "react";
 import { Alert, Button, Icon, IconButton, Toast } from "../../ds.js";
 import { FileDrop } from "../_shared/FileDrop.jsx";
 import { ExportButtons } from "../_shared/ExportButtons.jsx";
-import { TryLimitNotice } from "../_shared/TryLimitNotice.jsx";
-import { TalkToUsCard } from "../_shared/TalkToUsCard.jsx";
+import { LimitArea } from "../_shared/LimitArea.jsx";
 import { useOwnTalkCard } from "../_shared/AppShell.jsx";
 import { saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
@@ -19,29 +18,6 @@ import { ReceiptResults } from "./ReceiptResults.jsx";
 import "./receipt-reader.css";
 
 let fileCounter = 0;
-
-/**
- * The top of the upload area: the tries left, or why there are none. Out of
- * tries, the upload area gives way to the come-back-tomorrow message with the
- * talk-to-us card right under it (APP-002 §5.1 step 7). The page then leaves
- * out the shell's closing card (useOwnTalkCard below), so the card shows once.
- */
-export function LimitArea({ limit, slug, copy }) {
-  if (limit && (!limit.ready || !SITE_KEY)) {
-    return (
-      <Alert tone="warning" icon={<Icon name="alert-circle" size={18} />}>
-        {copy.errors.notReady}
-      </Alert>
-    );
-  }
-  const limitCopy = { triesLeft: copy.triesLeft, limitReached: copy.limitReached, capReached: copy.capReached };
-  return (
-    <>
-      <TryLimitNotice limit={limit} copy={limitCopy} />
-      {showsTalkCard(limit, SITE_KEY) && <TalkToUsCard slug={slug} {...copy.talk} />}
-    </>
-  );
-}
 
 export default function ReceiptReader({ app, copy }) {
   const [limit, setLimit] = React.useState(null);
