@@ -56,13 +56,26 @@ describe("the product photo studio's picture shapes (APP-004)", () => {
     expect([...new Uint8Array(await blob.arrayBuffer())]).toEqual([0xff, 0xd8, 0xff, 0x00]);
   });
 
-  it("offers the share sheet only where the browser can share the file (S3)", () => {
+  it("offers the share sheet only on a phone or tablet that can share the file (S3)", () => {
     const file = { name: "a.jpg" };
-    expect(saveMode({ canShare: () => true, share: () => {} }, file)).toBe("share");
-    expect(saveMode({ canShare: () => false, share: () => {} }, file)).toBe("download");
-    expect(saveMode({}, file)).toBe("download");
-    expect(saveMode({ canShare: () => { throw new Error("no"); }, share: () => {} }, file)).toBe("download");
+    const phone = { maxTouchPoints: 5 };
+    expect(saveMode({ ...phone, canShare: () => true, share: () => {} }, file)).toBe("share");
+    expect(saveMode({ ...phone, canShare: () => false, share: () => {} }, file)).toBe("download");
+    expect(saveMode(phone, file)).toBe("download");
+    expect(saveMode({ ...phone, canShare: () => { throw new Error("no"); }, share: () => {} }, file)).toBe("download");
     expect(saveMode(undefined, file)).toBe("download");
+  });
+
+  // QA-01, defect 04: desktop browsers can share files too, but their share
+  // sheets have no plain save.
+  it("downloads on a desktop browser, even one that can share files", () => {
+    const file = { name: "clean-white-studio-portrait.jpg" };
+    const canShareFiles = { canShare: () => true, share: () => {} };
+    expect(saveMode({ ...canShareFiles, maxTouchPoints: 0, userAgentData: { mobile: false } }, file)).toBe("download");
+    expect(saveMode({ ...canShareFiles, maxTouchPoints: 0 }, file)).toBe("download"); // Mac Safari
+    expect(saveMode({ ...canShareFiles, maxTouchPoints: 10, userAgentData: { mobile: false } }, file)).toBe("download"); // touch laptop
+    expect(saveMode({ ...canShareFiles, maxTouchPoints: 5 }, file)).toBe("share"); // iPhone Safari
+    expect(saveMode({ ...canShareFiles, maxTouchPoints: 5, userAgentData: { mobile: true } }, file)).toBe("share"); // Android Chrome
   });
 });
 

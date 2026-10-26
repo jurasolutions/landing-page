@@ -221,3 +221,32 @@ decisions: approve; no blocking findings; contract, error codes and the pre-pres
 questions: -
 evidence:  vitest 34 files 546 passed; build ok, prerendered head ok; jura-growth check pass; security pass 0 findings
 ```
+
+## 2026-10-27T03:45:00+08:00 qa
+
+```
+status:    done
+persona:   qa
+ticket:    - (whole feature, PRD §2)
+artifacts: reviews/qa-01.md; issues/04-defect-desktop-share-sheet.md; qa/regressions/{save-mode.test.js,vitest.config.js}; qa/*.png + dl-*.jpg (desktop 1280, phone 360)
+decisions: browser cases on Vite dev with Playwright route stubs (fake Turnstile, /limit, POST answers with canvas-made 1024x1280 JPEGs); red test kept out of npm test until the fix; dev-only Choose-this-one border quirk not filed (prod build correct)
+questions: defect 04 (desktop gets share sheet, no download): fix before the push? Recommend yes: share only on touch devices, a one-condition change in saveMode
+evidence:  npm test -> 34 files, 546 passed; npm run build -> ok; jura-growth check (73 strings) -> pass
+           C1 12/0, C2 5/0, C3 guard 1/0 (live only), C4 5/0, C5 6/1, C6 2/0, C7 guards 1/0 (live only), C8 1/0, C9 10/0, C10 3/0, other 6/0
+           downloads 1080x1350 / 1080x1080 (sips); local no-AI -> ready:false, POST 503, other tools ready
+           red test -> expected "download", received "share"
+```
+
+## 2026-10-27T05:45:00+08:00 conductor (defect 04 fixed)
+
+```
+status:    done
+persona:   conductor (size-S fix in the main session)
+ticket:    04
+artifacts: src/apps/product-photo-studio/compose.js saveMode; tests/product-photo-studio-ui.test.js; .gitignore (.scratch/*/qa/); qa screenshots untracked
+decisions: share sheet only on a handheld: userAgentData.mobile where Chromium gives it, else maxTouchPoints > 0; desktops and touch laptops download
+           QA's red test moved into the suite; the separate regression config removed
+           QA screenshots stay local (committed by accident in 59fc33c, now untracked)
+questions: -
+evidence:  without the fix -> "downloads on a desktop browser" fails; with it -> 49/49; npx vitest run -> 547 passed; build ok
+```

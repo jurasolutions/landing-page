@@ -49,11 +49,19 @@ export function base64ToBlob(base64) {
 }
 
 /**
- * "share" where the browser can hand `file` to the share sheet (iPhone
- * Safari, Android Chrome: "Save Image" puts it in Photos), else "download".
+ * "share" on a phone or tablet whose browser can hand `file` to the share
+ * sheet (iPhone Safari, Android Chrome: "Save Image" puts it in Photos), else
+ * "download". Desktop Chrome, Edge and Safari can share files too, but their
+ * share sheets have no plain save, so a computer always downloads (QA-01,
+ * defect 04). Chromium says whether it is mobile; elsewhere a touch screen
+ * stands in for it (iPhone and iPad report touch points, Mac Safari none).
  */
+const isHandheld = (nav) =>
+  typeof nav?.userAgentData?.mobile === "boolean" ? nav.userAgentData.mobile : (nav?.maxTouchPoints ?? 0) > 0;
+
 export function saveMode(nav, file) {
   try {
+    if (!isHandheld(nav)) return "download";
     return typeof nav?.share === "function" && nav.canShare?.({ files: [file] }) === true ? "share" : "download";
   } catch {
     return "download";
