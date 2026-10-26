@@ -7,6 +7,9 @@
  *   5. validate the output, with one repair attempt that is free to the
  *      visitor but reserves its own cost from the budget (skipped when the
  *      budget would not cover it)
+ *   5b. a tool's optional `finish` step: a second, non-Claude cost (the
+ *      product photo studio's pictures) reserved with the try at step 3 and
+ *      settled here; it can answer with its own status or fail the try
  *   6. respond
  * An API or network failure, output that cannot be repaired, or anything
  * unexpected after step 3 gives the visitor's try back, once per visitor per
@@ -16,7 +19,8 @@
  * reservation.
  *
  * Responses (`error` is a code; the page owns the words):
- *   200 the tool's own body, plus triesLeft
+ *   200 the tool's own body, plus triesLeft (a finish step may answer with
+ *       another status, such as the product photo studio's 422 no_product)
  *   429 { error: "limit" | "cap", triesLeft }      502 { error: "unreadable" }
  *   503 { error: "unavailable" }
  */
@@ -31,13 +35,28 @@ import { anthropicClient, classifyApiError, costNano, reservationNano, responseT
  * repair        (problems, text) => the repair request
  * read          (text) => { ok: true, ... } | { ok: false, problems }
  * respond       (result) => { body, log }: the 200 body and its log fields
+ *               (not used when `finish` is given)
  * logDefaults   fields every log line carries, such as { receipts: 0 }
+ * finish        optional, for a tool with a second cost after Claude:
+ *   reserve     nano-dollars: that step's worst case. It is reserved with the
+ *               try, in the same statement, so a try never pays for Claude
+ *               and then finds no money left for the rest. It does not count
+ *               towards AI_SITE_CAP: the try's one call already did.
+ *   run         async (result) => FinishOutcome, once the output validates:
+ *     { ok: true, spent, body, log, status? }   status defaults to 200
+ *     { ok: false, spent, reason, kind: "cap" | "unavailable" }
+ *               `spent` is what the step really cost; the reservation is
+ *               settled to it. ok: false gives the try back and answers 429
+ *               (cap) or 503 (unavailable). If `run` throws, its reservation
+ *               stays spent, since some of it may have been.
  */
-export async function runAiTry({ incoming, env, now, started, tool, reserve, request, repair, read, respond, logDefaults = {} }) {
+export async function runAiTry({ incoming, env, now, started, tool, reserve, request, repair, read, respond, logDefaults = {}, finish = null }) {
   // Everything runs inside one guard: anything unexpected (a D1 binding with
   // no tables, say) gives back a try that was taken and answers 503.
-  const state = { ctx: null, taken: null, refund: null };
-  const job = { incoming, env, now, started, tool, reserve, request, repair, read, respond, logDefaults };
+  // `held` is the finish step's reservation while it is still unused: every
+  // exit before that step runs releases it here, in one place.
+  const state = { ctx: null, taken: null, refund: null, held: 0 };
+  const job = { incoming, env, now, started, tool, reserve, request, repair, read, respond, logDefaults, finish };
   try {
     return await withTry(job, state);
   } catch (error) {
@@ -61,7 +80,21 @@ export async function runAiTry({ incoming, env, now, started, tool, reserve, req
     });
     const triesLeft = taken?.ok ? { triesLeft: taken.triesLeft + (refunded ? 1 : 0) } : {};
     return reply(ctx, { error: "unavailable", ...triesLeft }, 503);
+  } finally {
+    await releaseHeld(state);
   }
+}
+
+/**
+ * Releases the finish step's reservation if it is still held, once. Runs on
+ * every exit before that step, and before anything that sets the day's spend
+ * outright (closeForToday), so a later release cannot take the spend back
+ * below the budget and reopen the tools.
+ */
+async function releaseHeld(state) {
+  const held = state.held;
+  state.held = 0;
+  if (held > 0) await settleQuietly(state.ctx.db, state.ctx, -held);
 }
 
 /**
@@ -75,18 +108,24 @@ function refundOnce(state) {
   return state.refund;
 }
 
-async function withTry({ incoming, env, now, started, tool, reserve, request, repair, read, respond, logDefaults }, state) {
-  // 3. The try, and the first call's reservation from the daily budget.
+async function withTry({ incoming, env, now, started, tool, reserve, request, repair, read, respond, logDefaults, finish }, state) {
+  // 3. The try, and the first call's reservation from the daily budget, with
+  // the finish step's worst case when there is one.
   const ctx = await visitorContext(incoming, env, tool, now);
   state.ctx = ctx;
-  const taken = await takeTry(ctx.db, { ...ctx, reserve });
+  const finishReserve = finish?.reserve ?? 0;
+  const taken = await takeTry(ctx.db, { ...ctx, reserve: reserve + finishReserve });
   state.taken = taken;
   if (!taken.ok) {
     logCall({ day: ctx.day, tool, ok: false, reason: taken.reason, ...logDefaults, latency_ms: Date.now() - started });
     return reply(ctx, { error: taken.reason, triesLeft: 0 }, 429);
   }
+  state.held = finishReserve;
 
   const tokens = { input_tokens: 0, output_tokens: 0, cost_nano_usd: 0 };
+  // Only a tool with a finish step logs its cost, so the others' log lines
+  // keep their exact shape.
+  const extra = finish ? { image_nano_usd: 0 } : {};
   // Each answer is priced from its token counts, and its reservation settled
   // to that real cost.
   const add = async (message, reserved) => {
@@ -101,7 +140,8 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
   const released = async (error, reserved) => {
     if (unbilled(error)) await settleQuietly(ctx.db, ctx, -reserved);
   };
-  const log = (fields) => logCall({ day: ctx.day, tool, ...logDefaults, ...fields, ...tokens, latency_ms: Date.now() - started });
+  const log = (fields) =>
+    logCall({ day: ctx.day, tool, ...logDefaults, ...fields, ...tokens, ...extra, latency_ms: Date.now() - started });
 
   // A failure on our side, or output we could not use: the try comes back.
   const fail = async (reason, status, error) => {
@@ -120,6 +160,8 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
     if (kind === "input") return refused("api_400");
     if (kind === "billing") {
       const response = await fail("billing", 429, "cap");
+      // Released first: the close must be the last word on today's spend.
+      await releaseHeld(state);
       await closeForToday(ctx.db, ctx);
       return response;
     }
@@ -159,6 +201,23 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
     result = read(responseText(second));
   }
   if (!result.ok) return fail("invalid_output", 502, "unreadable");
+
+  // 5b. The finish step. Its reservation is handed over first: from here a
+  // throw keeps it spent (fail closed, like a dropped Claude connection).
+  if (finish) {
+    const held = state.held;
+    state.held = 0;
+    const outcome = await finish.run(result);
+    extra.image_nano_usd = outcome.spent;
+    await settleQuietly(ctx.db, ctx, outcome.spent - held);
+    if (!outcome.ok) {
+      const cap = outcome.kind === "cap";
+      return fail(outcome.reason, cap ? 429 : 503, cap ? "cap" : "unavailable");
+    }
+    const status = outcome.status ?? 200;
+    log({ ok: status < 400, ...outcome.log, repaired });
+    return reply(ctx, { ...outcome.body, triesLeft: taken.triesLeft }, status);
+  }
 
   // 6. Respond.
   const { body, log: fields } = respond(result);
