@@ -423,7 +423,9 @@ safe for as long as nobody added a handler to it.
   and settled to what it cost. If `AI_SITE_CAP` refuses it, or it fails,
   refuses or returns output that does not validate, the first reading
   stands; it never fails the try. An image the second look still finds empty
-  keeps the reason it gave.
+  keeps the reason it gave. When the second look is shown one image, every
+  entry it returns belongs to that image, whatever number the model wrote;
+  shown several, an entry for an image it was not shown is dropped.
 - **Validation is per field** (`server/receipts.js`). A field that fails its
   check becomes null rather than failing the try: currency symbols become
   codes first (RM → MYR, S$ → SGD, £ → GBP, € → EUR, US$ → USD; a bare `$`

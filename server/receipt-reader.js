@@ -51,6 +51,7 @@ import {
   imageLabel,
   imagesWithoutReceipt,
   readModelOutput,
+  readSecondLook,
   receiptInstruction,
   repairInstruction,
   secondLookInstruction,
@@ -146,7 +147,7 @@ function secondLook({ env, images }) {
         }
         spent = costNano(usageOf(message));
         if (message.stop_reason !== "refusal") {
-          const read = readModelOutput(responseText(message), { images: count });
+          const read = readSecondLook(responseText(message), { looked, images: count });
           if (read.ok) second = { looked, entries: read.receipts };
         }
       }

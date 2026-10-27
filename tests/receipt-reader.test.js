@@ -355,13 +355,35 @@ describe("a second look at an image with no receipt", () => {
     expect((await response.json()).receipts).toEqual([empty(1, "blurry")]);
   });
 
-  it("drops an entry the second look gives for an image it was not shown", async () => {
+  it.each([
+    ["1, the first number it saw", 1],
+    ["7, a number outside the batch", 7],
+    ["no number", undefined],
+  ])("gives every entry from a second look at one image to that image, when the model numbers it %s", async (_, number) => {
     const { env } = await setup();
-    installNetwork({ anthropic: [answer(RECEIPT, empty(2)), answer({ ...RECEIPT, merchant: "Again" }, empty(2, "too_dark"))] });
+    const found = { ...RECEIPT, image: number, merchant: "FairPrice Finest" };
+    installNetwork({ anthropic: [answer(RECEIPT, empty(2)), answer(found)] });
     const { receipts } = await (await readReceipts({ request: two(), env })).json();
+    expect(receipts.map((r) => [r.image, r.is_receipt, r.merchant])).toEqual([
+      [1, true, RECEIPT.merchant],
+      [2, true, "FairPrice Finest"],
+    ]);
+  });
+
+  it("drops an entry a second look at several images gives for an image it was not shown", async () => {
+    const { env } = await setup();
+    const three = receiptRequest({ files: [fakeJpeg(), fakeJpeg(), fakeJpeg()] });
+    installNetwork({
+      anthropic: [
+        answer(RECEIPT, empty(2), empty(3)),
+        answer({ ...RECEIPT, merchant: "Again" }, empty(2, "too_dark"), { ...RECEIPT, image: 3, merchant: "Third" }),
+      ],
+    });
+    const { receipts } = await (await readReceipts({ request: three, env })).json();
     expect(receipts.map((r) => [r.image, r.merchant, r.problem])).toEqual([
       [1, RECEIPT.merchant, null],
       [2, null, "too_dark"],
+      [3, "Third", null],
     ]);
   });
 
