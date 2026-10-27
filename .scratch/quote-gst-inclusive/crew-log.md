@@ -95,3 +95,12 @@ decisions: approved, no blocking or should-fix findings; nit: the 14pt gap is an
 evidence:  116,784 exclusive quotes base vs ticket -> identical apart from inclusive:false; 101,541 inclusive quotes vs independent reference -> 0 invariant violations; readers run directly
 evidence:  PDF not viewed as an image (pdftoppm missing); QA to check visually
 ```
+
+## 2026-10-28T00:50:00+08:00 qa
+status:    done
+persona:   qa
+ticket:    -
+artifacts: .scratch/quote-gst-inclusive/reviews/qa-01.md
+decisions: no defect tickets and no new tests, because nothing failed; PDFs rendered with pdf.js in the browser since pdftoppm is missing
+questions: Should a blank or invalid GST rate block the PDF? Recommend leave as is (matches exclusive mode); separate ticket if wanted
+evidence:  npm test -> 39 files, 735 passed; npm run build -> exit 0; UAT 11 of 11 pass; AC1-AC8 56 of 56 cases pass; 600,000 random inclusive quotes with new seeds -> 0 violations
