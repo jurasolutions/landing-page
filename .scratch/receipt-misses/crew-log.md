@@ -39,3 +39,23 @@ artifacts: branch crew/receipt-misses-02 (86ff346): receipt-reader read-state, c
 decisions: studio gets its own refused/rejected/bad_output/busy/offline words and HEIC decode; fromApi maps image n to the n-th preview; an answer without an image number falls back to the old sentence
 questions: -
 evidence:  npm test -> 35 files, 580 passed; npm run build -> built; jura-growth check -> 16 strings pass (photo numbers kept as {n})
+
+## 2026-10-27T02:30Z developer (ticket 01)
+
+status:    done
+persona:   developer
+ticket:    01
+artifacts: branch crew/receipt-misses-01 (6a97c02): server/receipts.js, server/receipt-reader.js, server/ai-run.js, header comments in product-photo-studio.js and quote-drafter.js, tests, README
+decisions: second look as the finish step (reserved with the try, counts toward AI_SITE_CAP); a failing field becomes null; an entry with a bad is_receipt or image number is dropped and its image gets the second look; unmentioned image → problem "other"
+questions: quote builder now shows "unavailable" for bad output → fixed by the conductor (8c8b2a0)
+evidence:  npm test -> 597 passed; npm run build -> built
+
+## 2026-10-27T02:40Z conductor (merge)
+
+status:    done
+persona:   conductor
+ticket:    01, 02
+artifacts: crew/receipt-misses with both tickets merged; 8c8b2a0 quote builder words + image-gen comment
+decisions: quote builder maps reason bad_output to its own "couldn't draft" words and 503 busy to a busy sentence
+questions: -
+evidence:  vitest -> 618 passed; build -> built in 1.67s; jura-growth check -> pass
