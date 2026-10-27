@@ -99,3 +99,13 @@ artifacts: server/ai-run.js (`counted` on every failure after a try), receipt-re
 decisions: pages trust `counted` over comparing counts; a second look with no specific reason keeps the first reading's; a missed photo's card is titled "Photo n", never a guessed merchant; quote builder names a lost connection
 questions: -
 evidence:  vitest -> 630 passed (36 files); build -> built in 1.69s; jura-growth check -> pass
+
+## 2026-10-27T04:45Z conductor (quality gate and release notes)
+
+status:    done
+persona:   conductor
+ticket:    -
+artifacts: reviews/quality-gate.md (GO), reviews/release.md, README `counted` note, crew card test count
+decisions: live check in production after the merge (preview has no AI secrets); G4 = PR, Ting Yu merges (merge to main is blocked for the agent)
+questions: -
+evidence:  vitest -> 630 passed; build -> built

@@ -327,7 +327,11 @@ person and a US$5 daily budget), in `server/limit.js`:
   | 503 `{ error: "unavailable" }` | any other failure on our side, the network included | given back |
   | 429 `{ error: "cap" }` | the budget is spent, or the API reported a billing problem (which closes the day) | given back |
 
-  Each carries `triesLeft` once a try was taken. Until 2026-10-27 a rate
+  Each carries `triesLeft` once a try was taken, and `counted`: true when
+  the try was used, false when it came back (a second failure the same day
+  keeps it used, so the table's "given back" is the first one). The pages
+  trust `counted` rather than comparing counts, which can come from two
+  different buckets on a first visit. Until 2026-10-27 a rate
   limit answered 429 `cap`, which told the visitor their tries were used up,
   and bad output answered 502 `unreadable`, which blamed their photo.
 - **Refunds are bounded.** A visitor gets at most one try back per SGT day,
