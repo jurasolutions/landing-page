@@ -61,7 +61,8 @@ function ReceiptCard({ receipt, index, copy, update, remove }) {
 
         {!receipt.isReceipt ? (
           <div className="rr-miss">
-            {receipt.previewUrl && <img src={receipt.previewUrl} alt="" className="rr-miss-photo" />}
+            {/* Decorative: the sentence beside it names the photo by number. */}
+            {receipt.previewUrl && <img src={receipt.previewUrl} alt="" width={96} height={96} className="rr-miss-photo" />}
             <Alert tone="info" icon={<Icon name="info" size={18} />} className="rr-miss-why">
               {missMessage(receipt, copy)}
             </Alert>
