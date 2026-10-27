@@ -1,6 +1,7 @@
 import React from "react";
 import { formatCents, formatPercent, formatQuantity, parseCents, parsePercent, parseQuantity } from "./calc.js";
 import { displayDate } from "./model.js";
+import { totalsRows } from "./totals-rows.js";
 
 /**
  * A live, readable picture of the PDF. It follows the PDF's structure and
@@ -9,6 +10,7 @@ import { displayDate } from "./model.js";
  */
 export function QuotePreview({ quote, totals, copy }) {
   const P = copy.pdf;
+  const totalLines = totalsRows(quote, totals, copy);
   const b = quote.business;
   const c = quote.customer;
   const rows = quote.items
@@ -132,26 +134,12 @@ export function QuotePreview({ quote, totals, copy }) {
       )}
 
       <dl className="qb-paper-totals">
-        <dt>{P.subtotal}</dt>
-        <dd>{formatCents(totals.subtotal)}</dd>
-        {totals.discount > 0n && (
-          <>
-            <dt>{P.discount}</dt>
-            <dd>-{formatCents(totals.discount)}</dd>
-          </>
-        )}
-        {quote.gst.on && totals.discount > 0n && (
-          <>
-            <dt>{P.taxable}</dt>
-            <dd>{formatCents(totals.taxable)}</dd>
-          </>
-        )}
-        {quote.gst.on && (
-          <>
-            <dt>{P.gst(formatPercent(totals.gstRate))}</dt>
-            <dd>{formatCents(totals.gst)}</dd>
-          </>
-        )}
+        {totalLines.rows.map(({ label, value }) => (
+          <React.Fragment key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </React.Fragment>
+        ))}
         <dt className="qb-paper-total">{P.total}</dt>
         <dd className="qb-paper-total">{formatCents(totals.total)}</dd>
       </dl>

@@ -15,6 +15,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { formatCents, formatPercent, formatQuantity, parseCents, parsePercent, parseQuantity } from "./calc.js";
 import { displayDate } from "./model.js";
+import { totalsRows } from "./totals-rows.js";
 import { toPrintable } from "./winansi.js";
 import { A4, fitLogo } from "./pdf-geometry.js";
 
@@ -294,17 +295,12 @@ export async function buildQuotePdf(quote, totals, copy, { logo = null } = {}) {
 
   // ---- Totals ----
 
-  const totalRows = [[P.subtotal, formatCents(totals.subtotal)]];
-  if (totals.discount > 0n) totalRows.push([P.discount, `-${formatCents(totals.discount)}`]);
-  if (quote.gst.on) {
-    if (totals.discount > 0n) totalRows.push([P.taxable, formatCents(totals.taxable)]);
-    totalRows.push([P.gst(formatPercent(totals.gstRate)), formatCents(totals.gst)]);
-  }
+  const { rows: totalRows } = totalsRows(quote, totals, copy);
   const totalsHeight = totalRows.length * (LEADING + 3) + 30;
   if (!room(totalsHeight)) addPage();
 
   const labelX = right - 210;
-  for (const [label, value] of totalRows) {
+  for (const { label, value } of totalRows) {
     y -= LEADING + 3;
     text(label, labelX, y, { color: MUTED });
     text(value, right, y, { align: "right" });
