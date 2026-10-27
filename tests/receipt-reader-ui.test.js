@@ -6,7 +6,8 @@ import copy from "../src/apps/receipt-reader/copy.js";
 import { ReceiptResults } from "../src/apps/receipt-reader/ReceiptResults.jsx";
 import { fromApi, releasable } from "../src/apps/receipt-reader/model.js";
 import { prepareFile } from "../src/apps/receipt-reader/prepare.js";
-import { fileMessage } from "../src/apps/receipt-reader/files.js";
+import { fileMessage, photoNumbers } from "../src/apps/receipt-reader/files.js";
+import { FileList } from "../src/apps/receipt-reader/FileList.jsx";
 import { stubBrowserImages } from "./helpers/browser-image.js";
 
 const render = (limit) =>
@@ -106,5 +107,41 @@ describe("the photos the page keeps after a read", () => {
     expect(releasable([gone.previewUrl], [stays])).toEqual(["blob:photo-2"]);
     expect(releasable([gone.previewUrl], [stays, gone])).toEqual([]);
     expect(releasable(["", undefined], [])).toEqual([]);
+  });
+});
+
+describe("the photo numbers before and after a read", () => {
+  const failed = { id: "f-1", name: "IMG_0001.HEIC", status: "error", reason: "heic" };
+  const ok = (n) => ({ id: `f-${n + 1}`, name: `receipt-${n}.jpg`, status: "ready", previewUrl: `blob:photo-${n}` });
+  const list = (files) => html(React.createElement(FileList, { files, copy, sending: false, onRemove: () => {} }));
+  const row = (out, url) => out.split("<li").find((li) => li.includes(url));
+
+  it("numbers only the files that will be sent, in the order they are sent", () => {
+    expect(photoNumbers([failed, ok(1), ok(2)])).toEqual([null, 1, 2]);
+    expect(photoNumbers([ok(1), { id: "f-9", status: "preparing" }, failed, ok(2)])).toEqual([1, 2, null, 3]);
+  });
+
+  it("labels a file in the list with the number and noun its card will use", () => {
+    const files = [failed, ok(1), ok(2)];
+    const out = list(files);
+    // What was sent is the ready files, in order; the card for image 2 is the third file.
+    const sent = files.filter((f) => f.status === "ready").map((f) => f.previewUrl);
+    const card = html(React.createElement(ReceiptResults, { receipts: [fromApi(miss(2, "blurry"), sent)], setReceipts: () => {}, copy }));
+    expect(card).toContain("Photo 2 is too blurry");
+    expect(card).toContain('src="blob:photo-2"');
+    expect(row(out, "blob:photo-2")).toContain(">Photo 2<");
+    expect(row(out, "blob:photo-2")).toContain('aria-label="Remove photo 2"');
+    expect(row(out, "blob:photo-1")).toContain(">Photo 1<");
+    expect(out).not.toContain("Photo 3");
+    expect(out).not.toMatch(/Receipt \d/);
+  });
+
+  it("names a file that can't be sent by its file name, with why", () => {
+    const out = list([failed, ok(1)]);
+    const first = out.split("<li")[1].replaceAll("&gt;", ">");
+    expect(first).toContain(">IMG_0001.HEIC<");
+    expect(first).toContain(copy.heic);
+    expect(first).toContain('aria-label="Remove IMG_0001.HEIC"');
+    expect(first).not.toMatch(/Photo \d/);
   });
 });

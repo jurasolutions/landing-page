@@ -78,6 +78,8 @@
   font-size: var(--text-body-sm);
   font-weight: var(--weight-semibold);
   color: var(--text-strong);
+  /* A file that can't be sent is labelled by its name, which can be long. */
+  overflow-wrap: anywhere;
 }
 
 .rr-file-status {

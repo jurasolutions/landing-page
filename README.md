@@ -385,7 +385,9 @@ safe for as long as nobody added a handler to it.
   with how to export a JPEG only where it can't; there is no HEIC library.
   Up to 3 files per try. The product photo studio does the same.
 - The page names what went wrong: a not-a-receipt card shows the photo it came
-  from, by its number in the batch, with the server's `problem` (blurry, cut
+  from, by its number in the batch ("Photo 2", the same label the file list
+  gave it: the list numbers only the files that will be sent, and names a
+  file that can't be sent by its file name), with the server's `problem` (blurry, cut
   off, too dark…), and a failed try is worded from `error` and `reason`
   (refused, rejected, bad output, busy) or a failed connection
   (`read-state.js failureMessage`, words in `copy.js`).

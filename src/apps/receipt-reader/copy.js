@@ -34,9 +34,12 @@ export default {
     noFiles: "Add at least one receipt first.",
   },
 
+  // `n` is the photo's number among the files that will be sent, the same
+  // number a not-a-receipt card gives it after the read.
   files: {
-    label: (n) => `Receipt ${n}`,
-    remove: (n) => `Remove receipt ${n}`,
+    label: (n) => `Photo ${n}`,
+    remove: (n) => `Remove photo ${n}`,
+    removeNamed: (name) => `Remove ${name}`,
     pdf: "First page of the PDF",
   },
 
