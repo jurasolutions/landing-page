@@ -98,6 +98,7 @@ describe("POST /api/resend-webhook", () => {
     const rows = e.DB.rows("suppression");
     expect(rows).toHaveLength(2);
     expect(rows[0]).toEqual({
+      id: 1,
       email_hash: sha("bounce.me@example.com"),
       email: "bounce.me@example.com",
       reason: "bounce",
@@ -137,32 +138,36 @@ describe("POST /api/resend-webhook", () => {
     expect((await onRequestPost({ request: post(body, sign(body)), env: { RESEND_WEBHOOK_SECRET: SECRET }, now: NOW })).status).toBe(503);
   });
 
-  it("is idempotent when Resend retries the same event", async () => {
+  it("adds a row each time Resend delivers an event, and keeps the earlier ones", async () => {
     const e = await env();
     const body = bounced();
     const headers = sign(body);
     await onRequestPost({ request: post(body, headers), env: e, now: NOW });
     await onRequestPost({ request: post(body, headers), env: e, now: NOW + 60_000 });
-    expect(e.DB.rows("suppression")).toHaveLength(1);
-    expect(e.DB.rows("suppression")[0].created_at).toBe("2026-10-24T03:00:00.000Z");
+    const rows = e.DB.rows("suppression");
+    expect(rows.map(({ id, reason, created_at }) => ({ id, reason, created_at }))).toEqual([
+      { id: 1, reason: "bounce", created_at: "2026-10-24T03:00:00.000Z" },
+      { id: 2, reason: "bounce", created_at: "2026-10-24T03:01:00.000Z" },
+    ]);
   });
 
-  it("upgrades an earlier unsubscribe to a complaint, and never downgrades a complaint", async () => {
+  it("keeps every event for an address, so a complaint after an unsubscribe is never lost", async () => {
     const e = await env();
     e.UNSUBSCRIBE_SECRET = "s";
     const hash = sha("angry@example.com");
     const sig = createHmac("sha256", Buffer.from("s")).update(hash).digest("base64url");
     await unsubscribe({ request: new Request(`https://jurasolutions.sg/unsubscribe?t=${hash}.${sig}`), env: e });
-    expect(e.DB.rows("suppression")[0]).toMatchObject({ reason: "unsubscribe", email: null });
-
     const complaint = complained();
     await onRequestPost({ request: post(complaint, sign(complaint)), env: e, now: NOW });
-    expect(e.DB.rows("suppression")[0]).toMatchObject({ reason: "complaint", source: "resend-webhook", email: "angry@example.com", resend_email_id: "e-123" });
-
     const bounce = bounced(["angry@example.com"]);
     await onRequestPost({ request: post(bounce, sign(bounce)), env: e, now: NOW });
-    expect(e.DB.rows("suppression")).toHaveLength(1);
-    expect(e.DB.rows("suppression")[0].reason).toBe("complaint");
+
+    const rows = e.DB.rows("suppression");
+    expect(rows.map(({ id, email_hash, email, reason, source, resend_email_id }) => ({ id, email_hash, email, reason, source, resend_email_id }))).toEqual([
+      { id: 1, email_hash: hash, email: null, reason: "unsubscribe", source: "unsubscribe-link", resend_email_id: null },
+      { id: 2, email_hash: hash, email: "angry@example.com", reason: "complaint", source: "resend-webhook", resend_email_id: "e-123" },
+      { id: 3, email_hash: hash, email: "angry@example.com", reason: "bounce", source: "resend-webhook", resend_email_id: "56761188-7520-42d8-8898-ff6fc54ce618" },
+    ]);
   });
 
   it("logs the event type and count only, never an address", async () => {
