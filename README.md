@@ -285,6 +285,13 @@ person and a US$5 daily budget), in `server/limit.js`:
   and settles the same way, and the SDK runs with `maxRetries: 0`, so nothing
   is sent that was not reserved. A typical one-receipt read costs a fraction
   of a US cent, so US$5 is well over a thousand reads.
+- **Unlimited tries for the owner's network** (`AI_UNLIMITED_NETWORKS`, Ting
+  Yu's request on 2026-10-27). A connection from an address in that list
+  (commas or spaces between them; an IPv6 address matches its whole /64)
+  takes no try and no per-IP count, and its page always shows the full
+  count. Its calls still reserve from the daily budget and count towards
+  `AI_SITE_CAP`, so the site's spend holds for everyone. Set it as a Pages
+  secret: an address is personal data and stays out of the repo.
 - **An optional call cap** (`AI_SITE_CAP`, off by default). When set, it also
   limits the number of AI calls a day; every request sent counts, the repair
   included, and a counted call is never given back.
@@ -562,6 +569,7 @@ setup is in `jurasolutions/outputs/growth/setup/toolbox-ai.md`.
 | `AI_DAILY_BUDGET_USD` | plain | AI tools | `5` (US dollars a day, all visitors together) |
 | `AI_SITE_CAP` | plain | AI tools | unset: no call cap, only the budget |
 | `AI_LIMIT_SCOPE` | plain | AI tools | `all` (or `per-tool`) |
+| `AI_UNLIMITED_NETWORKS` | secret | AI tools | unset: every network is counted |
 | `AI_IMAGE_MODEL` | plain | product photo studio | `@cf/black-forest-labs/flux-2-klein-4b` (or `-9b` on Workers Paid) |
 | `UNSUBSCRIBE_SECRET` | secret | `/unsubscribe` (same value as the growth CLI) | none: links do not verify |
 | `RESEND_WEBHOOK_SECRET` | secret | `/api/resend-webhook` | none: webhooks refused |

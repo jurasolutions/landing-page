@@ -4,7 +4,7 @@
  * its input checks and its model call between `takeTry` and the response.
  */
 import { json, sgtDay } from "./http.js";
-import { hashIp, identifyVisitor } from "./visitor.js";
+import { hashIp, identifyVisitor, isUnlimitedNetwork } from "./visitor.js";
 import { limitConfig, limitKey } from "./limit.js";
 import { findEntry } from "./registry.js";
 import { isServed } from "./drafts.js";
@@ -49,6 +49,7 @@ export async function visitorContext(request, env, tool, now) {
     setCookie: visitor.setCookie,
     key: limitKey(config, tool),
     config,
+    unlimited: isUnlimitedNetwork(request, env.AI_UNLIMITED_NETWORKS),
   };
 }
 

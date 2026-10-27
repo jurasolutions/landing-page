@@ -61,6 +61,19 @@ export function networkOf(ip) {
 }
 
 /**
+ * True when the connection comes from one of the networks in `list`
+ * (AI_UNLIMITED_NETWORKS: addresses separated by commas or spaces), matched
+ * the way the per-IP ceiling counts them: an IPv4 address whole, an IPv6
+ * address by its /64. Those networks try the AI tools without a count.
+ */
+export function isUnlimitedNetwork(request, list) {
+  const ip = clientIp(request);
+  if (!list || ip === "unknown") return false;
+  const networks = String(list).split(/[\s,]+/).filter(Boolean).map(networkOf);
+  return networks.includes(networkOf(ip));
+}
+
+/**
  * A salted SHA-256 of the connecting IP alone (its /64 for IPv6), for the
  * per-IP ceiling (AI_TRIES_PER_IP), so clearing cookies is not a way round
  * the limit. The "ip" segment keeps it from ever equalling an IP-and-cookie
