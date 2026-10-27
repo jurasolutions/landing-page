@@ -71,3 +71,27 @@ artifacts: reviews/code-review-01.md
 decisions: approved, no blocking or should-fix findings; two nits carried into ticket 02
 evidence:  24 quotes through preview markup and PDF ops, base vs branch -> identical
 ```
+
+## 2026-10-27 developer, ticket 02 (appended by the conductor)
+
+```
+status:    done
+persona:   developer
+ticket:    02
+artifacts: calc.js, model.js (readGst), quoteFile.js (v2), index.jsx, QuoteForm.jsx, copy.js, totals-rows.js, QuotePreview.jsx, pdf.js, quote-builder.css; calc-inclusive.test.js, gst-inclusive.test.js; ADRs 0003 and 0004; README; CONTEXT.md
+decisions: PDF gap before Notes is 14pt (was 30) when the split or statement prints, so the existing 40-line PDF test still holds; one ticket-01 assertion edited because the note is now real; both code-review-01 nits done
+decisions: "Includes GST (x%)" accepted: jura-growth rejects any literal "9%" including the existing "GST (9%)", and the 9 is the visitor's typed rate
+evidence:  npm test -> 39 files, 735 passed; npm run build -> ok; calc.test.js unedited; quote.test.js diff is the 3 named lines
+```
+
+## 2026-10-27 reviewer, ticket 02 (appended by the conductor)
+
+```
+status:    done
+persona:   reviewer
+ticket:    02
+artifacts: reviews/code-review-02.md
+decisions: approved, no blocking or should-fix findings; nit: the 14pt gap is an unnamed constant
+evidence:  116,784 exclusive quotes base vs ticket -> identical apart from inclusive:false; 101,541 inclusive quotes vs independent reference -> 0 invariant violations; readers run directly
+evidence:  PDF not viewed as an image (pdftoppm missing); QA to check visually
+```
