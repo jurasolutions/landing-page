@@ -262,6 +262,48 @@ describe("the per-IP ceiling", () => {
   });
 });
 
+describe("the owner's network", () => {
+  const OWNER = { AI_UNLIMITED_NETWORKS: "198.51.100.7, 2001:db8:1:2::1" };
+
+  it("tries without a count from an address in AI_UNLIMITED_NETWORKS", async () => {
+    const { DB, env } = await setup(OWNER);
+    const net = installNetwork({ anthropic: [good(), good(), good()] });
+    for (let i = 0; i < 3; i++) {
+      const response = await readReceipts({ request: receiptRequest({ ip: "198.51.100.7", cookie: "jura_vid=owner-cookie-0001" }), env });
+      expect(response.status).toBe(200);
+      expect((await response.json()).triesLeft).toBe(2);
+    }
+    expect(net.anthropic).toHaveLength(3);
+    expect(DB.rows("app_tries")).toEqual([]);
+    expect(DB.rows("app_calls").map((r) => r.count)).toEqual([3]);
+    const left = await getLimit({ request: limitRequest({ ip: "198.51.100.7" }), env });
+    expect(await left.json()).toMatchObject({ triesLeft: 2, capReached: false });
+  });
+
+  it("matches an IPv6 address by its /64, and leaves every other network counted", async () => {
+    const { env } = await setup(OWNER);
+    installNetwork({ anthropic: [good(), good(), good(), good(), good()] });
+    for (let i = 0; i < 3; i++) {
+      const response = await readReceipts({ request: receiptRequest({ ip: "2001:db8:1:2:aaaa::9" }), env });
+      expect(response.status).toBe(200);
+    }
+    const stranger = () => readReceipts({ request: receiptRequest({ ip: "203.0.113.10" }), env });
+    expect((await stranger()).status).toBe(200);
+    expect((await stranger()).status).toBe(200);
+    expect((await stranger()).status).toBe(429);
+  });
+
+  it("still keeps to the site's daily budget", async () => {
+    const { env } = await setup({ ...OWNER, AI_SITE_CAP: "1" });
+    installNetwork({ anthropic: [good(), good()] });
+    const ask = () => readReceipts({ request: receiptRequest({ ip: "198.51.100.7" }), env });
+    expect((await ask()).status).toBe(200);
+    const second = await ask();
+    expect(second.status).toBe(429);
+    expect(await second.json()).toEqual({ error: "cap", triesLeft: 0 });
+  });
+});
+
 describe("the site-wide cap", () => {
   it("holds at a test cap of 3", async () => {
     const { DB, env } = await setup({ AI_SITE_CAP: "3" });

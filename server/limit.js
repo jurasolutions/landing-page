@@ -29,6 +29,11 @@
  *   Slugs are [a-z0-9-] only, so a reserved '#' key never meets a tool. Money
  *   that was spent is never refunded to the budget.
  *
+ * - A network listed in AI_UNLIMITED_NETWORKS (Ting Yu's own, 2026-10-27)
+ *   takes no try and no per-IP count: `unlimited` in the context skips both.
+ *   Its calls still reserve from the budget and count towards AI_SITE_CAP,
+ *   so the site's daily spend holds for everyone.
+ *
  * Every counter (visitor, IP, calls, spend) and the refund rows live in D1,
  * not KV: KV is eventually consistent, so quick repeated clicks could slip
  * past a limit. Each is taken with a single upsert that only increments while
@@ -76,9 +81,9 @@ function countOf(db, { day, hash, key }) {
     .first("count");
 }
 
-export async function remaining(db, { day, visitorHash, ipHash, key, config }) {
-  const tries = await countOf(db, { day, hash: visitorHash, key });
-  const ipTries = await countOf(db, { day, hash: ipHash, key: ipKey(key) });
+export async function remaining(db, { day, visitorHash, ipHash, key, config, unlimited = false }) {
+  const tries = unlimited ? 0 : await countOf(db, { day, hash: visitorHash, key });
+  const ipTries = unlimited ? 0 : await countOf(db, { day, hash: ipHash, key: ipKey(key) });
   const calls = await db.prepare("SELECT count FROM app_calls WHERE day = ?1").bind(day).first("count");
   const spent = await db.prepare("SELECT nano_usd FROM app_spend WHERE day = ?1").bind(day).first("nano_usd");
   return {
@@ -127,10 +132,15 @@ async function giveBackAll(db, rows) {
  * call from AI_SITE_CAP when it is set). If a later one is refused, the
  * earlier ones are given back. If a statement throws part-way, whatever was
  * already taken is given back and the error is rethrown.
+ * An unlimited network takes only the call.
  * Returns { ok: true, triesLeft } or { ok: false, reason: "limit" | "cap" }.
  */
-export async function takeTry(db, { day, visitorHash, ipHash, key, config, reserve }) {
+export async function takeTry(db, { day, visitorHash, ipHash, key, config, reserve, unlimited = false }) {
   if (config.triesPerDay <= 0 || config.triesPerIp <= 0) return { ok: false, reason: "limit" };
+  if (unlimited) {
+    if (!(await takeCall(db, { day, config }, reserve))) return { ok: false, reason: "cap" };
+    return { ok: true, triesLeft: Math.min(config.triesPerDay, config.triesPerIp) };
+  }
   const visitor = { day, hash: visitorHash, key };
   const ip = { day, hash: ipHash, key: ipKey(key) };
 
@@ -270,7 +280,9 @@ const refundsPerIp = (config) => Math.max(1, Math.ceil(config.triesPerIp / Math.
  * The site's call count is left alone: the cap counts calls made, and a call
  * that was sent was paid for.
  */
-export async function refundTry(db, { day, visitorHash, ipHash, key, config }) {
+export async function refundTry(db, { day, visitorHash, ipHash, key, config, unlimited = false }) {
+  // An unlimited network took no try, so there is none to give back.
+  if (unlimited) return false;
   const visitorRefund = { day, hash: visitorHash, key: refundKey(key) };
   if ((await takeFrom(db, { ...visitorRefund, limit: 1 })) == null) return false;
   if ((await takeFrom(db, { day, hash: ipHash, key: refundKey(key), limit: refundsPerIp(config) })) == null) {
