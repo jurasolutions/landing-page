@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -111,6 +111,80 @@ describe("the quote form", () => {
     expect(form(undefined, { logoError: "Too big" })).toMatch(
       /id="qb-logo-status"[^>]*aria-live="polite"[^>]*>.*Too big/s
     );
+  });
+});
+
+describe("the quote form: prices include GST", () => {
+  const withGst = (patch = {}) => {
+    const quote = newQuote({ today: "2026-10-27" });
+    quote.gst = { ...quote.gst, on: true, ...patch };
+    return quote;
+  };
+
+  it("has no such switch while Add GST is off, even when the choice is stored as true", () => {
+    const quote = newQuote({ today: "2026-10-27" });
+    quote.gst.inclusive = true;
+    const markup = form(quote);
+    expect(markup).not.toContain(quoteCopy.totals.gstInclusive);
+    expect(tagWithId(markup, "qb-gst-inclusive")).toBe("");
+  });
+
+  it("shows the switch, off, once Add GST is on, labelled and described by its helper line", () => {
+    const markup = form(withGst());
+    const input = tagWithId(markup, "qb-gst-inclusive");
+    expect(input).toContain('role="switch"');
+    expect(input).not.toContain('checked=""');
+    expect(markup).toContain(`>${quoteCopy.totals.gstInclusive}<`);
+    expect(textOf(markup, describedBy(markup, "qb-gst-inclusive"))).toBe(quoteCopy.gstInclusiveHelper);
+  });
+
+  it("shows the switch on when the quote says prices include GST", () => {
+    expect(tagWithId(form(withGst({ inclusive: true })), "qb-gst-inclusive")).toContain('checked=""');
+  });
+
+  it("puts the switch below the rate and registration number", () => {
+    const markup = form(withGst());
+    const at = (id) => markup.indexOf(`id="${id}"`);
+    expect(at("qb-gst-reg")).toBeGreaterThan(-1);
+    expect(at("qb-gst-inclusive")).toBeGreaterThan(at("qb-gst-reg"));
+  });
+});
+
+describe("the quote builder restores a remembered GST setting", () => {
+  const STORE_KEY = "jura.quote-builder.business.v1";
+  const startFrom = (gst) => {
+    const stored = JSON.stringify({ business: { name: "Tan Brothers" }, gst, lastNumber: "Q-0003" });
+    vi.stubGlobal("window", { localStorage: { getItem: (key) => (key === STORE_KEY ? stored : null) } });
+    return html(h(QuoteBuilder, { app: { slug: "quote-builder" }, copy: quoteCopy }));
+  };
+  const switchOf = (markup) => tagWithId(markup, "qb-gst-inclusive");
+
+  it("brings back prices-include-GST, with the rate and registration number", () => {
+    const markup = startFrom({ on: true, rate: "8", regNo: "M90312345A", inclusive: true });
+    expect(switchOf(markup)).toContain('checked=""');
+    expect(tagWithId(markup, "qb-gst-rate")).toContain('value="8"');
+    expect(tagWithId(markup, "qb-gst-reg")).toContain('value="M90312345A"');
+  });
+
+  it("brings back prices-exclude-GST", () => {
+    const markup = startFrom({ on: true, rate: "9", regNo: "", inclusive: false });
+    expect(switchOf(markup)).not.toBe("");
+    expect(switchOf(markup)).not.toContain('checked=""');
+  });
+
+  it.each([
+    ["a setting saved before the choice existed", { on: true, rate: "9", regNo: "" }],
+    ["the text true", { on: true, rate: "9", regNo: "", inclusive: "true" }],
+    ["the number 1", { on: true, rate: "9", regNo: "", inclusive: 1 }],
+  ])("restores %s as exclusive", (_, gst) => {
+    const markup = startFrom(gst);
+    expect(switchOf(markup)).not.toBe("");
+    expect(switchOf(markup)).not.toContain('checked=""');
+  });
+
+  it("keeps the choice stored while GST is off, so it is there when GST goes back on", () => {
+    const markup = startFrom({ on: false, rate: "9", regNo: "", inclusive: true });
+    expect(switchOf(markup)).toBe("");
   });
 });
 
