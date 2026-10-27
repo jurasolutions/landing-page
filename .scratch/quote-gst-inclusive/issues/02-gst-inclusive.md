@@ -1,6 +1,6 @@
 # 02 Prices include GST
 
-Status: ready-for-agent
+Status: done
 Blocked by: 01
 Branch: crew/quote-gst-inclusive-02-gst-inclusive
 

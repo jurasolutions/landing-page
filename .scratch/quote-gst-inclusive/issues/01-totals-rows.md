@@ -1,6 +1,6 @@
 # 01 Prefactor: one function decides the totals rows
 
-Status: ready-for-agent
+Status: done
 Blocked by: none
 Branch: crew/quote-gst-inclusive-01-totals-rows
 
