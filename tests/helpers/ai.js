@@ -39,7 +39,9 @@ export const apiError = (status, type, text = "test error") => ({
 });
 
 export const RECEIPT = {
+  image: 1,
   is_receipt: true,
+  problem: null,
   merchant: "FairPrice Finest",
   merchant_id: "M2-0012345-6",
   date: "2026-10-20",

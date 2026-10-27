@@ -42,7 +42,14 @@ import { anthropicClient, classifyApiError, costNano, reservationNano, responseT
  *               try, in the same statement, so a try never pays for Claude
  *               and then finds no money left for the rest. It does not count
  *               towards AI_SITE_CAP: the try's one call already did.
- *   run         async (result) => FinishOutcome, once the output validates:
+ *   costField   the log field for what the step spent (default
+ *               "image_nano_usd", the product photo studio's pictures)
+ *   run         async (result, { countCall }) => FinishOutcome, once the
+ *               output validates. A step that sends Claude another request
+ *               (the receipt reader's second look) calls `countCall()` first:
+ *               it counts that request towards AI_SITE_CAP, with no further
+ *               reservation (the step's own covers it), and resolves false
+ *               when the request must not be sent.
  *     { ok: true, spent, body, log, status? }   status defaults to 200
  *     { ok: false, spent, reason, kind: "cap" | "unavailable" }
  *               `spent` is what the step really cost; the reservation is
@@ -125,7 +132,8 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
   const tokens = { input_tokens: 0, output_tokens: 0, cost_nano_usd: 0 };
   // Only a tool with a finish step logs its cost, so the others' log lines
   // keep their exact shape.
-  const extra = finish ? { image_nano_usd: 0 } : {};
+  const costField = finish?.costField ?? "image_nano_usd";
+  const extra = finish ? { [costField]: 0 } : {};
   // Each answer is priced from its token counts, and its reservation settled
   // to that real cost.
   const add = async (message, reserved) => {
@@ -207,8 +215,8 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
   if (finish) {
     const held = state.held;
     state.held = 0;
-    const outcome = await finish.run(result);
-    extra.image_nano_usd = outcome.spent;
+    const outcome = await finish.run(result, { countCall: () => takeCall(ctx.db, ctx, 0) });
+    extra[costField] = outcome.spent;
     await settleQuietly(ctx.db, ctx, outcome.spent - held);
     if (!outcome.ok) {
       const cap = outcome.kind === "cap";

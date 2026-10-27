@@ -18,8 +18,14 @@ async function setup(extra = {}) {
 
 const spent = (DB) => DB.rows("app_spend").map((r) => r.nano_usd);
 
-/** What one read of one receipt reserves before it is sent. */
+/** What one Claude request carrying one receipt reserves before it is sent. */
 const ONE = reservationNano({ images: 1 });
+/**
+ * What a try at one receipt reserves: the first request, and the second
+ * look's worst case, held with the try in case the first reading finds no
+ * receipt (server/receipt-reader.js). The unused part is released.
+ */
+const TRY = 2 * ONE;
 /** What the helper's default answer (1,500 in, 400 out) really costs. */
 const ACTUAL = 1500 * PRICE_NANO_USD.input + 400 * PRICE_NANO_USD.output;
 
@@ -82,8 +88,8 @@ describe("the daily budget", () => {
   });
 
   it("stops everyone once a request would take the day past the budget, without calling the API", async () => {
-    // Room for one reservation, then one more once the first has settled.
-    const { DB, env } = await setup({ AI_DAILY_BUDGET_USD: usd(ACTUAL + ONE) });
+    // Room for one try's reservation, then one more once the first has settled.
+    const { DB, env } = await setup({ AI_DAILY_BUDGET_USD: usd(ACTUAL + TRY) });
     const net = installNetwork({ anthropic: [good(), good()] });
     expect((await readReceipts({ request: receiptRequest({ ip: "192.0.2.1" }), env })).status).toBe(200);
     expect((await readReceipts({ request: receiptRequest({ ip: "192.0.2.2" }), env })).status).toBe(200);
@@ -93,6 +99,16 @@ describe("the daily budget", () => {
     expect((await third.json()).error).toBe("cap");
     expect(net.anthropic).toHaveLength(2);
     expect(spent(DB)).toEqual([2 * ACTUAL]);
+  });
+
+  it("refuses a try the budget cannot cover with its second look, before calling the API", async () => {
+    const { DB, env } = await setup({ AI_DAILY_BUDGET_USD: usd(TRY - 1) });
+    const net = installNetwork({ anthropic: [] });
+    const response = await readReceipts({ request: receiptRequest(), env });
+    expect(response.status).toBe(429);
+    expect((await response.json()).error).toBe("cap");
+    expect(net.anthropic).toHaveLength(0);
+    expect(spent(DB)).toEqual([]);
   });
 
   it("gives the refused visitor their try back for when the budget resets", async () => {
@@ -105,13 +121,13 @@ describe("the daily budget", () => {
   });
 
   it("is reported on /api/apps/limit once it is spent", async () => {
-    const { DB, env } = await setup({ AI_DAILY_BUDGET_USD: usd(ACTUAL + ONE) });
+    const { DB, env } = await setup({ AI_DAILY_BUDGET_USD: usd(ACTUAL + TRY) });
     installNetwork({ anthropic: [good()] });
     await readReceipts({ request: receiptRequest(), env });
     let limit = await (await getLimit({ request: limitRequest({ ip: "192.0.2.9" }), env })).json();
     expect(limit.capReached).toBe(false);
 
-    await DB.prepare("UPDATE app_spend SET nano_usd = ?1").bind(ACTUAL + ONE).run();
+    await DB.prepare("UPDATE app_spend SET nano_usd = ?1").bind(ACTUAL + TRY).run();
     limit = await (await getLimit({ request: limitRequest({ ip: "192.0.2.9" }), env })).json();
     expect(limit).toMatchObject({ capReached: true, triesLeft: 5 });
   });
@@ -125,10 +141,10 @@ describe("the daily budget", () => {
 
   it("skips the repair when it would go past the budget", async () => {
     // The first answer is long, so the repair (which quotes it back) reserves
-    // more than is left.
+    // more than is left while the second look's reservation is still held.
     const first = costNano({ input_tokens: 1500, output_tokens: 4000 });
     const repair = reservationNano({ inputTokens: 4000 });
-    const { DB, env } = await setup({ AI_DAILY_BUDGET_USD: usd(first + repair - 1) });
+    const { DB, env } = await setup({ AI_DAILY_BUDGET_USD: usd(first + ONE + repair - 1) });
     const net = installNetwork({ anthropic: [message("not json", { input: 1500, output: 4000 })] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(503);
@@ -170,7 +186,7 @@ describe("the daily budget", () => {
   });
 
   it("starts again on the next SGT day", async () => {
-    const { env } = await setup({ AI_DAILY_BUDGET_USD: usd(ACTUAL + ONE) });
+    const { env } = await setup({ AI_DAILY_BUDGET_USD: usd(ACTUAL + TRY) });
     const net = installNetwork({ anthropic: [good(), good(), good()] });
     const day1 = Date.parse("2026-10-25T03:00:00Z");
     const day2 = Date.parse("2026-10-25T17:00:00Z"); // 01:00 on 26 October in Singapore

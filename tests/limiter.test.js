@@ -630,7 +630,8 @@ describe("checks before the counter", () => {
 
   it("accepts PNG and up to three files in one try", async () => {
     const { DB, env } = await setup();
-    const net = installNetwork({ anthropic: [message(JSON.stringify({ receipts: [RECEIPT, RECEIPT, RECEIPT] }))] });
+    const three = [RECEIPT, { ...RECEIPT, image: 2 }, { ...RECEIPT, image: 3 }];
+    const net = installNetwork({ anthropic: [message(JSON.stringify({ receipts: three }))] });
     const response = await readReceipts({ request: receiptRequest({ files: [fakeJpeg(), fakePng(), fakeJpeg()] }), env });
     expect(response.status).toBe(200);
     expect((await response.json()).receipts).toHaveLength(3);
