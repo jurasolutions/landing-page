@@ -5,6 +5,9 @@ import { LimitArea } from "../src/apps/_shared/LimitArea.jsx";
 import copy from "../src/apps/receipt-reader/copy.js";
 import { ReceiptResults } from "../src/apps/receipt-reader/ReceiptResults.jsx";
 import { fromApi, releasable } from "../src/apps/receipt-reader/model.js";
+import { prepareFile } from "../src/apps/receipt-reader/prepare.js";
+import { fileMessage } from "../src/apps/receipt-reader/files.js";
+import { stubBrowserImages } from "./helpers/browser-image.js";
 
 const render = (limit) =>
   renderToStaticMarkup(React.createElement(LimitArea, { limit, slug: "receipt-reader", copy })).replaceAll("&#x27;", "'");
@@ -69,6 +72,26 @@ describe("a photo that came back without a receipt", () => {
     const out = cards([miss(undefined, "blurry")]);
     expect(out).toContain(copy.notReceipt);
     expect(out).not.toContain("blob:");
+  });
+});
+
+describe("a HEIC photo", () => {
+  const heic = () => new File([new Uint8Array(32)], "IMG_0001.HEIC", { type: "image/heic" });
+  const HEIC_HELP =
+    "This photo is in Apple's HEIC format, which this browser can't open. On a Mac, export it from Photos as a JPEG (File > Export); on an iPhone, choose Most Compatible under Settings > Camera > Formats.";
+
+  it("is accepted, as a JPEG, when the browser can decode it (Safari can)", async () => {
+    const { createImageBitmap } = stubBrowserImages({ decodes: true });
+    const result = await prepareFile(heic());
+    expect(result).toMatchObject({ ok: true, previewUrl: "blob:prepared", fromPdf: false });
+    expect(result.blob.type).toBe("image/jpeg");
+    expect(createImageBitmap).toHaveBeenCalled();
+  });
+
+  it("is refused with how to get a JPEG when the browser can't decode it", async () => {
+    stubBrowserImages({ decodes: false });
+    expect(await prepareFile(heic())).toEqual({ ok: false, reason: "heic" });
+    expect(fileMessage("heic", copy)).toBe(HEIC_HELP);
   });
 });
 

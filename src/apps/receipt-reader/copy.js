@@ -40,7 +40,7 @@ export default {
     pdf: "First page of the PDF",
   },
 
-  heic: "Please share the photo as a JPG.",
+  heic: "This photo is in Apple's HEIC format, which this browser can't open. On a Mac, export it from Photos as a JPEG (File > Export); on an iPhone, choose Most Compatible under Settings > Camera > Formats.",
   tooMany: "You can add up to 3 receipts at a time.",
   badType: "That file can't be read here. Use a JPG, PNG, WEBP or PDF.",
   tooBig: "That file is too large to send, even after resizing. Try a smaller photo.",

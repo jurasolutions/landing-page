@@ -29,7 +29,7 @@ export default {
     label: (n) => `Photo ${n}`,
     remove: (n) => `Remove photo ${n}`,
   },
-  heic: "Please share the photo as a JPG.",
+  heic: "This photo is in Apple's HEIC format, which this browser can't open. On a Mac, export it from Photos as a JPEG (File > Export); on an iPhone, choose Most Compatible under Settings > Camera > Formats.",
   tooMany: "You can add up to 4 photos at a time.",
   badType: "That file can't be read here. Use a JPG, PNG or WEBP photo.",
   tooBig: "That photo is too large to send, even after resizing. Try a smaller photo.",
