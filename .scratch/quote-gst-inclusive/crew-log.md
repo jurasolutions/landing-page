@@ -104,3 +104,7 @@ artifacts: .scratch/quote-gst-inclusive/reviews/qa-01.md
 decisions: no defect tickets and no new tests, because nothing failed; PDFs rendered with pdf.js in the browser since pdftoppm is missing
 questions: Should a blank or invalid GST rate block the PDF? Recommend leave as is (matches exclusive mode); separate ticket if wanted
 evidence:  npm test -> 39 files, 735 passed; npm run build -> exit 0; UAT 11 of 11 pass; AC1-AC8 56 of 56 cases pass; 600,000 random inclusive quotes with new seeds -> 0 violations
+
+## 2026-10-27 conductor: closed
+
+G4 carried out as Ting Yu's standing instruction: branch pushed, PR #7 opened against main. Not merged. Local worktrees from this run removed.
