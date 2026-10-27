@@ -48,8 +48,10 @@ import { anthropicClient, classifyApiError, costNano, reservationNano, responseT
  * finish        optional, for a tool with a second cost after Claude:
  *   reserve     nano-dollars: that step's worst case. It is reserved with the
  *               try, in the same statement, so a try never pays for Claude
- *               and then finds no money left for the rest. It does not count
- *               towards AI_SITE_CAP: the try's one call already did.
+ *               and then finds no money left for the rest. Reserving it
+ *               counts no call towards AI_SITE_CAP; a step that sends Claude
+ *               another request counts that request itself (`countCall`,
+ *               below).
  *   costField   the log field for what the step spent (default
  *               "image_nano_usd", the product photo studio's pictures)
  *   run         async (result, { countCall }) => FinishOutcome, once the

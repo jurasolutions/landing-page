@@ -383,7 +383,7 @@ safe for as long as nobody added a handler to it.
   renders a PDF's first page with pdf.js (fetched only when a PDF is added).
   A HEIC photo is decoded by the browser where it can (Safari), and refused
   with how to export a JPEG only where it can't; there is no HEIC library.
-  Up to 3 files per try. The product photo studio does the same.
+  The product photo studio handles HEIC the same way. Up to 3 files per try.
 - The page names what went wrong: a not-a-receipt card shows the photo it came
   from, by its number in the batch ("Photo 2", the same label the file list
   gave it: the list numbers only the files that will be sent, and names a
@@ -689,7 +689,7 @@ built on sql.js with the real migrations.
 | `src/apps/quote-builder/quote.test.js` | quote file round trip, PDF pagination and logos, WinAnsi, running numbers and placeholders |
 | `src/apps/quote-builder/draft.test.js` | applying an AI draft to the quote, and what a failed draft says |
 | `src/apps/receipt-reader/receipts.test.js` | the add-up check, CSV/XLSX/TSV exports, resize rules |
-| `src/apps/receipt-reader/read-state.test.js` | out of tries, why Read receipts is off, and when the tool shows its own talk-to-us card |
+| `src/apps/receipt-reader/read-state.test.js` | out of tries, why Read receipts is off, when the tool shows its own talk-to-us card, and the sentence for each failed read (refused, rejected, bad output, busy, offline, and when the try wasn't counted) |
 | `src/apps/_shared/pdfjs.test.js` | opening a PDF with the shared pdf.js loader, cleaning up a failed load, JPEG encoding |
 | `src/apps/pdf-merge-and-split/ranges.test.js`, `order.test.js` | the page range parser and its messages; reordering by buttons and drag |
 | `src/apps/pdf-merge-and-split/pdf.test.js` | merging the three fixture page sizes, kept pages, split ZIPs, metadata, password, damaged and non-PDF files |
@@ -700,6 +700,7 @@ built on sql.js with the real migrations.
 | `tests/receipt-reader.test.js` | the Claude request and its image labels, the prompt, the injection fixture, per-field validation, entries tied to images, the second look, logs, storage |
 | `tests/quote-drafter.test.js` | the quote draft request, input checks, repair, refunds, shared tries, logs, validation |
 | `tests/product-photo-studio.test.js`, `tests/photo-studio.test.js`, `tests/image-gen.test.js`, `tests/ai-run.test.js` | the studio's Function (pictures, money, partial and failed pictures, the quota close), its output check, the Workers AI adapter, the shared `finish` step |
+| `tests/receipt-reader-ui.test.js` | the receipt reader page: the try notice and talk-to-us card, the not-a-receipt cards and their photos, photo numbers in the file list, HEIC, and which photo previews are released |
 | `tests/product-photo-studio-ui.test.js` | the studio page: blockers, messages, request fields, crops, kept results |
 | `tests/unsubscribe.test.js` | the token contract (with a fixed vector), GET and one-click POST |
 | `tests/resend-webhook.test.js` | Svix verification, bounces, complaints, precedence, retries |
