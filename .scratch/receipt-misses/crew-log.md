@@ -29,3 +29,13 @@ artifacts: research/image-allowance.md
 decisions: recommend Workers Paid ($5/mo minimum) on klein-4b; no fallback provider while on Paid; Replicate klein-4b is the only fallback worth building if the account stays on Free
 questions: Workers Paid: Ting Yu's call (billing)
 evidence:  docs say reset at 00:00 UTC, but cloudflare-docs #34137 shows overage blocking for ~24h after the last call (matches our 4006 at 00:40Z); no verifiable free image-editing tier elsewhere; multiple accounts or keys break Cloudflare's and Google's terms
+
+## 2026-10-27T02:10Z developer (ticket 02)
+
+status:    done
+persona:   developer
+ticket:    02
+artifacts: branch crew/receipt-misses-02 (86ff346): receipt-reader read-state, copy, model, ReceiptResults, index, css, prepare; studio copy and prepare; UI tests; tests/helpers/browser-image.js; README
+decisions: studio gets its own refused/rejected/bad_output/busy/offline words and HEIC decode; fromApi maps image n to the n-th preview; an answer without an image number falls back to the old sentence
+questions: -
+evidence:  npm test -> 35 files, 580 passed; npm run build -> built; jura-growth check -> 16 strings pass (photo numbers kept as {n})
