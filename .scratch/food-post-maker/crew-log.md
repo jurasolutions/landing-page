@@ -298,3 +298,15 @@ decisions: the push to main was refused by the permission check, as with APP-001
 questions: Ting Yu: merge crew/food-post-maker into main (open the PR from reviews/release.md), then the live check runs after 08:00 SGT
 evidence:  git push origin crew/food-post-maker -> new branch; git push origin crew/food-post-maker:main -> denied by the permission check
 ```
+
+## 2026-10-27T00:45Z conductor (after release)
+
+status:    done
+persona:   conductor
+ticket:    -
+artifacts: PR #2 merged by Ting Yu (b79b838); PR #3 owner-network-unlimited (server/visitor.js, server/ai-tool.js, server/limit.js, tests/limiter.test.js, README.md); PRD amended
+decisions: AI_UNLIMITED_NETWORKS (Pages secret) lifts the try and per-IP counts for Ting Yu's network; budget, call cap and Workers AI allowance still apply
+questions: Workers Paid for the studio? recommended yes if it should be dependable; the free allowance is ~18 tries a day for the whole site
+evidence:  vitest -> 550 passed; build -> prerenders product-photo-studio; /api/apps/limit?tool=product-photo-studio -> ready true, capReached true; receipt-reader -> capReached false
+evidence:  Workers AI 00:40Z -> 4006 still; analytics -> 2026-10-26 used ~25,500 neurons (18:00Z hour), 3 calls refused since 00:00Z; free allowance did not come back at 00:00 UTC after the overage. Studio closed until 00:00 UTC 2026-10-28; live picture check moves to then
+blocked:   wrangler pages secret put denied (Secret-Store Writes); Ting Yu sets it
