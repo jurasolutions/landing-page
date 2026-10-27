@@ -13,6 +13,7 @@ The words this repo uses, so code, specs and tickets mean the same thing.
 ## Quote builder (APP-001)
 
 - **GST on**: the quote charges GST at the rate the visitor types (9% by default). GST is off until the visitor switches it on.
+- **Amount after discount**: the line totals added up, minus the whole-quote discount. GST is worked out on it in both modes.
 - **Prices exclude GST**: the default. The visitor types prices before GST and the builder adds GST on top of the discounted subtotal.
 - **Prices include GST**: the visitor types prices that already contain GST. The builder works out how much of the discounted total is GST and shows it, but the total does not change.
 - **Total before GST**: the discounted total minus GST. In both modes, before GST plus GST equals the total to the cent.
