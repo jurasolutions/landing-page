@@ -381,7 +381,14 @@ safe for as long as nobody added a handler to it.
 
 - The browser resizes photos to a 1600 px long edge at JPEG quality 0.8 and
   renders a PDF's first page with pdf.js (fetched only when a PDF is added).
-  HEIC gets "Please share the photo as a JPG." Up to 3 files per try.
+  A HEIC photo is decoded by the browser where it can (Safari), and refused
+  with how to export a JPEG only where it can't; there is no HEIC library.
+  Up to 3 files per try. The product photo studio does the same.
+- The page names what went wrong: a not-a-receipt card shows the photo it came
+  from, by its number in the batch, with the server's `problem` (blurry, cut
+  off, too dark…), and a failed try is worded from `error` and `reason`
+  (refused, rejected, bad output, busy) or a failed connection
+  (`read-state.js failureMessage`, words in `copy.js`).
 - The Function checks Turnstile, then each file's real type by its first bytes
   (JPG, PNG, WEBP) and size (4 MB), before the counter or the API is touched.
 - **The Claude call** uses the official SDK (`@anthropic-ai/sdk` v1, API

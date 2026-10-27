@@ -2,6 +2,8 @@
  * Gets each file ready to send, in the browser: photos are resized to a
  * 1600 px long edge and re-encoded as JPEG at quality 0.8, and a PDF's first
  * page is rendered to the same. pdf.js is only fetched when a PDF is added.
+ * A HEIC photo is accepted when the browser can decode it, and refused
+ * ("heic") only when it can't.
  *
  * Returns { ok: true, blob, previewUrl, fromPdf } or
  * { ok: false, reason: "heic" | "type" | "tooBig" | "unopenable" }.
@@ -51,13 +53,13 @@ async function fromPdf(file) {
 
 export async function prepareFile(file) {
   const kind = kindOf(file);
-  if (kind === "heic") return { ok: false, reason: "heic" };
   if (!kind) return { ok: false, reason: "type" };
   let blob;
   try {
+    // A HEIC photo is tried like any other: Safari can decode it.
     blob = kind === "pdf" ? await fromPdf(file) : await fromImage(file);
   } catch {
-    return { ok: false, reason: "unopenable" };
+    return { ok: false, reason: kind === "heic" ? "heic" : "unopenable" };
   }
   if (blob.size > MAX_UPLOAD_BYTES) return { ok: false, reason: "tooBig" };
   return { ok: true, blob, previewUrl: URL.createObjectURL(blob), fromPdf: kind === "pdf" };

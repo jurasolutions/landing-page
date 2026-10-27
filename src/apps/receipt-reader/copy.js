@@ -40,7 +40,7 @@ export default {
     pdf: "First page of the PDF",
   },
 
-  heic: "Please share the photo as a JPG.",
+  heic: "This photo is in Apple's HEIC format, which this browser can't open. On a Mac, export it from Photos as a JPEG (File > Export); on an iPhone, choose Most Compatible under Settings > Camera > Formats.",
   tooMany: "You can add up to 3 receipts at a time.",
   badType: "That file can't be read here. Use a JPG, PNG, WEBP or PDF.",
   tooBig: "That file is too large to send, even after resizing. Try a smaller photo.",
@@ -49,7 +49,12 @@ export default {
   errors: {
     unreadable: "We couldn't read these images. Clearer, flatter photos usually work.",
     unavailable: "The receipt reader isn't available right now. Please try again later.",
-    // Added after either message above, only when the try came back.
+    refused: "These images couldn't be read. If they're receipts, try one clear photo of each.",
+    rejected: "One of these images couldn't be processed. Take the photo again, or save it as a JPG.",
+    badOutput: "Something went wrong on our side while reading. Please try again.",
+    busy: "The receipt reader is busy right now. Please try again in a minute.",
+    offline: "We couldn't reach the receipt reader. Check your connection and try again.",
+    // Added after any message above but the last, only when the try came back.
     notCounted: "This try wasn't counted.",
     botCheck: "We couldn't confirm this is a person and not a bot. Refresh the page and try again.",
     notReady: "The receipt reader isn't available right now. Please try again later.",
@@ -67,7 +72,16 @@ export default {
     removeItem: (n) => `Remove line ${n}`,
   },
 
+  // Why a photo came back without a receipt. `n` is the photo's number in the
+  // batch it was sent with. `notReceipt` is for an answer with no number.
   notReceipt: "We couldn't find a receipt in this image.",
+  problems: {
+    not_a_receipt: (n) => `Photo ${n} doesn't look like a receipt or invoice.`,
+    blurry: (n) => `Photo ${n} is too blurry to read. Hold the receipt flat and keep the camera steady.`,
+    cut_off: (n) => `Part of the receipt in photo ${n} is cut off. Fit the whole receipt in the frame.`,
+    too_dark: (n) => `Photo ${n} is too dark to read. Try again in better light.`,
+    other: (n) => `We couldn't read a receipt in photo ${n}. Try a closer, straighter photo.`,
+  },
   mismatch: "These items don't add up to the total. Worth a quick check.",
 
   fields: {

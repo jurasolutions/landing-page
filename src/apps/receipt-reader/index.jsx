@@ -12,7 +12,7 @@ import { failureMessage, isOutOfTries, readBlocker, readBlockerText, showsTalkCa
 import { prepareFile } from "./prepare.js";
 import { SITE_KEY, createTurnstile } from "../_shared/turnstile.js";
 import { fetchLimit, sendReceipts } from "./api.js";
-import { fromApi } from "./model.js";
+import { fromApi, releasable } from "./model.js";
 import { receiptTable, toCsv, toTsv, toXlsx } from "./exports.js";
 import { ReceiptResults } from "./ReceiptResults.jsx";
 import "./receipt-reader.css";
@@ -55,10 +55,19 @@ export default function ReceiptReader({ app, copy }) {
     };
   }, []);
 
-  // Object URLs for previews are released when files go.
+  // Object URLs for previews are released when files go, and when a
+  // not-a-receipt card that shows one goes.
   const filesRef = React.useRef(files);
   filesRef.current = files;
-  React.useEffect(() => () => filesRef.current.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl)), []);
+  const receiptsRef = React.useRef(receipts);
+  receiptsRef.current = receipts;
+  React.useEffect(
+    () => () => {
+      filesRef.current.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
+      receiptsRef.current.forEach((r) => r.previewUrl && URL.revokeObjectURL(r.previewUrl));
+    },
+    []
+  );
 
   const addFiles = async (incoming) => {
     setNotice("");
@@ -116,9 +125,15 @@ export default function ReceiptReader({ app, copy }) {
     setSending(false);
 
     if (status === 200 && Array.isArray(body.receipts)) {
-      setReceipts((current) => [...current, ...body.receipts.map(fromApi)]);
+      // A not-a-receipt card keeps the photo it came from; the rest go.
+      const previews = ready.map((f) => f.previewUrl);
+      const fresh = body.receipts.map((receipt) => fromApi(receipt, previews));
+      setReceipts((current) => [...current, ...fresh]);
       setLimit((current) => ({ ...current, triesLeft: body.triesLeft ?? 0 }));
-      files.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
+      releasable(
+        files.map((f) => f.previewUrl),
+        fresh
+      ).forEach((url) => URL.revokeObjectURL(url));
       setFiles([]);
       trackUsage(app.slug, "complete");
       requestAnimationFrame(() => resultsRef.current?.focus());
