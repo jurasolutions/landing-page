@@ -49,3 +49,25 @@ evidence:  hand-computed figures only; the developer confirms them by running ca
 ## 2026-10-27 conductor: G2 and G3 passed
 
 Spec signed off and tickets 01 (prefactor) and 02 (feature) approved under Ting Yu's standing instruction. Spec reviews found no needs-human items.
+
+## 2026-10-27 developer, ticket 01 (appended by the conductor)
+
+```
+status:    done
+persona:   developer
+ticket:    01
+artifacts: totals-rows.js, totals-rows.test.js, QuotePreview.jsx, pdf.js (commit 6f61b1a on crew/quote-gst-inclusive-01-totals-rows)
+decisions: totalsRows returns { rows, breakdown: [], note: null }; the Total (SGD) line stays in the renderers
+evidence:  npm test -> 37 files, 639 passed (630 existing, 9 new, none edited); npm run build -> ok
+```
+
+## 2026-10-27 reviewer, ticket 01 (appended by the conductor)
+
+```
+status:    done
+persona:   reviewer
+ticket:    01
+artifacts: reviews/code-review-01.md
+decisions: approved, no blocking or should-fix findings; two nits carried into ticket 02
+evidence:  24 quotes through preview markup and PDF ops, base vs branch -> identical
+```
