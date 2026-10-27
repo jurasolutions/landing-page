@@ -295,8 +295,11 @@ export async function buildQuotePdf(quote, totals, copy, { logo = null } = {}) {
 
   // ---- Totals ----
 
-  const { rows: totalRows } = totalsRows(quote, totals, copy);
-  const totalsHeight = totalRows.length * (LEADING + 3) + 30;
+  const { rows: totalRows, breakdown, note } = totalsRows(quote, totals, copy);
+  // The whole block is counted, the split and the statement included, so it
+  // moves to a new page together and never strands the statement on its own.
+  const extraLines = breakdown.length + (note ? 1 : 0);
+  const totalsHeight = (totalRows.length + extraLines) * (LEADING + 3) + 30;
   if (!room(totalsHeight)) addPage();
 
   const labelX = right - 210;
@@ -310,7 +313,19 @@ export async function buildQuotePdf(quote, totals, copy, { logo = null } = {}) {
   y -= SIZE.total + 6;
   text(P.total, labelX, y, { size: SIZE.total, font: bold });
   text(formatCents(totals.total), right, y, { size: SIZE.total, font: bold, align: "right" });
-  y -= 30;
+  for (const { label, value } of breakdown) {
+    y -= LEADING + 3;
+    text(label, labelX, y, { color: MUTED });
+    text(value, right, y, { color: MUTED, align: "right" });
+  }
+  if (note) {
+    y -= LEADING + 3;
+    text(note, right, y, { size: SIZE.label, color: MUTED, align: "right" });
+  }
+  // The statement and the split already add height under the total, so the gap
+  // before the notes is smaller, which keeps the terms on the total's page
+  // where they sat before the statement was added.
+  y -= extraLines ? 14 : 30;
 
   // ---- Notes and terms ----
 

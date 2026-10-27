@@ -3,7 +3,7 @@
  * tool can tell its own files apart from anything else a visitor picks, and a
  * later version can still read today's files.
  *
- *   { "format": "jura-quote-builder", "version": 1, "savedAt": "...", "quote": { ... } }
+ *   { "format": "jura-quote-builder", "version": 2, "savedAt": "...", "quote": { ... } }
  *
  * Opening a file never trusts it: every field is checked for type and length,
  * unknown fields are dropped, and a logo must be a PNG, JPG or SVG data URL
@@ -12,7 +12,10 @@
 import { LIMITS, emptyItem, newItemId } from "./model.js";
 
 export const FILE_FORMAT = "jura-quote-builder";
-export const FILE_VERSION = 1;
+// Version 2 added gst.inclusive. A file of either version opens; an older copy
+// of the app refuses a version 2 file instead of dropping the choice and
+// printing a different total from the same file.
+export const FILE_VERSION = 2;
 export const LOGO_MAX_BYTES = 1024 * 1024;
 
 const LOGO_URL = /^data:image\/(png|jpeg|svg\+xml);base64,[A-Za-z0-9+/]+=*$/;
@@ -122,6 +125,8 @@ function readQuote(raw) {
       on: g.on === true,
       rate: text(g.rate, LIMITS.amount),
       regNo: text(g.regNo, LIMITS.short),
+      // Only the boolean true counts, like `on`, so a damaged value opens as exclusive.
+      inclusive: g.inclusive === true,
     },
     notes: text(raw.notes, LIMITS.notes),
     madeWith: raw.madeWith !== false,

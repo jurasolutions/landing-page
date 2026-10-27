@@ -127,8 +127,11 @@ export default {
     gstSwitch: "Add GST",
     gstRate: "GST rate (%)",
     gstRegNo: "GST registration number",
+    gstInclusive: "Prices include GST",
   },
   gstHelper: "Only switch this on if your business is GST-registered.",
+  gstInclusiveHelper:
+    "Switch this on if the prices you type already include GST. The total stays as you typed it, and the quote shows how much of it is GST.",
 
   notesLabel: "Notes and terms",
   defaultNotes:
@@ -192,6 +195,9 @@ export default {
     discount: "Discount",
     taxable: "Total before GST",
     gst: (rate) => `GST (${rate}%)`,
+    gstIncluded: (rate) => `Includes GST (${rate}%)`,
+    pricesInclude: "Prices include GST",
+    pricesExclude: "GST added at the rate shown",
     total: "Total (SGD)",
     notes: "Notes and terms",
     page: (n, of) => `Page ${n} of ${of}`,

@@ -222,11 +222,12 @@ works with the AI unavailable.
 | File | Does |
 | --- | --- |
 | `calc.js` | the money maths, pure functions, tested in `calc.test.js` |
-| `model.js` | the quote's shape, defaults, quote numbers and dates, the GST default |
-| `quoteFile.js` | the saved quote file: `{ format: "jura-quote-builder", version: 1, quote }` |
+| `model.js` | the quote's shape, defaults, quote numbers and dates, the GST default, and `readGst` for the remembered setting |
+| `quoteFile.js` | the saved quote file: `{ format: "jura-quote-builder", version: 2, quote }`. Version 1 files still open (as prices exclude GST); version 3 and up are refused |
 | `pdf.js` | the A4 PDF, with pdf-lib, loaded only when a PDF is wanted |
 | `winansi.js` | which characters the PDF can print |
 | `logo.js` | reading the logo, and rasterising SVG for the PDF |
+| `totals-rows.js` | which totals rows the quote shows and what they say; the preview and the PDF both draw from it |
 | `QuoteForm.jsx`, `QuotePreview.jsx`, `index.jsx` | the page |
 | `copy.js` | every word, including the PDF's |
 
@@ -237,6 +238,13 @@ works with the AI unavailable.
 - **GST** is off by default. The rate defaults to 9%, checked on the IRAS site
   on 2026-10-24 (the URL is in a comment beside `DEFAULT_GST_RATE`), and stays
   editable. The document is always titled "Quotation", never a tax invoice.
+  Prices exclude GST by default, and GST is added on the amount after discount.
+  The "Prices include GST" switch, shown only while GST is on, reads the prices
+  as already containing it: the total stays as typed, GST is its share at
+  rate ÷ (100% + rate), rounded half up once, and the quote prints the total
+  first with "Total before GST" and "Includes GST" below it. While GST is on,
+  both documents also say how prices are quoted. The choice is kept while GST
+  is off but only takes effect while it is on (ADR 0003, file version in ADR 0004).
 - **The PDF uses Helvetica**, which every PDF reader has built in. It keeps the
   visitor's document in neutral type rather than Jura's typefaces and costs
   nothing to download. Helvetica only covers WinAnsi (Latin letters, common
@@ -245,7 +253,8 @@ works with the AI unavailable.
   add megabytes, and a Latin TTF would not fix the case that matters.
 - **The logo** (PNG, JPG or SVG, under 1 MB) prints inside a 170 × 56 pt box,
   keeping its shape. SVG is drawn on a canvas at four times print size first.
-- **Remember** keeps the business details and GST setting in localStorage
+- **Remember** keeps the business details and GST setting (the rate, the
+  registration number and whether prices include GST) in localStorage
   only while ticked; unticking deletes them. Every storage call is wrapped, so
   the tool works the same when storage is blocked, with a note that nothing
   will be remembered.

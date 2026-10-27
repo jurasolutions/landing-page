@@ -7,7 +7,7 @@ import { trackUsage } from "../_shared/usage.js";
 import { useToast } from "../_shared/useToast.js";
 import { useFocusReturn } from "../_shared/focus.js";
 import { quoteTotals } from "./calc.js";
-import { LIMITS, effectiveQuote, newQuote, nextNumber } from "./model.js";
+import { LIMITS, effectiveQuote, newQuote, nextNumber, readGst } from "./model.js";
 import { parseQuoteFile, readBusiness, serialiseQuote } from "./quoteFile.js";
 import { readLogo, logoForPdf, rasteriseLogo } from "./logo.js";
 import { unprintableIn } from "./winansi.js";
@@ -32,13 +32,7 @@ function rememberedStart() {
   const stored = readStored(STORE_KEY);
   const business = stored ? readBusiness(stored.business) : null;
   if (!business) return { quote: newQuote(), remember: false, lastNumber: "" };
-  const gst = stored.gst && typeof stored.gst === "object"
-    ? {
-        on: stored.gst.on === true,
-        rate: typeof stored.gst.rate === "string" ? stored.gst.rate.slice(0, 20) : newQuote().gst.rate,
-        regNo: typeof stored.gst.regNo === "string" ? stored.gst.regNo.slice(0, 120) : "",
-      }
-    : undefined;
+  const gst = readGst(stored.gst);
   return { quote: newQuote({ business, gst }), remember: true, lastNumber: storedNumber(stored) };
 }
 

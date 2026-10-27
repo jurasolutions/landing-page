@@ -37,14 +37,14 @@ function sampleQuote(lines = 5, overrides = {}) {
     discountType: i === 1 ? "percent" : i === 2 ? "amount" : "none",
     discountValue: i === 1 ? "10" : i === 2 ? "5" : "",
   }));
-  quote.gst = { on: true, rate: "9", regNo: "M90312345A" };
+  quote.gst = { on: true, rate: "9", regNo: "M90312345A", inclusive: false };
   return Object.assign(quote, overrides);
 }
 
 describe("the default GST rate", () => {
   it("is the IRAS standard rate checked on build day, and GST is off by default", () => {
     expect(DEFAULT_GST_RATE).toBe("9");
-    expect(newQuote().gst).toEqual({ on: false, rate: "9", regNo: "" });
+    expect(newQuote().gst).toEqual({ on: false, rate: "9", regNo: "", inclusive: false });
   });
 });
 
@@ -96,7 +96,7 @@ describe("the saved quote file", () => {
     quote.overallDiscount = { type: "percent", value: "2.5" };
     quote.madeWith = false;
     const file = serialiseQuote(quote);
-    expect(JSON.parse(file)).toMatchObject({ format: FILE_FORMAT, version: 1 });
+    expect(JSON.parse(file)).toMatchObject({ format: FILE_FORMAT, version: 2 });
 
     const opened = parseQuoteFile(file);
     expect(opened.ok).toBe(true);
