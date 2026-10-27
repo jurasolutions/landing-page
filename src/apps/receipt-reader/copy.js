@@ -49,7 +49,12 @@ export default {
   errors: {
     unreadable: "We couldn't read these images. Clearer, flatter photos usually work.",
     unavailable: "The receipt reader isn't available right now. Please try again later.",
-    // Added after either message above, only when the try came back.
+    refused: "These images couldn't be read. If they're receipts, try one clear photo of each.",
+    rejected: "One of these images couldn't be processed. Take the photo again, or save it as a JPG.",
+    badOutput: "Something went wrong on our side while reading. Please try again.",
+    busy: "The receipt reader is busy right now. Please try again in a minute.",
+    offline: "We couldn't reach the receipt reader. Check your connection and try again.",
+    // Added after any message above but the last, only when the try came back.
     notCounted: "This try wasn't counted.",
     botCheck: "We couldn't confirm this is a person and not a bot. Refresh the page and try again.",
     notReady: "The receipt reader isn't available right now. Please try again later.",

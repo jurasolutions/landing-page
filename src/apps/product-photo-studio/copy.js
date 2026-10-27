@@ -64,7 +64,12 @@ export default {
     noProduct: "We couldn't find a product in these photos. Add a clear photo of the product you want to post.",
     unreadable: "We couldn't make posts from these photos. A clear, well-lit photo of your product usually works.",
     unavailable: "The product photo studio isn't available right now. Please try again later.",
-    // Added after either message above, only when the try came back.
+    refused: "These photos couldn't be used. A photo of your product on its own, without people, works best.",
+    rejected: "One of these photos couldn't be processed. Take the photo again, or save it as a JPG.",
+    badOutput: "Something went wrong on our side while making your posts. Please try again.",
+    busy: "The product photo studio is busy right now. Please try again in a minute.",
+    offline: "We couldn't reach the product photo studio. Check your connection and try again.",
+    // Added after any message above but the last, only when the try came back.
     notCounted: "This try wasn't counted.",
     botCheck: "We couldn't confirm this is a person and not a bot. Refresh the page and try again.",
     notReady: "The product photo studio isn't available right now. Please try again later.",

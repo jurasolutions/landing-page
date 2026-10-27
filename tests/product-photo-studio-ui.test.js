@@ -124,7 +124,29 @@ describe("what the studio says when a try brings no posts back", () => {
     expect(fail(503, { error: "unavailable" })).toBe(`${copy.errors.unavailable} ${copy.errors.notCounted}`);
     expect(fail(502, { error: "unreadable", triesLeft: 3 })).toBe(`${copy.errors.unreadable} ${copy.errors.notCounted}`);
     expect(fail(502, { error: "unreadable", triesLeft: 2 })).toBe(copy.errors.unreadable);
-    expect(fail(0, {})).toBe(copy.errors.unavailable);
+  });
+
+  it("says the connection failed, and promises nothing about the try, when the network failed", () => {
+    expect(fail(0, {})).toBe("We couldn't reach the product photo studio. Check your connection and try again.");
+  });
+
+  it("names what went wrong from the error and its reason, so a busy model never reads as tries used up", () => {
+    expect(fail(503, { error: "busy", triesLeft: 2 })).toBe(
+      "The product photo studio is busy right now. Please try again in a minute."
+    );
+    expect(fail(503, { error: "busy", triesLeft: 3 })).toBe(
+      "The product photo studio is busy right now. Please try again in a minute. This try wasn't counted."
+    );
+    expect(fail(502, { error: "unreadable", reason: "refused", triesLeft: 2 })).toBe(
+      "These photos couldn't be used. A photo of your product on its own, without people, works best."
+    );
+    expect(fail(502, { error: "unreadable", reason: "rejected", triesLeft: 2 })).toBe(
+      "One of these photos couldn't be processed. Take the photo again, or save it as a JPG."
+    );
+    expect(fail(503, { error: "unavailable", reason: "bad_output", triesLeft: 3 })).toBe(
+      "Something went wrong on our side while making your posts. Please try again. This try wasn't counted."
+    );
+    expect(fail(503, { error: "unavailable", triesLeft: 3 })).toBe(`${copy.errors.unavailable} ${copy.errors.notCounted}`);
   });
 
   it("explains a refused request in the visitor's terms", () => {
