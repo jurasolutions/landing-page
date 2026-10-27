@@ -94,6 +94,12 @@ describe("a HEIC photo", () => {
     expect(await prepareFile(heic())).toEqual({ ok: false, reason: "heic" });
     expect(fileMessage("heic", copy)).toBe(HEIC_HELP);
   });
+
+  it("is told apart from a JPEG the browser can't decode, which is unopenable", async () => {
+    stubBrowserImages({ decodes: false });
+    const jpeg = new File([new Uint8Array(32)], "receipt.jpg", { type: "image/jpeg" });
+    expect(await prepareFile(jpeg)).toEqual({ ok: false, reason: "unopenable" });
+  });
 });
 
 describe("the photos the page keeps after a read", () => {

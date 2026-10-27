@@ -16,6 +16,23 @@ export function imageKind(file) {
   return null;
 }
 
+/**
+ * Runs `make`, which decodes and draws a file of `kind` (from imageKind, or
+ * a tool's own kind such as "pdf"), and says why when it fails. A HEIC photo
+ * is tried like any other, because Safari can decode it; it is refused as
+ * "heic" only when this browser can't. Anything else that fails is
+ * "unopenable".
+ *
+ * Returns { ok: true, made } or { ok: false, reason: "heic" | "unopenable" }.
+ */
+export async function attemptDecode(kind, make) {
+  try {
+    return { ok: true, made: await make() };
+  } catch {
+    return { ok: false, reason: kind === "heic" ? "heic" : "unopenable" };
+  }
+}
+
 /** Width and height that fit the long edge, never enlarging. */
 export function fitLongEdge(width, height, edge) {
   const scale = Math.min(1, edge / Math.max(width, height));

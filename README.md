@@ -383,7 +383,8 @@ safe for as long as nobody added a handler to it.
   renders a PDF's first page with pdf.js (fetched only when a PDF is added).
   A HEIC photo is decoded by the browser where it can (Safari), and refused
   with how to export a JPEG only where it can't; there is no HEIC library.
-  The product photo studio handles HEIC the same way. Up to 3 files per try.
+  The product photo studio handles HEIC the same way, through the same helper
+  (`src/apps/_shared/photos.js attemptDecode`). Up to 3 files per try.
 - The page names what went wrong: a not-a-receipt card shows the photo it came
   from, by its number in the batch ("Photo 2", the same label the file list
   gave it: the list numbers only the files that will be sent, and names a

@@ -9,7 +9,7 @@
  * { ok: false, reason: "heic" | "type" | "tooBig" | "unopenable" }.
  */
 import { canvasToJpeg, openPdfjs } from "../_shared/pdfjs.js";
-import { decodeImage, drawJpeg, fitLongEdge as fitEdge, imageKind, whiteCanvas } from "../_shared/photos.js";
+import { attemptDecode, decodeImage, drawJpeg, fitLongEdge as fitEdge, imageKind, whiteCanvas } from "../_shared/photos.js";
 
 export const LONG_EDGE = 1600;
 export const QUALITY = 0.8;
@@ -54,13 +54,9 @@ async function fromPdf(file) {
 export async function prepareFile(file) {
   const kind = kindOf(file);
   if (!kind) return { ok: false, reason: "type" };
-  let blob;
-  try {
-    // A HEIC photo is tried like any other: Safari can decode it.
-    blob = kind === "pdf" ? await fromPdf(file) : await fromImage(file);
-  } catch {
-    return { ok: false, reason: kind === "heic" ? "heic" : "unopenable" };
-  }
+  const attempt = await attemptDecode(kind, () => (kind === "pdf" ? fromPdf(file) : fromImage(file)));
+  if (!attempt.ok) return attempt;
+  const blob = attempt.made;
   if (blob.size > MAX_UPLOAD_BYTES) return { ok: false, reason: "tooBig" };
   return { ok: true, blob, previewUrl: URL.createObjectURL(blob), fromPdf: kind === "pdf" };
 }
