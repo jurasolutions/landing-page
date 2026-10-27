@@ -72,7 +72,16 @@ export default {
     removeItem: (n) => `Remove line ${n}`,
   },
 
+  // Why a photo came back without a receipt. `n` is the photo's number in the
+  // batch it was sent with. `notReceipt` is for an answer with no number.
   notReceipt: "We couldn't find a receipt in this image.",
+  problems: {
+    not_a_receipt: (n) => `Photo ${n} doesn't look like a receipt or invoice.`,
+    blurry: (n) => `Photo ${n} is too blurry to read. Hold the receipt flat and keep the camera steady.`,
+    cut_off: (n) => `Part of the receipt in photo ${n} is cut off. Fit the whole receipt in the frame.`,
+    too_dark: (n) => `Photo ${n} is too dark to read. Try again in better light.`,
+    other: (n) => `We couldn't read a receipt in photo ${n}. Try a closer, straighter photo.`,
+  },
   mismatch: "These items don't add up to the total. Worth a quick check.",
 
   fields: {
