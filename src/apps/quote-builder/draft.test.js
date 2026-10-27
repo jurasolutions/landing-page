@@ -73,4 +73,11 @@ describe("what a failed draft says", () => {
     expect(draftFailure({ status: 503, body: {}, triesBefore: 3 }, COPY)).toBe(`${E.unavailable} ${E.notCounted}`);
     expect(draftFailure({ status: 0, body: {}, triesBefore: 3 }, COPY)).toBe(E.unavailable);
   });
+
+  it("keeps its own words for output it could not use, and says when drafting is busy", () => {
+    const badOutput = { status: 503, body: { error: "unavailable", reason: "bad_output", triesLeft: 3 }, triesBefore: 3 };
+    expect(draftFailure(badOutput, COPY)).toBe(`${E.unreadable} ${E.notCounted}`);
+    const busy = { status: 503, body: { error: "busy", triesLeft: 3 }, triesBefore: 3 };
+    expect(draftFailure(busy, COPY)).toBe(`${E.busy} ${E.notCounted}`);
+  });
 });

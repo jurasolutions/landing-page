@@ -16,7 +16,7 @@ export const KLEIN_9B = "@cf/black-forest-labs/flux-2-klein-9b";
 
 /**
  * The default is 4B: the account is on the Workers free plan, where 10,000
- * neurons a day is about 75 4B pictures against about 7 9B ones. Set
+ * neurons a day is about 56 4B pictures (18 tries) against about 6 9B ones. Set
  * AI_IMAGE_MODEL to the 9B id after moving to Workers Paid.
  */
 export const DEFAULT_IMAGE_MODEL = KLEIN_4B;
