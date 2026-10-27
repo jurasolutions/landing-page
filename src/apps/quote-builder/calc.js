@@ -106,6 +106,12 @@ export function hasContent(item) {
  * quote: { items, overallDiscount: { type, value }, gst: { on, rate } }
  * Returns BigInt cents and the per-line figures, plus `ignored` (lines left
  * off because their quantity is zero or blank) and `errors`.
+ *
+ * `inclusive` is true when GST is on and `gst.inclusive === true`: the prices
+ * typed already contain GST. The amount after discount is then the total, and
+ * GST is worked out once, as the part of it that is tax. Otherwise GST is added
+ * on top. `taxable` is the amount before GST in both modes. Every consumer
+ * reads `totals.inclusive`, so the rule "GST on and the choice true" lives here.
  */
 export function quoteTotals(quote) {
   const errors = {};
@@ -125,7 +131,9 @@ export function quoteTotals(quote) {
     discount = clamp(off.value ?? 0n, subtotal);
   }
 
-  const taxable = subtotal - discount;
+  const afterDiscount = subtotal - discount;
+
+  const inclusive = Boolean(quote.gst?.on) && quote.gst.inclusive === true;
 
   let gst = 0n;
   let gstRate = 0n;
@@ -134,7 +142,9 @@ export function quoteTotals(quote) {
     if (rate.error || rate.empty) errors.gstRate = "invalid";
     else if (rate.value > PCT_SCALE) errors.gstRate = "percent";
     gstRate = clamp(rate.value ?? 0n, PCT_SCALE);
-    gst = divRoundHalfUp(taxable * gstRate, PCT_SCALE);
+    gst = inclusive
+      ? divRoundHalfUp(afterDiscount * gstRate, PCT_SCALE + gstRate)
+      : divRoundHalfUp(afterDiscount * gstRate, PCT_SCALE);
   }
 
   const ignored = quote.items
@@ -146,10 +156,11 @@ export function quoteTotals(quote) {
     lines,
     subtotal,
     discount,
-    taxable,
+    inclusive,
+    taxable: afterDiscount - (inclusive ? gst : 0n),
     gstRate,
     gst,
-    total: taxable + gst,
+    total: inclusive ? afterDiscount : afterDiscount + gst,
     ignored,
     includedCount: lines.filter((line) => line.included).length,
     errors,

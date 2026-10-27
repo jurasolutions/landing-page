@@ -92,6 +92,22 @@ export function emptyBusiness() {
 }
 
 /**
+ * The GST setting read back from storage, which anyone can edit, so every part
+ * is checked. Returns undefined when there is no setting, so `newQuote` falls
+ * back to its own default. `inclusive` counts only when it is exactly `true`
+ * (the same rule as `on`), so a damaged or older setting reads as exclusive.
+ */
+export function readGst(raw) {
+  if (!raw || typeof raw !== "object") return undefined;
+  return {
+    on: raw.on === true,
+    rate: typeof raw.rate === "string" ? raw.rate.slice(0, LIMITS.amount) : DEFAULT_GST_RATE,
+    regNo: typeof raw.regNo === "string" ? raw.regNo.slice(0, LIMITS.short) : "",
+    inclusive: raw.inclusive === true,
+  };
+}
+
+/**
  * The quote number starts empty: the form shows the next running number as
  * its placeholder, and effectiveQuote uses it while the field stays empty.
  */
@@ -106,7 +122,7 @@ export function newQuote({ business = emptyBusiness(), gst, today = isoDate() } 
     },
     items: [emptyItem()],
     overallDiscount: { type: "none", value: "" },
-    gst: gst ?? { on: false, rate: DEFAULT_GST_RATE, regNo: "" },
+    gst: gst ?? { on: false, rate: DEFAULT_GST_RATE, regNo: "", inclusive: false },
     notes: COPY.defaultNotes,
     madeWith: true,
   };

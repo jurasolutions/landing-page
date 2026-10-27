@@ -427,16 +427,30 @@ export function QuoteForm({
           </p>
         </div>
         {quote.gst.on && (
-          <div className="qb-row qb-row--2">
-            <NumberField
-              id="qb-gst-rate"
-              label={T.gstRate}
-              value={quote.gst.rate}
-              onChange={gst("rate")}
-              error={errorText(totals.errors.gstRate, copy)}
-            />
-            <TextField id="qb-gst-reg" label={T.gstRegNo} value={quote.gst.regNo} onChange={gst("regNo")} maxLength={LIMITS.short} />
-          </div>
+          <>
+            <div className="qb-row qb-row--2">
+              <NumberField
+                id="qb-gst-rate"
+                label={T.gstRate}
+                value={quote.gst.rate}
+                onChange={gst("rate")}
+                error={errorText(totals.errors.gstRate, copy)}
+              />
+              <TextField id="qb-gst-reg" label={T.gstRegNo} value={quote.gst.regNo} onChange={gst("regNo")} maxLength={LIMITS.short} />
+            </div>
+            <div>
+              <Switch
+                id="qb-gst-inclusive"
+                label={T.gstInclusive}
+                checked={quote.gst.inclusive === true}
+                onChange={(event) => gst("inclusive")(event.target.checked)}
+                aria-describedby="qb-gst-inclusive-help"
+              />
+              <p className="qb-hint" id="qb-gst-inclusive-help">
+                {copy.gstInclusiveHelper}
+              </p>
+            </div>
+          </>
         )}
       </Fieldset>
 
