@@ -133,16 +133,25 @@ export function QuotePreview({ quote, totals, copy }) {
         </>
       )}
 
-      <dl className="qb-paper-totals">
-        {totalLines.rows.map(({ label, value }) => (
-          <React.Fragment key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </React.Fragment>
-        ))}
-        <dt className="qb-paper-total">{P.total}</dt>
-        <dd className="qb-paper-total">{formatCents(totals.total)}</dd>
-      </dl>
+      <div className="qb-paper-totals-block">
+        <dl className="qb-paper-totals">
+          {totalLines.rows.map(({ label, value }, index) => (
+            <React.Fragment key={index}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </React.Fragment>
+          ))}
+          <dt className="qb-paper-total">{P.total}</dt>
+          <dd className="qb-paper-total">{formatCents(totals.total)}</dd>
+          {totalLines.breakdown.map(({ label, value }, index) => (
+            <React.Fragment key={index}>
+              <dt className="qb-paper-sub">{label}</dt>
+              <dd className="qb-paper-sub">{value}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+        {totalLines.note && <p className="qb-paper-note">{totalLines.note}</p>}
+      </div>
 
       {quote.notes.trim() && (
         <section className="qb-paper-notes">

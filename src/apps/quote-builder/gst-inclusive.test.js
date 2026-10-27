@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import COPY from "./copy.js";
 import { quoteTotals } from "./calc.js";
 import { applyDraft } from "./draft.js";
 import { DEFAULT_GST_RATE, newQuote, readGst } from "./model.js";
 import { FILE_FORMAT, FILE_VERSION, parseQuoteFile, serialiseQuote } from "./quoteFile.js";
+import { buildQuotePdf, A4 } from "./pdf.js";
+import { QuotePreview } from "./QuotePreview.jsx";
 
 /** Prices that include GST (APP-001b): the saved file, the remembered setting and an AI draft. */
 
@@ -135,5 +139,117 @@ describe("an AI draft", () => {
     const next = applyDraft(start, draft, COPY);
     expect(next.gst).toEqual({ on: true, rate: "9", regNo: "", inclusive: true });
     expect(quoteTotals(next)).toMatchObject({ inclusive: true, total: 10900n, gst: 900n });
+  });
+});
+
+describe("the PDF with prices that include GST", () => {
+  /** A quote of `lines` lines, 45.50 each, with a whole-quote discount, as a visitor might type it. */
+  function longQuote(lines, gst) {
+    const quote = quoteWith(gst);
+    quote.items = Array.from({ length: lines }, (_, i) => ({
+      id: `item-${i}`,
+      description: `Aircon servicing, unit ${i + 1}`,
+      quantity: "1",
+      unit: "",
+      unitPrice: "45.50",
+      discountType: "none",
+      discountValue: "",
+    }));
+    quote.overallDiscount = { type: "percent", value: "10" };
+    return quote;
+  }
+
+  it("keeps the total, the split and the statement together on one page at every page edge", async () => {
+    const [, pageHeight] = A4;
+    for (let lines = 28; lines <= 52; lines += 1) {
+      const quote = longQuote(lines, { on: true, rate: "9", regNo: "", inclusive: true });
+      const totals = quoteTotals(quote);
+      const { ops } = await buildQuotePdf(quote, totals, COPY);
+      const wanted = [COPY.pdf.total, COPY.pdf.taxable, COPY.pdf.gstIncluded("9"), COPY.pdf.pricesInclude];
+      const found = wanted.map((text) => ops.find((o) => o.text === text));
+      for (const [i, op] of found.entries()) expect(op, `${wanted[i]} with ${lines} lines`).toBeDefined();
+      expect(new Set(found.map((o) => o.page)).size, `one page with ${lines} lines`).toBe(1);
+      for (const op of ops.filter((o) => o.kind !== "footer")) {
+        expect(op.y, `${op.text} with ${lines} lines`).toBeGreaterThanOrEqual(64 - 0.01);
+        expect(op.y + op.size, op.text).toBeLessThanOrEqual(pageHeight - 48 + 0.01);
+      }
+    }
+  });
+
+  it("keeps the exclusive statement with its total at every page edge", async () => {
+    for (let lines = 28; lines <= 52; lines += 1) {
+      const quote = longQuote(lines, { on: true, rate: "9", regNo: "", inclusive: false });
+      const { ops } = await buildQuotePdf(quote, quoteTotals(quote), COPY);
+      const total = ops.find((o) => o.text === COPY.pdf.total);
+      const statement = ops.find((o) => o.text === COPY.pdf.pricesExclude);
+      expect(statement, `${lines} lines`).toBeDefined();
+      expect(statement.page, `${lines} lines`).toBe(total.page);
+    }
+  });
+
+  it("prints no statement and no split with GST off, and never says tax invoice", async () => {
+    const quote = longQuote(3, { on: false, rate: "9", regNo: "", inclusive: true });
+    const totals = quoteTotals(quote);
+    const { ops } = await buildQuotePdf(quote, totals, COPY);
+    const texts = ops.map((o) => o.text);
+    for (const text of [COPY.pdf.pricesInclude, COPY.pdf.pricesExclude, COPY.pdf.taxable, COPY.pdf.gstIncluded("9"), COPY.pdf.gst("9")]) {
+      expect(texts, text).not.toContain(text);
+    }
+    expect(texts.join(" ")).not.toMatch(/tax invoice/i);
+  });
+
+  it("agrees between preview, PDF, and the same quote saved and opened again", async () => {
+    const quote = longQuote(5, { on: true, rate: "9", regNo: "M90312345A", inclusive: true });
+    quote.items[1].discountType = "percent";
+    quote.items[1].discountValue = "10";
+    quote.items[2].discountType = "amount";
+    quote.items[2].discountValue = "5";
+
+    const rowsOf = async (q) => {
+      const totals = quoteTotals(q);
+      const html = renderToStaticMarkup(React.createElement(QuotePreview, { quote: q, totals, copy: COPY }));
+      const block = html.match(/<dl class="qb-paper-totals">.*?<\/dl>/s)?.[0] ?? "";
+      const preview = [...block.matchAll(/<dt[^>]*>([^<]*)<\/dt><dd[^>]*>([^<]*)<\/dd>/g)].map((m) => `${m[1]} ${m[2]}`);
+      const { ops } = await buildQuotePdf(q, totals, COPY);
+      const pdf = ops.map((o) => o.text);
+      return { preview, pdf, totals };
+    };
+
+    const before = await rowsOf(quote);
+    const opened = parseQuoteFile(serialiseQuote(quote));
+    expect(opened.ok).toBe(true);
+    const after = await rowsOf(opened.quote);
+
+    expect(after.preview).toEqual(before.preview);
+    expect(after.pdf).toEqual(before.pdf);
+    expect(before.preview.at(-1)).toMatch(/^Includes GST \(9%\) \d/);
+    // The preview rows, flattened, are exactly the figures the PDF printed.
+    for (const row of before.preview) {
+      const value = row.slice(row.lastIndexOf(" ") + 1);
+      expect(before.pdf, row).toContain(value);
+    }
+    expect(after.totals).toEqual(before.totals);
+  });
+});
+
+describe("the new wording", () => {
+  it("contains no digit of its own: the only number it can show is the rate the visitor typed", () => {
+    const strings = [
+      COPY.totals.gstInclusive,
+      COPY.gstInclusiveHelper,
+      COPY.pdf.pricesInclude,
+      COPY.pdf.pricesExclude,
+      COPY.pdf.gstIncluded("rate"),
+    ];
+    for (const text of strings) {
+      expect(text).not.toMatch(/\d/);
+      expect(text).not.toContain("!");
+      expect(text).toMatch(/^[A-Z]/);
+    }
+  });
+
+  it("puts the visitor's rate in the label, as the exclusive GST label does", () => {
+    expect(COPY.pdf.gstIncluded("12.5")).toBe("Includes GST (12.5%)");
+    expect(COPY.pdf.gst("12.5")).toBe("GST (12.5%)");
   });
 });
