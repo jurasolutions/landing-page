@@ -35,7 +35,8 @@ export function anthropicClient(env) {
 /**
  * What kind of failure an API error is:
  *   "billing"     spend limit or credit problem: close the AI tools for the day
- *   "rate"        rate limited: show the used-up message (fail closed)
+ *   "rate"        rate limited: Anthropic is busy for a moment, so the tool
+ *                 answers 503 "busy" and gives the try back (server/ai-run.js)
  *   "input"       400 invalid_request_error: the API could not process what
  *                 was uploaded, so the try stays used, as with a refusal
  *   "unavailable" anything else (overloaded, 5xx, network, timeout, bad key)

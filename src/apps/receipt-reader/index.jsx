@@ -1,5 +1,5 @@
 import React from "react";
-import { Alert, Button, Icon, IconButton, Toast } from "../../ds.js";
+import { Alert, Button, Icon, Toast } from "../../ds.js";
 import { FileDrop } from "../_shared/FileDrop.jsx";
 import { ExportButtons } from "../_shared/ExportButtons.jsx";
 import { LimitArea } from "../_shared/LimitArea.jsx";
@@ -7,12 +7,13 @@ import { useOwnTalkCard } from "../_shared/AppShell.jsx";
 import { saveBlob } from "../_shared/download.js";
 import { trackUsage } from "../_shared/usage.js";
 import { useToast } from "../_shared/useToast.js";
-import { MAX_FILES_CLIENT, fileMessage } from "./files.js";
+import { MAX_FILES_CLIENT } from "./files.js";
+import { FileList } from "./FileList.jsx";
 import { failureMessage, isOutOfTries, readBlocker, readBlockerText, showsTalkCard } from "./read-state.js";
 import { prepareFile } from "./prepare.js";
 import { SITE_KEY, createTurnstile } from "../_shared/turnstile.js";
 import { fetchLimit, sendReceipts } from "./api.js";
-import { fromApi } from "./model.js";
+import { fromApi, releasable } from "./model.js";
 import { receiptTable, toCsv, toTsv, toXlsx } from "./exports.js";
 import { ReceiptResults } from "./ReceiptResults.jsx";
 import "./receipt-reader.css";
@@ -55,10 +56,19 @@ export default function ReceiptReader({ app, copy }) {
     };
   }, []);
 
-  // Object URLs for previews are released when files go.
+  // Object URLs for previews are released when files go, and when a
+  // not-a-receipt card that shows one goes.
   const filesRef = React.useRef(files);
   filesRef.current = files;
-  React.useEffect(() => () => filesRef.current.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl)), []);
+  const receiptsRef = React.useRef(receipts);
+  receiptsRef.current = receipts;
+  React.useEffect(
+    () => () => {
+      filesRef.current.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
+      receiptsRef.current.forEach((r) => r.previewUrl && URL.revokeObjectURL(r.previewUrl));
+    },
+    []
+  );
 
   const addFiles = async (incoming) => {
     setNotice("");
@@ -116,9 +126,15 @@ export default function ReceiptReader({ app, copy }) {
     setSending(false);
 
     if (status === 200 && Array.isArray(body.receipts)) {
-      setReceipts((current) => [...current, ...body.receipts.map(fromApi)]);
+      // A not-a-receipt card keeps the photo it came from; the rest go.
+      const previews = ready.map((f) => f.previewUrl);
+      const fresh = body.receipts.map((receipt) => fromApi(receipt, previews));
+      setReceipts((current) => [...current, ...fresh]);
       setLimit((current) => ({ ...current, triesLeft: body.triesLeft ?? 0 }));
-      files.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
+      releasable(
+        files.map((f) => f.previewUrl),
+        fresh
+      ).forEach((url) => URL.revokeObjectURL(url));
       setFiles([]);
       trackUsage(app.slug, "complete");
       requestAnimationFrame(() => resultsRef.current?.focus());
@@ -185,42 +201,7 @@ export default function ReceiptReader({ app, copy }) {
               </Alert>
             )}
 
-            {files.length > 0 && (
-              <ul className="rr-files" aria-label={copy.uploadLabel}>
-                {files.map((file, index) => (
-                  <li key={file.id} className="rr-file">
-                    {file.previewUrl ? (
-                      <img src={file.previewUrl} alt="" className="rr-thumb" />
-                    ) : (
-                      <span className="rr-thumb rr-thumb--empty" aria-hidden="true">
-                        <Icon name={file.status === "error" ? "alert-circle" : "image"} size={20} />
-                      </span>
-                    )}
-                    <span className="rr-file-text">
-                      <span className="rr-file-name">{copy.files.label(index + 1)}</span>
-                      <span className={`rr-file-status${file.status === "error" ? " rr-file-status--error" : ""}`}>
-                        {file.status === "preparing"
-                          ? copy.preparing
-                          : file.status === "error"
-                            ? fileMessage(file.reason, copy)
-                            : file.fromPdf
-                              ? copy.files.pdf
-                              : file.name}
-                      </span>
-                    </span>
-                    <IconButton
-                      type="button"
-                      size="lg"
-                      variant="ghost"
-                      label={copy.files.remove(index + 1)}
-                      disabled={sending}
-                      onClick={() => removeFile(file.id)}
-                      icon={<Icon name="x" size={20} />}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
+            {files.length > 0 && <FileList files={files} copy={copy} sending={sending} onRemove={removeFile} />}
 
             <div className="rr-send stack-3">
               <div>

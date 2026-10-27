@@ -63,8 +63,15 @@ export function draftFailure({ status, body = {}, triesBefore }, copy) {
   const E = copy.ai.errors;
   if (status === 403) return E.botCheck;
   if (status === 413 || status === 400) return E.tooLong;
-  const words = status === 502 ? E.unreadable : E.unavailable;
+  if (status === 0) return E.offline;
+  // Output the model could not get right reads as "couldn't draft from that",
+  // as it did before it became a 503 with reason bad_output.
+  const words =
+    status === 502 || body.reason === "bad_output" ? E.unreadable : body.error === "busy" ? E.busy : E.unavailable;
   const known = typeof body.triesLeft === "number";
-  const givenBack = known ? body.triesLeft >= triesBefore : status === 503;
+  // The server says whether the try was counted; the counts are only a fallback
+  // (two counts can come from different buckets on a first visit).
+  const givenBack =
+    typeof body.counted === "boolean" ? !body.counted : known ? body.triesLeft >= triesBefore : status === 503;
   return givenBack ? `${words} ${E.notCounted}` : words;
 }

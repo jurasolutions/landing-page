@@ -50,7 +50,7 @@ describe("what the receipt reader tells the visitor after a failed try", () => {
     const { env } = await setup();
     installNetwork({ anthropic: [message("", { stop: "refusal" })] });
     const result = await answer(env, `jura_vid=${crypto.randomUUID()}`);
-    expect(result).toEqual({ status: 502, body: { error: "unreadable", triesLeft: 1 } });
+    expect(result).toEqual({ status: 502, body: { error: "unreadable", reason: "refused", triesLeft: 1, counted: true } });
     expectHonest(result, TRIES_PER_DAY);
   });
 
@@ -70,7 +70,7 @@ describe("what the receipt reader tells the visitor after a failed try", () => {
     expect(first.body.triesLeft).toBe(2);
     expectHonest(first, TRIES_PER_DAY);
     const second = await answer(env, cookie);
-    expect(second).toEqual({ status: 503, body: { error: "unavailable", triesLeft: 1 } });
+    expect(second).toEqual({ status: 503, body: { error: "unavailable", triesLeft: 1, counted: true } });
     expectHonest(second, first.body.triesLeft);
   });
 
@@ -78,7 +78,7 @@ describe("what the receipt reader tells the visitor after a failed try", () => {
     const { env } = await setup();
     installNetwork({ anthropic: ["network"] });
     const result = await answer(env, `jura_vid=${crypto.randomUUID()}`);
-    expect(result).toEqual({ status: 503, body: { error: "unavailable", triesLeft: 2 } });
+    expect(result).toEqual({ status: 503, body: { error: "unavailable", triesLeft: 2, counted: false } });
     expectHonest(result, TRIES_PER_DAY);
   });
 

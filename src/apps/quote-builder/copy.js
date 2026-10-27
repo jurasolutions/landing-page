@@ -41,6 +41,8 @@ export default {
     errors: {
       unreadable: "We couldn't draft a quote from that. Try listing each part of the job with its price.",
       unavailable: "Drafting isn't available right now. Please try again later.",
+      busy: "Drafting is busy right now. Please try again in a minute.",
+      offline: "We couldn't reach the quote drafter. Check your connection and try again.",
       // Added after either message above, only when the try came back.
       notCounted: "This try wasn't counted.",
       botCheck: "We couldn't confirm this is a person and not a bot. Refresh the page and try again.",

@@ -27,7 +27,10 @@
  *   400 { error: "bad_request" | "count" }   413 { error: "too_large" }
  *   403 { error: "bot_check" }               415 { error: "heic" | "type" }
  *   429 { error: "limit" | "cap", triesLeft }
- *   502 { error: "unreadable", triesLeft? }  503 { error: "unavailable", triesLeft? }
+ *   502 { error: "unreadable", reason: "refused" | "rejected", triesLeft }
+ *   503 { error: "busy", triesLeft }         Anthropic's rate limit; the try comes back
+ *   503 { error: "unavailable", reason?: "bad_output", triesLeft? }
+ *   (server/ai-run.js has what each one means)
  *   404 { error: "not_found" }  the tool is a draft and AI_ALLOW_DRAFTS=1 is not set
  */
 import { json } from "./http.js";

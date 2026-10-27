@@ -1,7 +1,7 @@
 import React from "react";
 import { Alert, Badge, Button, Card, Field, Icon, IconButton, Input } from "../../ds.js";
 import { TAP_INPUT } from "../_shared/controls.js";
-import { emptyLine, itemsMismatch } from "./model.js";
+import { emptyLine, itemsMismatch, releasable } from "./model.js";
 
 function TextField({ id, label, value, onChange, list, placeholder, inputMode }) {
   return (
@@ -20,6 +20,22 @@ function TextField({ id, label, value, onChange, list, placeholder, inputMode })
   );
 }
 
+/**
+ * A receipt is titled by its merchant. A photo with no receipt is titled by
+ * the photo, the same number its sentence uses: a merchant name the model
+ * gave it is a guess about something that is not a receipt.
+ */
+function cardTitle(receipt, index, copy) {
+  if (!receipt.isReceipt && receipt.image) return copy.files.label(receipt.image);
+  return receipt.merchant || copy.results.receipt(index + 1);
+}
+
+/** Why a photo came back without a receipt, naming the photo by its number in the batch. */
+function missMessage(receipt, copy) {
+  if (!receipt.image) return copy.notReceipt;
+  return (copy.problems[receipt.problem] ?? copy.problems.other)(receipt.image);
+}
+
 function ReceiptCard({ receipt, index, copy, update, remove }) {
   const F = copy.fields;
   const R = copy.results;
@@ -35,7 +51,7 @@ function ReceiptCard({ receipt, index, copy, update, remove }) {
     <li>
       <Card padding="var(--space-5)" className="rr-card">
         <div className="rr-card-head">
-          <h3 className="rr-card-title">{receipt.merchant || R.receipt(index + 1)}</h3>
+          <h3 className="rr-card-title">{cardTitle(receipt, index, copy)}</h3>
           <div className="rr-card-tools">
             {receipt.total && receipt.isReceipt && (
               <Badge tone="neutral">
@@ -54,9 +70,13 @@ function ReceiptCard({ receipt, index, copy, update, remove }) {
         </div>
 
         {!receipt.isReceipt ? (
-          <Alert tone="info" icon={<Icon name="info" size={18} />}>
-            {copy.notReceipt}
-          </Alert>
+          <div className="rr-miss">
+            {/* Decorative: the sentence beside it names the photo by number. */}
+            {receipt.previewUrl && <img src={receipt.previewUrl} alt="" width={96} height={96} className="rr-miss-photo" />}
+            <Alert tone="info" icon={<Icon name="info" size={18} />} className="rr-miss-why">
+              {missMessage(receipt, copy)}
+            </Alert>
+          </div>
         ) : (
           <>
             {mismatch && (
@@ -132,7 +152,12 @@ function ReceiptCard({ receipt, index, copy, update, remove }) {
 export function ReceiptResults({ receipts, setReceipts, copy }) {
   const update = (index) => (changes) =>
     setReceipts((current) => current.map((receipt, i) => (i === index ? { ...receipt, ...changes } : receipt)));
-  const remove = (index) => () => setReceipts((current) => current.filter((_, i) => i !== index));
+  // A removed not-a-receipt card lets its photo go, unless another card still shows it.
+  const remove = (index) => () => {
+    const rest = receipts.filter((_, i) => i !== index);
+    releasable([receipts[index]?.previewUrl], rest).forEach((url) => URL.revokeObjectURL(url));
+    setReceipts((current) => current.filter((_, i) => i !== index));
+  };
 
   return (
     <>

@@ -7,9 +7,9 @@
  * { ok: false, reason: "heic" | "type" | "tooBig" | "unopenable" }.
  * The page shows `ref` as the thumbnail, through an object URL it owns.
  */
-import { decodeImage, drawJpeg, imageKind as photoKind } from "../_shared/photos.js";
+import { attemptDecode, decodeImage, drawJpeg, imageKind as photoKind } from "../_shared/photos.js";
 
-/** "image", "heic" (asked to share as a JPG) or null (refused). */
+/** "image", "heic" (taken when the browser can decode it) or null (refused). */
 export { photoKind };
 
 export const SIZES = { file: { edge: 1600, quality: 0.8 }, ref: { edge: 512, quality: 0.85 } };
@@ -18,22 +18,20 @@ export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 export async function preparePhoto(file) {
   const kind = photoKind(file);
-  if (kind === "heic") return { ok: false, reason: "heic" };
   if (!kind) return { ok: false, reason: "type" };
-  let made;
-  try {
+  const attempt = await attemptDecode(kind, async () => {
     const source = await decodeImage(file);
     try {
-      made = {
+      return {
         file: await drawJpeg(source, SIZES.file.edge, SIZES.file.quality),
         ref: await drawJpeg(source, SIZES.ref.edge, SIZES.ref.quality),
       };
     } finally {
       source.close?.();
     }
-  } catch {
-    return { ok: false, reason: "unopenable" };
-  }
+  });
+  if (!attempt.ok) return attempt;
+  const { made } = attempt;
   if (made.file.size > MAX_UPLOAD_BYTES) return { ok: false, reason: "tooBig" };
   return { ok: true, ...made };
 }

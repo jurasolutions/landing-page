@@ -86,7 +86,7 @@ describe("drafting a quote", () => {
     installNetwork({ anthropic: [apiError(529, "overloaded_error")] });
     const response = await draftQuote({ request: draftRequest(), env });
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2, counted: false });
   });
 
   it("shares the visitor's tries with the other AI tools", async () => {

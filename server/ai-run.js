@@ -18,11 +18,22 @@
  * never given back to the budget; only an unbilled API error releases its
  * reservation.
  *
- * Responses (`error` is a code; the page owns the words):
+ * Responses (`error` is a code and `reason` says why; the page owns the words):
  *   200 the tool's own body, plus triesLeft (a finish step may answer with
  *       another status, such as the product photo studio's 422 no_product)
- *   429 { error: "limit" | "cap", triesLeft }      502 { error: "unreadable" }
- *   503 { error: "unavailable" }
+ *   429 { error: "limit" | "cap", triesLeft }      billing closes the day: cap
+ *   502 { error: "unreadable", reason: "refused", triesLeft }    the model
+ *       declined what was sent; the try is used
+ *   502 { error: "unreadable", reason: "rejected", triesLeft }   the API could
+ *       not process what was sent (a 400); the try is used
+ *   503 { error: "busy", triesLeft }              Anthropic's rate limit; the
+ *       try comes back, and the visitor's tries are not used up
+ *   503 { error: "unavailable", reason: "bad_output", triesLeft }   the output
+ *       was still wrong after the repair; the try comes back
+ *   503 { error: "unavailable", triesLeft? }      anything else on our side
+ * Every failure after a try was taken also carries `counted`: false when the
+ * try came back, true when it was used. The page trusts it over comparing
+ * counts, which can come from different buckets on a first visit.
  */
 import { closeForToday, refundTry, settleQuietly, takeCall, takeTry } from "./limit.js";
 import { logCall, reply, visitorContext } from "./ai-tool.js";
@@ -40,9 +51,18 @@ import { anthropicClient, classifyApiError, costNano, reservationNano, responseT
  * finish        optional, for a tool with a second cost after Claude:
  *   reserve     nano-dollars: that step's worst case. It is reserved with the
  *               try, in the same statement, so a try never pays for Claude
- *               and then finds no money left for the rest. It does not count
- *               towards AI_SITE_CAP: the try's one call already did.
- *   run         async (result) => FinishOutcome, once the output validates:
+ *               and then finds no money left for the rest. Reserving it
+ *               counts no call towards AI_SITE_CAP; a step that sends Claude
+ *               another request counts that request itself (`countCall`,
+ *               below).
+ *   costField   the log field for what the step spent (default
+ *               "image_nano_usd", the product photo studio's pictures)
+ *   run         async (result, { countCall }) => FinishOutcome, once the
+ *               output validates. A step that sends Claude another request
+ *               (the receipt reader's second look) calls `countCall()` first:
+ *               it counts that request towards AI_SITE_CAP, with no further
+ *               reservation (the step's own covers it), and resolves false
+ *               when the request must not be sent.
  *     { ok: true, spent, body, log, status? }   status defaults to 200
  *     { ok: false, spent, reason, kind: "cap" | "unavailable" }
  *               `spent` is what the step really cost; the reservation is
@@ -78,7 +98,7 @@ export async function runAiTry({ incoming, env, now, started, tool, reserve, req
       ...logDefaults,
       latency_ms: Date.now() - started,
     });
-    const triesLeft = taken?.ok ? { triesLeft: taken.triesLeft + (refunded ? 1 : 0) } : {};
+    const triesLeft = taken?.ok ? { triesLeft: taken.triesLeft + (refunded ? 1 : 0), counted: !refunded } : {};
     return reply(ctx, { error: "unavailable", ...triesLeft }, 503);
   } finally {
     await releaseHeld(state);
@@ -125,7 +145,8 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
   const tokens = { input_tokens: 0, output_tokens: 0, cost_nano_usd: 0 };
   // Only a tool with a finish step logs its cost, so the others' log lines
   // keep their exact shape.
-  const extra = finish ? { image_nano_usd: 0 } : {};
+  const costField = finish?.costField ?? "image_nano_usd";
+  const extra = finish ? { [costField]: 0 } : {};
   // Each answer is priced from its token counts, and its reservation settled
   // to that real cost.
   const add = async (message, reserved) => {
@@ -144,20 +165,21 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
     logCall({ day: ctx.day, tool, ...logDefaults, ...fields, ...tokens, ...extra, latency_ms: Date.now() - started });
 
   // A failure on our side, or output we could not use: the try comes back.
-  const fail = async (reason, status, error) => {
+  // `why` is the reason the page is told, when it has one.
+  const fail = async (reason, status, error, why) => {
     const refunded = await refundOnce(state);
     log({ ok: false, reason });
-    return reply(ctx, { error, triesLeft: taken.triesLeft + (refunded ? 1 : 0) }, status);
+    return reply(ctx, { error, ...(why ? { reason: why } : {}), triesLeft: taken.triesLeft + (refunded ? 1 : 0), counted: !refunded }, status);
   };
-  // The model declined what was sent, or the API could not process it: the
-  // try was used.
-  const refused = (reason = "refusal") => {
+  // The model declined what was sent ("refused"), or the API could not
+  // process it ("rejected"): the try was used.
+  const refused = (reason, why) => {
     log({ ok: false, reason });
-    return reply(ctx, { error: "unreadable", triesLeft: taken.triesLeft }, 502);
+    return reply(ctx, { error: "unreadable", reason: why, triesLeft: taken.triesLeft, counted: true }, 502);
   };
   const apiFailure = async (error) => {
     const kind = classifyApiError(error);
-    if (kind === "input") return refused("api_400");
+    if (kind === "input") return refused("api_400", "rejected");
     if (kind === "billing") {
       const response = await fail("billing", 429, "cap");
       // Released first: the close must be the last word on today's spend.
@@ -165,7 +187,8 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
       await closeForToday(ctx.db, ctx);
       return response;
     }
-    if (kind === "rate") return fail("rate", 429, "cap");
+    // Anthropic is busy for a moment; the visitor's tries are not used up.
+    if (kind === "rate") return fail("rate", 503, "busy");
     return fail(`api_${error?.status ?? "network"}`, 503, "unavailable");
   };
 
@@ -179,7 +202,7 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
     return apiFailure(error);
   }
   await add(message, reserve);
-  if (message.stop_reason === "refusal") return refused();
+  if (message.stop_reason === "refusal") return refused("refusal", "refused");
 
   // 5. Validate, with one repair attempt that costs the visitor nothing but
   // reserves its own cost from the budget.
@@ -197,18 +220,18 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
       return apiFailure(error);
     }
     await add(second, repairReserve);
-    if (second.stop_reason === "refusal") return refused();
+    if (second.stop_reason === "refusal") return refused("refusal", "refused");
     result = read(responseText(second));
   }
-  if (!result.ok) return fail("invalid_output", 502, "unreadable");
+  if (!result.ok) return fail("invalid_output", 503, "unavailable", "bad_output");
 
   // 5b. The finish step. Its reservation is handed over first: from here a
   // throw keeps it spent (fail closed, like a dropped Claude connection).
   if (finish) {
     const held = state.held;
     state.held = 0;
-    const outcome = await finish.run(result);
-    extra.image_nano_usd = outcome.spent;
+    const outcome = await finish.run(result, { countCall: () => takeCall(ctx.db, ctx, 0) });
+    extra[costField] = outcome.spent;
     await settleQuietly(ctx.db, ctx, outcome.spent - held);
     if (!outcome.ok) {
       const cap = outcome.kind === "cap";
@@ -216,7 +239,7 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
     }
     const status = outcome.status ?? 200;
     log({ ok: status < 400, ...outcome.log, repaired });
-    return reply(ctx, { ...outcome.body, triesLeft: taken.triesLeft }, status);
+    return reply(ctx, { ...outcome.body, triesLeft: taken.triesLeft, ...(status >= 400 ? { counted: true } : {}) }, status);
   }
 
   // 6. Respond.

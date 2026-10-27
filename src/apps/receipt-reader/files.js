@@ -11,3 +11,14 @@ export function fileMessage(reason, copy) {
     }[reason] ?? copy.unopenable
   );
 }
+
+/**
+ * Each file's photo number, or null for a file that can't be sent. Only the
+ * files that will be sent are counted, in order, so the number a file shows
+ * in the list is the number the server's answer gives its photo (`image`).
+ * A file still getting ready counts: the read waits for it.
+ */
+export function photoNumbers(files) {
+  let n = 0;
+  return files.map((file) => (file.status === "error" ? null : (n += 1)));
+}

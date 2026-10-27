@@ -38,6 +38,27 @@
   border: 1px solid var(--border-subtle);
 }
 
+/* A card for a photo that came back without a receipt: the photo, then why. */
+.rr-miss {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.rr-miss-photo {
+  width: 96px;
+  height: 96px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.rr-miss-why {
+  flex: 1;
+  min-width: 0;
+}
+
 .rr-thumb--empty {
   display: flex;
   align-items: center;
@@ -57,6 +78,8 @@
   font-size: var(--text-body-sm);
   font-weight: var(--weight-semibold);
   color: var(--text-strong);
+  /* A file that can't be sent is labelled by its name, which can be long. */
+  overflow-wrap: anywhere;
 }
 
 .rr-file-status {

@@ -22,7 +22,8 @@ import {
 import { FIELD_LIMITS, MAX_PHOTOS, postForm } from "../src/apps/product-photo-studio/api.js";
 import { forgetResult, keepResult, keepWords, restoreResult } from "../src/apps/product-photo-studio/session.js";
 import copy from "../src/apps/product-photo-studio/copy.js";
-import { SIZES, photoKind } from "../src/apps/product-photo-studio/prepare.js";
+import { SIZES, photoKind, preparePhoto } from "../src/apps/product-photo-studio/prepare.js";
+import { stubBrowserImages } from "./helpers/browser-image.js";
 import { fitLongEdge } from "../src/apps/_shared/photos.js";
 
 describe("the product photo studio's picture shapes (APP-004)", () => {
@@ -124,7 +125,29 @@ describe("what the studio says when a try brings no posts back", () => {
     expect(fail(503, { error: "unavailable" })).toBe(`${copy.errors.unavailable} ${copy.errors.notCounted}`);
     expect(fail(502, { error: "unreadable", triesLeft: 3 })).toBe(`${copy.errors.unreadable} ${copy.errors.notCounted}`);
     expect(fail(502, { error: "unreadable", triesLeft: 2 })).toBe(copy.errors.unreadable);
-    expect(fail(0, {})).toBe(copy.errors.unavailable);
+  });
+
+  it("says the connection failed, and promises nothing about the try, when the network failed", () => {
+    expect(fail(0, {})).toBe("We couldn't reach the product photo studio. Check your connection and try again.");
+  });
+
+  it("names what went wrong from the error and its reason, so a busy model never reads as tries used up", () => {
+    expect(fail(503, { error: "busy", triesLeft: 2 })).toBe(
+      "The product photo studio is busy right now. Please try again in a minute."
+    );
+    expect(fail(503, { error: "busy", triesLeft: 3 })).toBe(
+      "The product photo studio is busy right now. Please try again in a minute. This try wasn't counted."
+    );
+    expect(fail(502, { error: "unreadable", reason: "refused", triesLeft: 2 })).toBe(
+      "These photos couldn't be used. A photo of your product on its own, without people, works best."
+    );
+    expect(fail(502, { error: "unreadable", reason: "rejected", triesLeft: 2 })).toBe(
+      "One of these photos couldn't be processed. Take the photo again, or save it as a JPG."
+    );
+    expect(fail(503, { error: "unavailable", reason: "bad_output", triesLeft: 3 })).toBe(
+      "Something went wrong on our side while making your posts. Please try again. This try wasn't counted."
+    );
+    expect(fail(503, { error: "unavailable", triesLeft: 3 })).toBe(`${copy.errors.unavailable} ${copy.errors.notCounted}`);
   });
 
   it("explains a refused request in the visitor's terms", () => {
@@ -312,12 +335,28 @@ describe("the last result, kept for the session (S4)", () => {
 });
 
 describe("getting a photo ready to send", () => {
-  it("takes JPG, PNG and WEBP photos, asks for a JPG instead of HEIC, and refuses a PDF or anything else", () => {
+  it("takes JPG, PNG and WEBP photos, tells HEIC apart, and refuses a PDF or anything else", () => {
     expect(photoKind({ name: "a.jpg", type: "image/jpeg" })).toBe("image");
     expect(photoKind({ name: "a.webp", type: "" })).toBe("image");
     expect(photoKind({ name: "IMG_1.HEIC", type: "" })).toBe("heic");
     expect(photoKind({ name: "menu.pdf", type: "application/pdf" })).toBe(null);
     expect(photoKind({ name: "a.gif", type: "image/gif" })).toBe(null);
+  });
+
+  it("takes a HEIC photo when the browser can decode it (Safari can), and makes both sizes from it", async () => {
+    stubBrowserImages({ decodes: true });
+    const made = await preparePhoto(new File([new Uint8Array(32)], "IMG_1.HEIC", { type: "image/heic" }));
+    expect(made.ok).toBe(true);
+    expect(made.file.type).toBe("image/jpeg");
+    expect(made.ref.type).toBe("image/jpeg");
+  });
+
+  it("refuses a HEIC photo the browser can't decode, and says how to get a JPEG", async () => {
+    stubBrowserImages({ decodes: false });
+    expect(await preparePhoto(new File([new Uint8Array(32)], "IMG_1.HEIC", { type: "" }))).toEqual({ ok: false, reason: "heic" });
+    expect(copy.heic).toBe(
+      "This photo is in Apple's HEIC format, which this browser can't open. On a Mac, export it from Photos as a JPEG (File > Export); on an iPhone, choose Most Compatible under Settings > Camera > Formats."
+    );
   });
 
   it("makes two sizes: a 1600 px JPEG for Claude and a 512 px JPEG for the image model", () => {

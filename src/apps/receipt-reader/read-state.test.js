@@ -81,8 +81,36 @@ describe("what a failed read says", () => {
     );
   });
 
-  it("promises nothing when the network failed and the outcome is unknown", () => {
-    expect(said(0, {})).toBe("The receipt reader isn't available right now. Please try again later.");
+  it("says the connection failed, and promises nothing about the try, when the network failed", () => {
+    expect(said(0, {})).toBe("We couldn't reach the receipt reader. Check your connection and try again.");
+  });
+
+  it("names what went wrong from the error and its reason", () => {
+    expect(said(502, { error: "unreadable", reason: "refused", triesLeft: 1 })).toBe(
+      "These images couldn't be read. If they're receipts, try one clear photo of each."
+    );
+    expect(said(502, { error: "unreadable", reason: "rejected", triesLeft: 1 })).toBe(
+      "One of these images couldn't be processed. Take the photo again, or save it as a JPG."
+    );
+    expect(said(503, { error: "unavailable", reason: "bad_output", triesLeft: 1 })).toBe(
+      "Something went wrong on our side while reading. Please try again."
+    );
+    expect(said(503, { error: "busy", triesLeft: 1 })).toBe("The receipt reader is busy right now. Please try again in a minute.");
+    expect(said(503, { error: "unavailable", reason: "something_new", triesLeft: 1 })).toBe(
+      "The receipt reader isn't available right now. Please try again later."
+    );
+  });
+
+  it("adds that the try wasn't counted after any of them when the try came back", () => {
+    expect(said(503, { error: "busy", triesLeft: 2 })).toBe(
+      "The receipt reader is busy right now. Please try again in a minute. This try wasn't counted."
+    );
+    expect(said(503, { error: "unavailable", reason: "bad_output", triesLeft: 2 })).toBe(
+      "Something went wrong on our side while reading. Please try again. This try wasn't counted."
+    );
+    expect(said(502, { error: "unreadable", reason: "refused", triesLeft: 2 })).toBe(
+      "These images couldn't be read. If they're receipts, try one clear photo of each. This try wasn't counted."
+    );
   });
 
   it("explains a rejected upload or bot check without mentioning the try", () => {
