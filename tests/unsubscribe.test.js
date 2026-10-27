@@ -58,6 +58,7 @@ describe("GET /unsubscribe", () => {
     const rows = DB.rows("suppression");
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
+      id: 1,
       email_hash: token.split(".")[0],
       email: null,
       reason: "unsubscribe",
@@ -67,7 +68,7 @@ describe("GET /unsubscribe", () => {
     expect(Date.parse(rows[0].created_at)).not.toBeNaN();
   });
 
-  it("is idempotent", async () => {
+  it("adds a row each time the link is opened, and keeps the earlier ones", async () => {
     const DB = await createD1();
     const env = { DB, UNSUBSCRIBE_SECRET: SECRET };
     const token = referenceToken("ada@example.com", SECRET);
@@ -75,7 +76,10 @@ describe("GET /unsubscribe", () => {
     const first = DB.rows("suppression")[0];
     const again = await onRequestGet({ request: new Request(at(token)), env });
     expect(again.headers.get("Location")).toBe("https://jurasolutions.sg/unsubscribed");
-    expect(DB.rows("suppression")).toEqual([first]);
+    const rows = DB.rows("suppression");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual(first);
+    expect(rows[1]).toMatchObject({ id: 2, email_hash: token.split(".")[0], reason: "unsubscribe", source: "unsubscribe-link" });
   });
 
   it("shows the 'that link didn't work' state for a bad token and writes nothing", async () => {
@@ -117,13 +121,17 @@ describe("POST /unsubscribe (RFC 8058 one-click)", () => {
     expect(DB.rows("suppression")).toEqual([]);
   });
 
-  it("keeps the first unsubscribe when both the link and one-click arrive", async () => {
+  it("records both events when one-click and the link arrive for one address", async () => {
     const DB = await createD1();
     const env = { DB, UNSUBSCRIBE_SECRET: SECRET };
     const token = referenceToken("ada@example.com", SECRET);
     await onRequestPost({ request: post(token), env });
     await onRequestGet({ request: new Request(at(token)), env });
-    expect(DB.rows("suppression")).toHaveLength(1);
-    expect(DB.rows("suppression")[0].source).toBe("unsubscribe-post");
+    const rows = DB.rows("suppression");
+    expect(rows.map(({ id, source }) => ({ id, source }))).toEqual([
+      { id: 1, source: "unsubscribe-post" },
+      { id: 2, source: "unsubscribe-link" },
+    ]);
+    expect(new Set(rows.map((row) => row.email_hash))).toEqual(new Set([token.split(".")[0]]));
   });
 });

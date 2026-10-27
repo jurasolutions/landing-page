@@ -14,7 +14,9 @@
  * permanently rejected the email) and `email.complained` (marked as spam).
  * Both carry `data.to` (a list of addresses) and `data.email_id`. Each
  * recipient is added to the suppression list. Other event types get a 200 and
- * are ignored. Retries reuse the same svix-id; the writes are idempotent.
+ * are ignored. Every delivery is a new row in the append-only suppression
+ * log, so a retry after a partial failure records the event twice; the growth
+ * sync acts on repeats harmlessly (server/suppression.js).
  *
  * GET is a health check: { endpoint, ok, canVerify, canStore }.
  */

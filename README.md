@@ -512,8 +512,8 @@ Test vector: secret `test-unsubscribe-secret-not-real`, email
   constant time, adds `suppression(reason='unsubscribe',
   source='unsubscribe-link', email=NULL)`, and 303s to `/unsubscribed`. A
   bad token goes to `/unsubscribed?status=invalid` and writes nothing; a
-  missing secret or D1 goes to `?status=error`. Unsubscribing twice changes
-  nothing.
+  missing secret or D1 goes to `?status=error`. Unsubscribing twice adds a
+  second row.
 - `POST /unsubscribe?t=` is RFC 8058 one-click (the email carries
   `List-Unsubscribe: <https://jurasolutions.sg/unsubscribe?t=...>` and
   `List-Unsubscribe-Post: List-Unsubscribe=One-Click`): same write with
@@ -533,11 +533,16 @@ bad signature is a 401; a missing secret or D1 is a 503 so Resend retries.
 Event names and payload fields were checked against Resend's docs on
 2026-10-24.
 
-**One row per address, never weakened.** If an address comes in again, a
-stronger reason replaces a weaker one: a complaint replaces anything, a bounce
-replaces an unsubscribe or a manual entry. So a complaint is always visible
-(the scout's auto-pause depends on it) even after an earlier unsubscribe.
-`created_at` stays the first time the address was suppressed.
+**One row per event, never changed.** `suppression` is an append-only log
+(`migrations/0003_suppression_append_only.sql`). Every unsubscribe, bounce and
+complaint inserts a new row with its own `id`, even for an address already in
+the table, and triggers refuse any UPDATE, DELETE or replacing insert. The
+growth CLI's outreach sync reads the rows after the last `id` it processed and
+acts on each one, so a complaint is always seen (the scout's auto-pause
+depends on it) even after an earlier unsubscribe. Any row for a hash means the
+address is suppressed; with several, the strongest reason wins (complaint,
+then bounce, then unsubscribe and manual). The table shape is the "D1
+contract" in `repos/growth/docs/scout.md`; change both sides together.
 
 ## Environment variables
 
@@ -578,8 +583,9 @@ For local runs, Cloudflare's Turnstile test keys: site key
 
 ## D1
 
-One database, bound as `DB`. The schema is `migrations/0001_toolbox.sql` and
-`migrations/0002_spend.sql` (wrangler's migrations format, applied in number
+One database, bound as `DB`. The schema is `migrations/0001_toolbox.sql`,
+`migrations/0002_spend.sql` and `migrations/0003_suppression_append_only.sql`
+(wrangler's migrations format, applied in number
 order); every `day` is the SGT date:
 
 | Table | Holds |
@@ -588,7 +594,7 @@ order); every `day` is the SGT date:
 | `app_calls(day, count)` | AI calls per day (and the optional call cap) |
 | `app_spend(day, nano_usd)` | what the AI tools spent on the Claude API that day, for the budget |
 | `app_usage(day, app_slug, opens, completions)` | anonymous counts |
-| `suppression(email_hash, email, reason, source, resend_email_id, created_at)` | addresses never to email |
+| `suppression(id, email_hash, email, reason, source, resend_email_id, created_at)` | addresses never to email, one append-only row per event |
 
 Locally, `npm run db:migrate:local` creates the tables in `.wrangler/state`,
 and `npm run dev:functions` serves the built site with that database. To look
