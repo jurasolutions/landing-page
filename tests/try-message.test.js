@@ -50,7 +50,7 @@ describe("what the receipt reader tells the visitor after a failed try", () => {
     const { env } = await setup();
     installNetwork({ anthropic: [message("", { stop: "refusal" })] });
     const result = await answer(env, `jura_vid=${crypto.randomUUID()}`);
-    expect(result).toEqual({ status: 502, body: { error: "unreadable", triesLeft: 1 } });
+    expect(result).toEqual({ status: 502, body: { error: "unreadable", reason: "refused", triesLeft: 1 } });
     expectHonest(result, TRIES_PER_DAY);
   });
 

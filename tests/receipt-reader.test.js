@@ -86,8 +86,8 @@ describe("injection fixture: instructions written on a receipt", () => {
     const { DB, env } = await setup();
     installNetwork({ anthropic: [message(otherShape), message(otherShape)] });
     const response = await readReceipts({ request: receiptRequest(), env });
-    expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ error: "unreadable", triesLeft: 2 });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "unavailable", reason: "bad_output", triesLeft: 2 });
     expect(DB.rows("app_tries")[0].count).toBe(0);
   });
 
@@ -100,12 +100,21 @@ describe("injection fixture: instructions written on a receipt", () => {
     expect(body).not.toHaveProperty("extra");
   });
 
-  it("treats a refusal as unreadable, and the try stays used", async () => {
+  it("treats a refusal as unreadable for reason refused, and the try stays used", async () => {
     const { DB, env } = await setup();
     installNetwork({ anthropic: [message("", { stop: "refusal" })] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "unreadable", reason: "refused", triesLeft: 1 });
     expect(DB.rows("app_tries")[0].count).toBe(1);
+  });
+
+  it("treats a refused repair the same way", async () => {
+    const { env } = await setup();
+    installNetwork({ anthropic: [message(obeyed), message("", { stop: "refusal" })] });
+    const response = await readReceipts({ request: receiptRequest(), env });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "unreadable", reason: "refused", triesLeft: 1 });
   });
 });
 
