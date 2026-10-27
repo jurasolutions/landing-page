@@ -109,3 +109,14 @@ artifacts: reviews/quality-gate.md (GO), reviews/release.md, README `counted` no
 decisions: live check in production after the merge (preview has no AI secrets); G4 = PR, Ting Yu merges (merge to main is blocked for the agent)
 questions: -
 evidence:  vitest -> 630 passed; build -> built
+
+## 2026-10-27T16:00Z conductor (close)
+
+status:    done
+persona:   conductor
+ticket:    -
+artifacts: PR #5 merged by Ting Yu (69c736f), live on jurasolutions.sg
+decisions: G4 = PR, merged by Ting Yu
+questions: Workers Paid: guide given; Ting Yu to upgrade
+evidence:  production deployment 69c736f active; /api/apps/limit -> ready true
+evidence:  live check, Ting Yu's 3 receipts -> 3 receipts read: MYR 1,560.00 (currency now filled; one line amount read as 0.00 from the skewed column, flagged by "don't add up" and a note), SGD 56.75 with the three Price Off lines as -13.10 (adds up), GBP 24.88; counter stayed at 5 (owner network)
