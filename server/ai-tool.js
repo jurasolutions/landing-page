@@ -8,10 +8,25 @@ import { hashIp, identifyVisitor } from "./visitor.js";
 import { limitConfig, limitKey } from "./limit.js";
 import { findEntry } from "./registry.js";
 import { isServed } from "./drafts.js";
+import { imageReady } from "./image-gen.js";
 
-/** Everything an AI tool needs from the environment before it does anything. */
-export function aiReady(env) {
-  return Boolean(env.DB && env.ANTHROPIC_API_KEY && env.TURNSTILE_SECRET && env.VISITOR_SALT);
+/**
+ * What a tool needs on top of what every AI tool needs, keyed by slug. Kept
+ * on the server: the registry ships in the browser bundle.
+ */
+const TOOL_NEEDS = {
+  // The pictures: a Workers AI binding, and an image model with a price.
+  "product-photo-studio": imageReady,
+};
+
+/**
+ * Everything an AI tool needs from the environment before it does anything.
+ * With a `tool`, that tool's own needs too; without one (the health check),
+ * only what they all share.
+ */
+export function aiReady(env, tool = null) {
+  const shared = Boolean(env.DB && env.ANTHROPIC_API_KEY && env.TURNSTILE_SECRET && env.VISITOR_SALT);
+  return shared && (TOOL_NEEDS[tool]?.(env) ?? true);
 }
 
 export function isAiTool(slug, registry) {

@@ -104,6 +104,23 @@ export function fakeJpeg(size = 2048, marker = "") {
   return bytes;
 }
 
+/**
+ * A JPEG header with a real SOF0 marker giving `width` x `height`, after an
+ * APP0 segment, padded to `size` bytes. Enough for the server to read its
+ * size; never decoded.
+ */
+export function jpegOf(width, height, { size = 2048, marker = "" } = {}) {
+  const bytes = new Uint8Array(Math.max(size, 64));
+  const head = [
+    0xff, 0xd8,
+    0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+    0xff, 0xc0, 0x00, 0x11, 0x08, height >> 8, height & 0xff, width >> 8, width & 0xff, 0x03,
+  ];
+  bytes.set(head);
+  bytes.set(new TextEncoder().encode(marker).subarray(0, Math.max(0, bytes.length - 48)), 48);
+  return bytes;
+}
+
 export const fakePng = () => new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82]);
 export const fakeHeic = () => new Uint8Array([0, 0, 0, 24, ...new TextEncoder().encode("ftypheic"), 0, 0, 0, 0]);
 
@@ -129,3 +146,57 @@ export function cookieFrom(response) {
   const header = response.headers.get("Set-Cookie");
   return header ? header.split(";")[0] : undefined;
 }
+
+/**
+ * A stand-in for the Workers AI binding (`env.AI`), which is not `fetch`, so
+ * tests/setup.js does not catch it. A test that leaves it out gets a tool
+ * that is not ready, which fails safe.
+ *
+ * answers: a list used in call order, or a function ({ model, prompt, n }) =>
+ * answer for pictures drawn in parallel. Each answer is { image: base64 }, an
+ * Error to throw, or "hang" for a call that never returns.
+ * `calls` records what each call sent, read back from its multipart body,
+ * with the reference images' bytes in `images`.
+ */
+export function fakeAi(answers = []) {
+  const queue = Array.isArray(answers) ? [...answers] : null;
+  const calls = [];
+  const AI = {
+    run: vi.fn(async (model, input) => {
+      const n = calls.length;
+      // Taken before any await, so parallel calls stay in order.
+      const scripted = queue ? queue.shift() : undefined;
+      const record = { model, keys: Object.keys(input ?? {}) };
+      calls.push(record);
+      const form = await new Response(input.multipart.body, {
+        headers: { "content-type": input.multipart.contentType },
+      }).formData();
+      const fields = [...form.keys()];
+      const images = [];
+      for (const key of fields.filter((k) => k.startsWith("input_image_"))) {
+        images.push(new Uint8Array(await form.get(key).arrayBuffer()));
+      }
+      Object.assign(record, {
+        fields,
+        prompt: form.get("prompt"),
+        width: form.get("width"),
+        height: form.get("height"),
+        images,
+      });
+      const answer = queue ? scripted : answers({ model, prompt: record.prompt, n });
+      if (!answer) throw new Error("No scripted Workers AI answer left");
+      if (answer === "hang") return new Promise(() => {});
+      if (answer instanceof Error) throw answer;
+      return answer;
+    }),
+  };
+  return { AI, calls };
+}
+
+export const aiPicture = (marker = "PICTURE") => ({ image: Buffer.from(fakeJpeg(256, marker)).toString("base64") });
+export const aiFailure = (text = "AiError: AiError: Internal server error (3043)") =>
+  Object.assign(new Error(text), { name: "AiError" });
+export const aiQuota = () =>
+  aiFailure(
+    "AiError: AiError: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage. (7d1e4a)"
+  );

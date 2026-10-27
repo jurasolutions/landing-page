@@ -78,7 +78,7 @@ function repairRequest(problems, text) {
 export async function handleReceiptRead({ request: incoming, env, registry, now }) {
   const started = Date.now();
   if (!isServedAiTool(TOOL, env, registry)) return json({ error: "not_found" }, 404);
-  if (!aiReady(env)) return json({ error: "unavailable" }, 503);
+  if (!aiReady(env, TOOL)) return json({ error: "unavailable" }, 503);
 
   const declared = Number(incoming.headers.get("Content-Length"));
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return json({ error: "too_large" }, 413);

@@ -27,3 +27,6 @@ src/apps/receipt-reader/__fixtures__/*.jp*g
 src/apps/receipt-reader/__fixtures__/*.png
 src/apps/receipt-reader/__fixtures__/*.webp
 src/apps/receipt-reader/__fixtures__/*.heic
+
+# Crew QA screenshots and downloads stay local.
+.scratch/*/qa/
