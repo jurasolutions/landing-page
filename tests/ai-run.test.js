@@ -42,7 +42,7 @@ describe("runAiTry's finish step", () => {
       },
     });
     expect(response.status).toBe(503);
-    expect(body).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(body).toEqual({ error: "unavailable", triesLeft: 2, counted: false });
     expect(tries).toBe(0);
     expect(spend).toBe(CLAUDE_COST + FINISH_RESERVE);
   });

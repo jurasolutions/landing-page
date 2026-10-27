@@ -263,8 +263,10 @@ const blank = (image) => ({
 /**
  * The final list for a batch of `images`: for each image, what the second
  * look found when it was shown that image and said something about it, else
- * what the first reading found, else one not-a-receipt entry. Every image
- * from 1 to `images` is there, in order.
+ * what the first reading found, else one not-a-receipt entry. A second look
+ * that found no receipt and gave no specific reason does not replace a first
+ * reading that gave one ("blurry" tells the visitor more than "other"). Every
+ * image from 1 to `images` is there, in order.
  *
  * first   the first reading's entries
  * second  { looked: [image numbers], entries } or null when there was none
@@ -273,8 +275,9 @@ export function combineReadings(first, second, images) {
   const of = (entries, n) => entries.filter((e) => e.image === n);
   return Array.from({ length: images }, (_, i) => i + 1).flatMap((n) => {
     const again = second?.looked.includes(n) ? of(second.entries, n) : [];
-    if (again.length) return again;
     const before = of(first, n);
+    const says = (entries) => entries.some((e) => e.is_receipt || (e.problem && e.problem !== "other"));
+    if (again.length && (says(again) || !says(before))) return again;
     return before.length ? before : [blank(n)];
   });
 }

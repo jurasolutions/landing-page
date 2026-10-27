@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createD1 } from "./helpers/d1.js";
 import { ENV, RECEIPT, apiError, fakeJpeg, installNetwork, message, receiptRequest } from "./helpers/ai.js";
 import { onRequestPost as readReceipts } from "../functions/api/apps/receipt-reader.js";
-import { RECEIPT_SCHEMA, RECEIPT_SYSTEM_PROMPT, validateReceipts } from "../server/receipts.js";
+import { RECEIPT_SCHEMA, RECEIPT_SYSTEM_PROMPT, combineReadings, validateReceipts } from "../server/receipts.js";
 import { reservationNano } from "../server/anthropic.js";
 import { sniffImage } from "../server/images.js";
 
@@ -87,7 +87,7 @@ describe("injection fixture: instructions written on a receipt", () => {
     installNetwork({ anthropic: [message(otherShape), message(otherShape)] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "unavailable", reason: "bad_output", triesLeft: 2 });
+    expect(await response.json()).toEqual({ error: "unavailable", reason: "bad_output", triesLeft: 2, counted: false });
     expect(DB.rows("app_tries")[0].count).toBe(0);
   });
 
@@ -105,7 +105,7 @@ describe("injection fixture: instructions written on a receipt", () => {
     installNetwork({ anthropic: [message("", { stop: "refusal" })] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ error: "unreadable", reason: "refused", triesLeft: 1 });
+    expect(await response.json()).toEqual({ error: "unreadable", reason: "refused", triesLeft: 1, counted: true });
     expect(DB.rows("app_tries")[0].count).toBe(1);
   });
 
@@ -114,7 +114,7 @@ describe("injection fixture: instructions written on a receipt", () => {
     installNetwork({ anthropic: [message(obeyed), message("", { stop: "refusal" })] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ error: "unreadable", reason: "refused", triesLeft: 1 });
+    expect(await response.json()).toEqual({ error: "unreadable", reason: "refused", triesLeft: 1, counted: true });
   });
 });
 
@@ -424,6 +424,23 @@ describe("a second look at an image with no receipt", () => {
     installNetwork({ anthropic: [answer(empty(1)), "network"] });
     await readReceipts({ request: receiptRequest(), env });
     expect(spend(DB)).toBe(1500 * 100 + 400 * 500 + reservationNano({ images: 1 }));
+  });
+});
+
+describe("combining the two readings", () => {
+  const miss = (image, problem) => ({ ...RECEIPT, image, is_receipt: false, problem, merchant: null });
+
+  it("keeps the first reading's specific reason when the second look gives none", () => {
+    const first = [miss(1, "blurry")];
+    expect(combineReadings(first, { looked: [1], entries: [miss(1, "other")] }, 1)).toEqual([miss(1, "blurry")]);
+    expect(combineReadings(first, { looked: [1], entries: [miss(1, null)] }, 1)).toEqual([miss(1, "blurry")]);
+  });
+
+  it("takes the second look's reason when it is specific, and its receipt whenever it finds one", () => {
+    const first = [miss(1, "blurry")];
+    expect(combineReadings(first, { looked: [1], entries: [miss(1, "cut_off")] }, 1)).toEqual([miss(1, "cut_off")]);
+    const found = { ...RECEIPT, image: 1 };
+    expect(combineReadings(first, { looked: [1], entries: [found] }, 1)).toEqual([found]);
   });
 });
 

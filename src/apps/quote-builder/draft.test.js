@@ -71,7 +71,12 @@ describe("what a failed draft says", () => {
     expect(draftFailure({ status: 502, body: { triesLeft: 3 }, triesBefore: 3 }, COPY)).toBe(`${E.unreadable} ${E.notCounted}`);
     expect(draftFailure({ status: 502, body: { triesLeft: 2 }, triesBefore: 3 }, COPY)).toBe(E.unreadable);
     expect(draftFailure({ status: 503, body: {}, triesBefore: 3 }, COPY)).toBe(`${E.unavailable} ${E.notCounted}`);
-    expect(draftFailure({ status: 0, body: {}, triesBefore: 3 }, COPY)).toBe(E.unavailable);
+  });
+
+  it("trusts the server's word on whether the try was counted, and names a lost connection", () => {
+    expect(draftFailure({ status: 502, body: { triesLeft: 4, counted: true }, triesBefore: 3 }, COPY)).toBe(E.unreadable);
+    expect(draftFailure({ status: 503, body: { triesLeft: 1, counted: false }, triesBefore: 3 }, COPY)).toBe(`${E.unavailable} ${E.notCounted}`);
+    expect(draftFailure({ status: 0, body: {}, triesBefore: 3 }, COPY)).toBe(E.offline);
   });
 
   it("keeps its own words for output it could not use, and says when drafting is busy", () => {

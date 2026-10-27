@@ -20,6 +20,16 @@ function TextField({ id, label, value, onChange, list, placeholder, inputMode })
   );
 }
 
+/**
+ * A receipt is titled by its merchant. A photo with no receipt is titled by
+ * the photo, the same number its sentence uses: a merchant name the model
+ * gave it is a guess about something that is not a receipt.
+ */
+function cardTitle(receipt, index, copy) {
+  if (!receipt.isReceipt && receipt.image) return copy.files.label(receipt.image);
+  return receipt.merchant || copy.results.receipt(index + 1);
+}
+
 /** Why a photo came back without a receipt, naming the photo by its number in the batch. */
 function missMessage(receipt, copy) {
   if (!receipt.image) return copy.notReceipt;
@@ -41,7 +51,7 @@ function ReceiptCard({ receipt, index, copy, update, remove }) {
     <li>
       <Card padding="var(--space-5)" className="rr-card">
         <div className="rr-card-head">
-          <h3 className="rr-card-title">{receipt.merchant || R.receipt(index + 1)}</h3>
+          <h3 className="rr-card-title">{cardTitle(receipt, index, copy)}</h3>
           <div className="rr-card-tools">
             {receipt.total && receipt.isReceipt && (
               <Badge tone="neutral">

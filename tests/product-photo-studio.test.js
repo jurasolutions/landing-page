@@ -130,7 +130,7 @@ describe("when pictures fail", () => {
     installNetwork({ anthropic: [good()] });
     const response = await call(env);
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2, counted: false });
     expect(tries(DB)).toEqual([0]);
     expect(spend(DB)).toBe(CLAUDE_COST);
   });
@@ -161,7 +161,7 @@ describe("the Workers AI daily allocation", () => {
 
     const first = await call(env, studioRequest(), { now: NOW });
     expect(first.status).toBe(429);
-    expect(await first.json()).toEqual({ error: "cap", triesLeft: 2 });
+    expect(await first.json()).toEqual({ error: "cap", triesLeft: 2, counted: false });
     expect(tries(DB)).toEqual([0]);
     expect(spend(DB)).toBe(CLAUDE_COST);
 
@@ -200,7 +200,7 @@ describe("an Anthropic billing error on a studio try", () => {
     installNetwork({ anthropic: [apiError(402, "billing_error", "Your credit balance is too low")] });
     const response = await call(env);
     expect(response.status).toBe(429);
-    expect(await response.json()).toEqual({ error: "cap", triesLeft: 2 });
+    expect(await response.json()).toEqual({ error: "cap", triesLeft: 2, counted: false });
     expect(ai.calls).toHaveLength(0);
     expect(spend(DB)).toBeGreaterThanOrEqual(5_000_000_000);
     for (const tool of ["receipt-reader", "quote-builder", "product-photo-studio"]) {
@@ -212,9 +212,9 @@ describe("an Anthropic billing error on a studio try", () => {
 
 describe("why a studio try failed", () => {
   it.each([
-    ["Anthropic's rate limit", apiError(429, "rate_limit_error"), 503, { error: "busy", triesLeft: 2 }],
-    ["a refusal", message("", { stop: "refusal" }), 502, { error: "unreadable", reason: "refused", triesLeft: 1 }],
-    ["an API 400", apiError(400, "invalid_request_error", "Could not process image"), 502, { error: "unreadable", reason: "rejected", triesLeft: 1 }],
+    ["Anthropic's rate limit", apiError(429, "rate_limit_error"), 503, { error: "busy", triesLeft: 2, counted: false }],
+    ["a refusal", message("", { stop: "refusal" }), 502, { error: "unreadable", reason: "refused", triesLeft: 1, counted: true }],
+    ["an API 400", apiError(400, "invalid_request_error", "Could not process image"), 502, { error: "unreadable", reason: "rejected", triesLeft: 1, counted: true }],
   ])("says so after %s, and draws nothing", async (_, answer, status, body) => {
     const { DB, env, ai } = await setup();
     installNetwork({ anthropic: [answer] });
@@ -232,7 +232,7 @@ describe("no product in the photos", () => {
     installNetwork({ anthropic: [good(NO_PRODUCT)] });
     const response = await call(env);
     expect(response.status).toBe(422);
-    expect(await response.json()).toEqual({ error: "no_product", triesLeft: 1 });
+    expect(await response.json()).toEqual({ error: "no_product", triesLeft: 1, counted: true });
     expect(ai.calls).toHaveLength(0);
     expect(tries(DB)).toEqual([1]);
     expect(spend(DB)).toBe(CLAUDE_COST);
@@ -370,7 +370,7 @@ describe("the check on Claude's output", () => {
     installNetwork({ anthropic: [good(claim), good(claim)] });
     const response = await call(env);
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "unavailable", reason: "bad_output", triesLeft: 2 });
+    expect(await response.json()).toEqual({ error: "unavailable", reason: "bad_output", triesLeft: 2, counted: false });
     expect(ai.calls).toHaveLength(0);
     expect(tries(DB)).toEqual([0]);
     expect(spend(DB)).toBe(2 * CLAUDE_COST);

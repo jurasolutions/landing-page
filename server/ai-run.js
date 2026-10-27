@@ -31,6 +31,9 @@
  *   503 { error: "unavailable", reason: "bad_output", triesLeft }   the output
  *       was still wrong after the repair; the try comes back
  *   503 { error: "unavailable", triesLeft? }      anything else on our side
+ * Every failure after a try was taken also carries `counted`: false when the
+ * try came back, true when it was used. The page trusts it over comparing
+ * counts, which can come from different buckets on a first visit.
  */
 import { closeForToday, refundTry, settleQuietly, takeCall, takeTry } from "./limit.js";
 import { logCall, reply, visitorContext } from "./ai-tool.js";
@@ -95,7 +98,7 @@ export async function runAiTry({ incoming, env, now, started, tool, reserve, req
       ...logDefaults,
       latency_ms: Date.now() - started,
     });
-    const triesLeft = taken?.ok ? { triesLeft: taken.triesLeft + (refunded ? 1 : 0) } : {};
+    const triesLeft = taken?.ok ? { triesLeft: taken.triesLeft + (refunded ? 1 : 0), counted: !refunded } : {};
     return reply(ctx, { error: "unavailable", ...triesLeft }, 503);
   } finally {
     await releaseHeld(state);
@@ -166,13 +169,13 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
   const fail = async (reason, status, error, why) => {
     const refunded = await refundOnce(state);
     log({ ok: false, reason });
-    return reply(ctx, { error, ...(why ? { reason: why } : {}), triesLeft: taken.triesLeft + (refunded ? 1 : 0) }, status);
+    return reply(ctx, { error, ...(why ? { reason: why } : {}), triesLeft: taken.triesLeft + (refunded ? 1 : 0), counted: !refunded }, status);
   };
   // The model declined what was sent ("refused"), or the API could not
   // process it ("rejected"): the try was used.
   const refused = (reason, why) => {
     log({ ok: false, reason });
-    return reply(ctx, { error: "unreadable", reason: why, triesLeft: taken.triesLeft }, 502);
+    return reply(ctx, { error: "unreadable", reason: why, triesLeft: taken.triesLeft, counted: true }, 502);
   };
   const apiFailure = async (error) => {
     const kind = classifyApiError(error);
@@ -236,7 +239,7 @@ async function withTry({ incoming, env, now, started, tool, reserve, request, re
     }
     const status = outcome.status ?? 200;
     log({ ok: status < 400, ...outcome.log, repaired });
-    return reply(ctx, { ...outcome.body, triesLeft: taken.triesLeft }, status);
+    return reply(ctx, { ...outcome.body, triesLeft: taken.triesLeft, ...(status >= 400 ? { counted: true } : {}) }, status);
   }
 
   // 6. Respond.

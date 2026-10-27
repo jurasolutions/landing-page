@@ -43,6 +43,12 @@ const cards = (answers) =>
   html(React.createElement(ReceiptResults, { receipts: answers.map((a) => fromApi(a, PREVIEWS)), setReceipts: () => {}, copy }));
 
 describe("a photo that came back without a receipt", () => {
+  it("is titled by its photo, never by a merchant name the model guessed", () => {
+    const out = cards([{ ...miss(2, "not_a_receipt"), merchant: "Qing Palace menu" }]);
+    expect(out).toContain(">Photo 2</h3>");
+    expect(out).not.toContain("Qing Palace menu");
+  });
+
   it.each([
     ["not_a_receipt", 2, "Photo 2 doesn't look like a receipt or invoice."],
     ["blurry", 1, "Photo 1 is too blurry to read. Hold the receipt flat and keep the camera steady."],

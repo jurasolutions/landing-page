@@ -339,7 +339,7 @@ describe("the site-wide cap", () => {
     installNetwork({ anthropic: [refusal()] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ error: "unreadable", reason: "refused", triesLeft: 1 });
+    expect(await response.json()).toEqual({ error: "unreadable", reason: "refused", triesLeft: 1, counted: true });
     expect(tries(DB)).toEqual([1]);
   });
 
@@ -360,7 +360,7 @@ describe("the site-wide cap", () => {
     const net = installNetwork({ anthropic: [message("not json")] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2, counted: false });
     expect(net.anthropic).toHaveLength(1);
     expect(counts(DB).calls).toEqual([1]);
     expect(tries(DB)).toEqual([0]);
@@ -394,7 +394,7 @@ describe("the site-wide cap", () => {
     installNetwork({ anthropic: [apiError(429, "rate_limit_error")] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "busy", triesLeft: 2 });
+    expect(await response.json()).toEqual({ error: "busy", triesLeft: 2, counted: false });
     expect(counts(DB)).toEqual({ tries: [0], calls: [1] });
     expect(DB.rows("app_spend").map((r) => r.nano_usd)).toEqual([0]);
 
@@ -414,7 +414,7 @@ describe("refunds", () => {
     installNetwork({ anthropic: [answer] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2, counted: false });
     expect(counts(DB)).toEqual({ tries: [0], calls: [1] });
     expect(DB.rows("app_tries").find((r) => r.tool === "#ip").count).toBe(0);
   });
@@ -427,7 +427,7 @@ describe("refunds", () => {
     });
     const first = await readReceipts({ request: receiptRequest({ cookie }), env });
     expect(first.status).toBe(502);
-    expect(await first.json()).toEqual({ error: "unreadable", reason: "rejected", triesLeft: 1 });
+    expect(await first.json()).toEqual({ error: "unreadable", reason: "rejected", triesLeft: 1, counted: true });
     expect(tries(DB)).toEqual([1]);
 
     // One visitor sending files the API rejects stops at their two tries.
@@ -450,17 +450,17 @@ describe("refunds", () => {
     const cookie = `jura_vid=${crypto.randomUUID()}`;
     installNetwork({ anthropic: ["network", "network"] });
     const first = await readReceipts({ request: receiptRequest({ cookie }), env });
-    expect(await first.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(await first.json()).toEqual({ error: "unavailable", triesLeft: 2, counted: false });
     const second = await readReceipts({ request: receiptRequest({ cookie }), env });
     expect(second.status).toBe(503);
-    expect(await second.json()).toEqual({ error: "unavailable", triesLeft: 1 });
+    expect(await second.json()).toEqual({ error: "unavailable", triesLeft: 1, counted: true });
     expect(tries(DB)).toEqual([1]);
 
     // A new SGT day brings a new refund.
     installNetwork({ anthropic: ["network"] });
     const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
     const next = await readReceipts({ request: receiptRequest({ cookie }), env, now: tomorrow });
-    expect(await next.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(await next.json()).toEqual({ error: "unavailable", triesLeft: 2, counted: false });
   });
 
   it("stop one visitor using up the site cap with output that can never be repaired", async () => {
@@ -492,7 +492,7 @@ describe("refunds", () => {
     const net = installNetwork({ anthropic: [message("not json"), message("still not json")] });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "unavailable", reason: "bad_output", triesLeft: 2 });
+    expect(await response.json()).toEqual({ error: "unavailable", reason: "bad_output", triesLeft: 2, counted: false });
     expect(net.anthropic).toHaveLength(2);
     expect(counts(DB)).toEqual({ tries: [0], calls: [2] });
   });
@@ -530,7 +530,7 @@ describe("unexpected failures", () => {
     });
     const response = await readReceipts({ request: receiptRequest(), env });
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2 });
+    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 2, counted: false });
     expect(tries(DB)).toEqual([0]);
     expect(counts(DB).calls).toEqual([1]);
   });
@@ -570,7 +570,7 @@ describe("a D1 statement that throws part-way", () => {
     const flaky = failingOn(DB, /SET count = count - 1/, 2);
     const response = await readReceipts({ request: receiptRequest({ cookie }), env: { ...ENV, DB: flaky } });
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 0 });
+    expect(await response.json()).toEqual({ error: "unavailable", triesLeft: 0, counted: true });
     // Taken to 2, refunded once to 1: not twice, to 0.
     expect(tries(DB)).toEqual([1]);
   });

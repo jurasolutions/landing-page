@@ -58,7 +58,10 @@ export function failureMessage({ status, body = {}, triesBefore }, copy) {
   if (status === 0) return copy.errors.offline;
   const words = failureWords(status, body, copy.errors);
   const known = typeof body.triesLeft === "number";
-  const givenBack = known ? body.triesLeft >= triesBefore : status === 503;
+  // The server says whether the try was counted; the counts are only a fallback
+  // (two counts can come from different buckets on a first visit).
+  const givenBack =
+    typeof body.counted === "boolean" ? !body.counted : known ? body.triesLeft >= triesBefore : status === 503;
   return givenBack ? `${words} ${copy.errors.notCounted}` : words;
 }
 

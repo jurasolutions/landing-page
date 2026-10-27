@@ -59,3 +59,43 @@ artifacts: crew/receipt-misses with both tickets merged; 8c8b2a0 quote builder w
 decisions: quote builder maps reason bad_output to its own "couldn't draft" words and 503 busy to a busy sentence
 questions: -
 evidence:  vitest -> 618 passed; build -> built in 1.67s; jura-growth check -> pass
+
+## 2026-10-27T15:30Z reviewer
+
+status:    done
+persona:   reviewer
+ticket:    01, 02
+artifacts: .scratch/receipt-misses/reviews/code-review-01.md
+decisions: approve: no blocking findings; limiter/budget invariants hold (second look reserved with the try, counted to AI_SITE_CAP, settled); validation and object URLs sound
+questions: lone-image renumber (S1) and photo numbering (S2): fix before release? recommend yes, both small
+evidence:  npm test -> 618 passed; npm run build -> built; scratch probe -> calls=2 on second look, renumbered lone image drops the receipt; jura-growth check -> 17 templates pass
+
+## 2026-10-27T03:30Z developer (review fixes)
+
+status:    done
+persona:   developer
+ticket:    code-review-01 S1–S5
+artifacts: branch crew/receipt-misses-03 (371739d): readSecondLook (one image → every entry), photoNumbers + FileList.jsx ("Photo n" in list and cards), stale comment, README, attemptDecode in _shared/photos.js
+decisions: S6 PRD line added by the conductor
+questions: -
+evidence:  npm test -> 625 passed; npm run build -> built; S1 tests red first then green
+
+## 2026-10-27T04:10Z qa-engineer (local run, appended by the conductor)
+
+status:    done
+persona:   qa-engineer
+ticket:    01, 02
+artifacts: reviews/qa-01.md, issues/03-defect-not-counted-on-first-visit.md, qa/ (stand-in, red test; shots git-ignored)
+decisions: env passed as wrangler --binding values, no .dev.vars written; studio mapping checked with browser stubs
+questions: photo number vs upload list → already fixed by review S2 ("Photo n" numbered by files sent, in list and cards)
+evidence:  ticket 01: 14 pass, 1 unit-test only; ticket 02: 27 pass, 1 fail (issue 03), 1 unit-test only; jura-growth check: 16 strings pass
+
+## 2026-10-27T04:30Z conductor (merge S1–S5, fix defect 03 and QA findings)
+
+status:    done
+persona:   conductor
+ticket:    03
+artifacts: server/ai-run.js (`counted` on every failure after a try), receipt-reader read-state, quote-builder draft + copy (offline words), server/receipts.js combineReadings, ReceiptResults card title, tests/not-counted.test.js (QA's red test, now green), 28 exact-body assertions given `counted`
+decisions: pages trust `counted` over comparing counts; a second look with no specific reason keeps the first reading's; a missed photo's card is titled "Photo n", never a guessed merchant; quote builder names a lost connection
+questions: -
+evidence:  vitest -> 630 passed (36 files); build -> built in 1.69s; jura-growth check -> pass
