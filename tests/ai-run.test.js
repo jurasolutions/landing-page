@@ -63,7 +63,7 @@ describe("runAiTry's finish step", () => {
       { reserve: FINISH_RESERVE, run: async () => (ran = true) },
       [message("nope"), message("still nope")]
     );
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(503);
     expect(ran).toBe(false);
     expect(spend).toBe(2 * CLAUDE_COST);
   });

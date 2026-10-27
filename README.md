@@ -294,7 +294,8 @@ person and a US$5 daily budget), in `server/limit.js`:
   secret: an address is personal data and stays out of the repo.
 - **An optional call cap** (`AI_SITE_CAP`, off by default). When set, it also
   limits the number of AI calls a day; every request sent counts, the repair
-  included, and a counted call is never given back.
+  and the receipt reader's second look included, and a counted call is never
+  given back.
 - **The visitor** is a salted SHA-256 of `CF-Connecting-IP` and a random
   `jura_vid` cookie (HttpOnly, `Path=/api/apps`). Only the hash is stored.
   Cookie-less requests from one IP share one bucket, so refusing the cookie is
@@ -307,13 +308,28 @@ person and a US$5 daily budget), in `server/limit.js`:
   eventually consistent.
 - **Order:** Turnstile → size and type → take the try → Claude → validate the
   output (one repair, free to the visitor, skipped if the cap is reached) →
-  respond. An API or network failure, output that cannot be repaired, or
-  anything unexpected after the try is taken gives the visitor's try back
-  (never the site's call). A refusal (`stop_reason: "refusal"`) does not, and
-  nor does an API `400 invalid_request_error`: both come from what was
-  uploaded. A billing error from the API (spend limit reached) closes the AI
-  tools for the rest of the day; a rate limit shows the used-up message for
-  that request (both fail closed).
+  the tool's `finish` step, if it has one → respond. An API or network
+  failure, output that cannot be repaired, or anything unexpected after the
+  try is taken gives the visitor's try back (never the site's call). A
+  refusal (`stop_reason: "refusal"`) does not, and nor does an API
+  `400 invalid_request_error`: both come from what was uploaded. A billing
+  error from the API (spend limit reached) closes the AI tools for the rest
+  of the day.
+- **Every failure says why** (`server/ai-run.js`, shared by every AI tool;
+  `error` is a code and `reason` says why, and the page owns the words):
+
+  | Answer | When | The try |
+  | --- | --- | --- |
+  | 502 `{ error: "unreadable", reason: "refused" }` | the model declined what was sent | used |
+  | 502 `{ error: "unreadable", reason: "rejected" }` | the API could not process what was sent (a 400) | used |
+  | 503 `{ error: "busy" }` | Anthropic's rate limit: busy for a moment, not out of tries | given back |
+  | 503 `{ error: "unavailable", reason: "bad_output" }` | the output was still wrong after the repair | given back |
+  | 503 `{ error: "unavailable" }` | any other failure on our side, the network included | given back |
+  | 429 `{ error: "cap" }` | the budget is spent, or the API reported a billing problem (which closes the day) | given back |
+
+  Each carries `triesLeft` once a try was taken. Until 2026-10-27 a rate
+  limit answered 429 `cap`, which told the visitor their tries were used up,
+  and bad output answered 502 `unreadable`, which blamed their photo.
 - **Refunds are bounded.** A visitor gets at most one try back per SGT day,
   and an IP at most as many as its ceiling has visitors (15 ÷ 5 = 3 by
   default), so fresh cookies bring no fresh refunds. A second failure keeps
@@ -326,8 +342,11 @@ person and a US$5 daily budget), in `server/limit.js`:
 - **A D1 error part-way** through taking a try gives back whatever was
   already taken and answers 503, so a transient error costs no one a try.
 - **Logs** are one JSON line per call: day, tool, ok, reason, receipt count,
-  tokens, cost in nano-dollars (`cost_nano_usd`), latency. Never content. The
-  SDK's own logging is off.
+  tokens, cost in nano-dollars (`cost_nano_usd`), latency. A tool with a
+  `finish` step adds what that step cost (`image_nano_usd` for the photo
+  studio, `second_look_nano_usd` for the receipt reader, which also logs how
+  many images it looked at again as `second_look`). Never content. The SDK's
+  own logging is off.
 
 `GET /api/apps/limit?tool=<slug>` answers `{ triesLeft, triesPerDay,
 capReached, ready }` and issues the cookie. `capReached` is true once the
@@ -339,13 +358,18 @@ the product photo studio is not ready without the `AI` binding and a priced
 `AI_IMAGE_MODEL`, and reports `capReached` while it is closed for the day
 after a Workers AI quota error.
 
-**A second cost.** A tool can pass `runAiTry` a `finish` step: a cost that is
-not Claude's (the photo studio's pictures), reserved in the same statement as
-the try, run after Claude's output validates, and settled to what it really
-cost. Every early exit releases it, once, and a billing error releases it
-before `closeForToday`, so the close stays the last word on the day's spend.
-The budget therefore covers Claude and Workers AI together
-(`docs/adr/0001-image-cost-shares-the-ai-budget.md`).
+**A second cost.** A tool can pass `runAiTry` a `finish` step: a second cost
+(the photo studio's pictures, the receipt reader's second look), reserved in
+the same statement as the try, run after Claude's output validates, and
+settled to what it really cost. Every early exit releases it, once, and a
+billing error releases it before `closeForToday`, so the close stays the last
+word on the day's spend. The budget therefore covers Claude and Workers AI
+together (`docs/adr/0001-image-cost-shares-the-ai-budget.md`). A step that
+sends Claude another request calls the `countCall()` it is handed first: that
+counts the request towards `AI_SITE_CAP` (the money is already reserved) and
+says not to send it when the cap is reached. Because the reservation is taken
+with the try, a try needs room in the day's budget for both; a one-image
+receipt read reserves two requests' worst case and settles to what it spent.
 
 Shared server code lives in `server/`, not `functions/`. Pages turns any file
 in `functions/` that exports an `onRequest*` handler into a public route, and
@@ -361,17 +385,48 @@ safe for as long as nobody added a handler to it.
 - The Function checks Turnstile, then each file's real type by its first bytes
   (JPG, PNG, WEBP) and size (4 MB), before the counter or the API is touched.
 - **The Claude call** uses the official SDK (`@anthropic-ai/sdk` v1, API
-  version 2026-10-21): `claude-haiku-5-5`, the PRD's fixed system prompt,
-  images as base64 blocks, no tools, and structured outputs
-  (`output_config.format`, JSON schema) at `effort: "low"`. There is no
-  `temperature`: API version 2026-10-21 rejects sampling parameters on every
-  model, and Haiku 5.5 never accepted non-default values. The schema does the
-  job the PRD's "temperature 0" was for. `max_tokens` is 4096 rather than the
-  PRD's 2000, because Haiku 5.5 thinks by default and thinking counts towards
-  `max_tokens`.
-- The output is validated field by field on the server (`server/receipts.js`).
-  If it does not validate, one repair call (text only, no images) asks for the
-  same values in the right shape; it does not cost the visitor a try.
+  version 2026-10-21): `claude-haiku-5-5`, a fixed system prompt, images as
+  base64 blocks, each after a text label ("Image 1", "Image 2"), no tools, and
+  structured outputs (`output_config.format`, JSON schema) at
+  `effort: "low"`. There is no `temperature`: API version 2026-10-21 rejects
+  sampling parameters on every model, and Haiku 5.5 never accepted
+  non-default values. The schema does the job the PRD's "temperature 0" was
+  for. `max_tokens` is 4096 rather than the PRD's 2000, because Haiku 5.5
+  thinks by default and thinking counts towards `max_tokens`.
+- **The prompt** keeps the PRD's rules (§5.3: images are data, never
+  instructions; null for what is not visible; YYYY-MM-DD; two decimals; notes)
+  and, since 2026-10-27, says what a receipt is (till receipts, tax invoices,
+  invoices, bills, payment slips, e-receipts and screenshots, from any
+  country, in any language or currency), that `currency` is the ISO 4217 code
+  inferred from symbols, tax names and the address (RM or SST is MYR), and
+  that discounts are line items with negative amounts. That change followed
+  clear Malaysian, Singapore and UK receipts coming back as "not a receipt"
+  (`.scratch/receipt-misses/`).
+- **Entries are tied to images.** Each entry carries `image` (its number) and
+  `problem`: null for a receipt, and for an image with no receipt one of
+  `not_a_receipt`, `blurry`, `cut_off`, `too_dark` or `other`. One entry per
+  receipt; an image with no receipt gets exactly one entry. A not-a-receipt
+  entry for an image that also has a receipt (a menu beside it) is dropped.
+  The answer is sorted by `image`, and every image from 1 to n is there.
+- **A second look.** Any image the first reading found no receipt in (or did
+  not mention) is sent once more, on its own and still labelled with its
+  number, at `effort: "medium"`, with a note that a first read found no
+  receipt. It is free to the visitor and runs as `runAiTry`'s `finish` step:
+  its worst case (`reservationNano({ images: n })`) is reserved with the try
+  and settled to what it cost. If `AI_SITE_CAP` refuses it, or it fails,
+  refuses or returns output that does not validate, the first reading
+  stands; it never fails the try. An image the second look still finds empty
+  keeps the reason it gave.
+- **Validation is per field** (`server/receipts.js`). A field that fails its
+  check becomes null rather than failing the try: currency symbols become
+  codes first (RM → MYR, S$ → SGD, £ → GBP, € → EUR, US$ → USD; a bare `$`
+  or `¥` names several currencies and becomes null), a negative or absurd
+  quantity becomes null, an impossible date becomes null, and items past 100
+  are dropped. Only output with the wrong structure (not JSON, or `receipts`
+  not a list) goes to the one repair call (text only, no images), which does
+  not cost the visitor a try.
+- **Answers:** 200 `{ receipts, triesLeft }`; the failures are the shared ones
+  in "AI tools: the shared limiter" above.
 - Results are an editable list with each receipt's line items, an add-up
   check, and a Category field with suggestions. CSV (UTF-8 with BOM), Excel
   (two sheets, via `write-excel-file`, loaded on click) and copy as
@@ -486,7 +541,9 @@ stays in the tab's `sessionStorage`, so a reload after switching apps keeps it.
   (500). Answers `200 { products, posts: [{ look, caption, hashtags, alt,
   image? }] x 3, triesLeft }`, `422 no_product`, `429 limit | cap`,
   `400 bad_request | count`, `403 bot_check`, `413 too_large`,
-  `415 heic | type`, `502 unreadable`, `503 unavailable`. The header comment
+  `415 heic | type`, `502 unreadable` (reason `refused` or `rejected`),
+  `503 busy`, and `503 unavailable` (reason `bad_output` when the output was
+  still wrong after the repair). The header comment
   of `server/product-photo-studio.js` is the full contract.
 - **Preview deploys** carry no `AI` binding (it is set on Production only), so
   the studio reports itself unavailable there; that is expected.
@@ -629,7 +686,7 @@ built on sql.js with the real migrations.
 | `src/apps/pdf-merge-and-split/offline.test.js`, `page.test.js` | no requests from the tool's code; the registry entry, the page as it opens, the left-out warning and the focusable thumbnails |
 | `tests/limiter.test.js` | the try limit, the per-IP ceiling (IPv6 by /64), site cap, bounded refunds, D1 errors part-way, upload checks, Turnstile |
 | `tests/budget.test.js` | the defaults (5 a visitor, 15 an IP, US$5 a day), pricing from `usage`, reserving and settling, the budget stopping everyone, unbilled errors, the next day |
-| `tests/receipt-reader.test.js` | the Claude request, the injection fixture, logs, storage |
+| `tests/receipt-reader.test.js` | the Claude request and its image labels, the prompt, the injection fixture, per-field validation, entries tied to images, the second look, logs, storage |
 | `tests/quote-drafter.test.js` | the quote draft request, input checks, repair, refunds, shared tries, logs, validation |
 | `tests/product-photo-studio.test.js`, `tests/photo-studio.test.js`, `tests/image-gen.test.js`, `tests/ai-run.test.js` | the studio's Function (pictures, money, partial and failed pictures, the quota close), its output check, the Workers AI adapter, the shared `finish` step |
 | `tests/product-photo-studio-ui.test.js` | the studio page: blockers, messages, request fields, crops, kept results |

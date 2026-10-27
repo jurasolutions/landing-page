@@ -16,7 +16,9 @@
  *   200 { draft, triesLeft }
  *   400 { error: "bad_request" }                  413 { error: "too_large" }
  *   403 { error: "bot_check" }                    429 { error: "limit" | "cap", triesLeft }
- *   502 { error: "unreadable" }                   503 { error: "unavailable" }
+ *   502 { error: "unreadable", reason: "refused" | "rejected", triesLeft }
+ *   503 { error: "busy" | "unavailable", reason?: "bad_output", triesLeft? }
+ *   (server/ai-run.js has what each one means)
  *   404 { error: "not_found" }  the tool is a draft and AI_ALLOW_DRAFTS=1 is not set
  */
 import { json } from "./http.js";
