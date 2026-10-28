@@ -320,3 +320,21 @@
   .tb-drop-buttons > * { flex: 1 1 100%; }
   .tb-drop { padding: var(--space-5) var(--space-4); }
 }
+
+/* The access code control at the foot of /apps: plain muted text until opened. */
+.tb-code { display: flex; flex-direction: column; gap: var(--space-3); max-width: 24rem; }
+.tb-code-toggle {
+  align-self: flex-start;
+  min-height: var(--tap-min);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-body-sm);
+  cursor: pointer;
+}
+.tb-code-toggle:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tb-code-toggle:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.tb-code-row { display: flex; align-items: flex-end; gap: var(--space-3); }
+.tb-code-row > :first-child { flex: 1; min-width: 0; }
