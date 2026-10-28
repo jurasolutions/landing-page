@@ -71,6 +71,17 @@ export const TOOLBOX = {
   emptyBody: "Nothing is listed yet. If there is a job you would like a tool for, tell us about it.",
   emptyButton: "Tell us about it",
   noneForIndustries: "No tools for this choice yet. Pick another, or choose All.",
+  // The quiet access code control at the foot of /apps (server/promo.js).
+  code: {
+    open: "Access code",
+    label: "Access code",
+    apply: "Apply",
+    accepted: "Code accepted. The AI tools have no daily limit on this browser.",
+    wrong: "That code isn't right. Check it and try again.",
+    tooMany: "Too many tries for today. Please come back tomorrow.",
+    unavailable: "We can't check codes right now. Please try again later.",
+    unlimited: "Unlimited tries",
+  },
   tierLabel: {
     browser: "Runs in your browser",
     ai: "Uses AI, with free tries each day",
@@ -146,6 +157,7 @@ export const PRIVACY = {
         "Tools marked “Uses AI” send what you give them, such as photos of receipts, over an encrypted connection to Anthropic's Claude API to be read. Anthropic processes it under its commercial terms and returns the result, which we pass straight back to your browser. We do not store your images, your files or the results, and we do not log what is in them.",
         "The Product photo studio also sends your photos, made smaller, with Claude's written instructions over an encrypted connection to Cloudflare Workers AI, which draws the new pictures from them and returns them to your browser. Cloudflare does not keep them for us, and we do not store your photos or the pictures. The Product photo studio keeps your last posts in this browser tab so a reload doesn't lose them. They stay on your device and are gone when you close the tab or press Start again.",
         "To keep the free tries fair, we count how many you have used today. The count is kept against two scrambled codes, one made from your connection's IP address and a random cookie and one from the IP address alone, never against the address itself. The cookie is called jura_vid, holds nothing but that random code, is only sent with the tools' own requests, and expires after a year.",
+        "If we have given you an access code and you enter it on the Toolbox page, we set a second cookie, jura_promo. It holds a scrambled code that only says the code was right, is only sent with the tools' own requests, and expires after 90 days. It is how the tools know not to count your tries.",
         "Before a try is sent, Cloudflare Turnstile checks that you are a person and not a bot. It runs on the AI tool pages only.",
       ],
     },

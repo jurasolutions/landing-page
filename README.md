@@ -81,6 +81,7 @@ functions/               Cloudflare Pages Functions (each file is a route)
   api/resend-webhook.js  POST bounces and complaints → D1 suppression, GET health check
   api/apps/usage.js      POST /api/apps/usage, anonymous open/complete counts
   api/apps/limit.js      GET /api/apps/limit, AI tries left today
+  api/apps/promo.js      POST /api/apps/promo, the access code for unlimited tries
   api/apps/receipt-reader.js  POST, APP-002
   api/apps/quote-builder.js   POST, APP-001a (draft a quote with AI)
   api/apps/product-photo-studio.js  POST, APP-004 (three product pictures and captions)
@@ -301,6 +302,21 @@ person and a US$5 daily budget), in `server/limit.js`:
   count. Its calls still reserve from the daily budget and count towards
   `AI_SITE_CAP`, so the site's spend holds for everyone. Set it as a Pages
   secret: an address is personal data and stays out of the repo.
+- **An access code for unlimited tries** (`server/promo.js`, Ting Yu's request
+  on 2026-10-28). The `/apps` page ends with a quiet "Access code" button that
+  opens a field. A right code sets a `jura_promo` cookie (HttpOnly, 90 days,
+  `Path=/api/apps`) holding a keyed hash of the visitor salt and the code's
+  hash, and that browser then takes no try and no per-IP count in any AI tool,
+  exactly like a network in `AI_UNLIMITED_NETWORKS`: the daily budget and call
+  cap still hold. The repo is public, so the source holds only the SHA-256 of
+  the code (`DEFAULT_PROMO_HASH`); the code is random, 16 characters from a
+  32-character alphabet (80 bits), and is given out by hand. To change it, make
+  the hash of a new code (`printf '%s' CODE | shasum -a 256`) and set the Pages
+  secret `AI_PROMO_CODE_SHA256`; every browser holding the old one stops being
+  unlimited at once. Wrong guesses are counted per connection (10 a day, in
+  `app_tries` under `#promo`), and the code is read without regard to case,
+  spaces or dashes. `POST /api/apps/promo` answers 200, 400, 401, 413, 429 or
+  503, and `GET /api/apps/limit` adds `unlimited: true` for a holder.
 - **An optional call cap** (`AI_SITE_CAP`, off by default). When set, it also
   limits the number of AI calls a day; every request sent counts, the repair
   and the receipt reader's second look included, and a counted call is never
@@ -652,6 +668,7 @@ setup is in `jurasolutions/outputs/growth/setup/toolbox-ai.md`.
 | `AI_SITE_CAP` | plain | AI tools | unset: no call cap, only the budget |
 | `AI_LIMIT_SCOPE` | plain | AI tools | `all` (or `per-tool`) |
 | `AI_UNLIMITED_NETWORKS` | secret | AI tools | unset: every network is counted |
+| `AI_PROMO_CODE_SHA256` | secret | AI tools (the access code) | unset: the built-in code's hash |
 | `AI_IMAGE_MODEL` | plain | product photo studio | `@cf/black-forest-labs/flux-2-klein-4b` (or `-9b` on Workers Paid) |
 | `UNSUBSCRIBE_SECRET` | secret | `/unsubscribe` (same value as the growth CLI) | none: links do not verify |
 | `RESEND_WEBHOOK_SECRET` | secret | `/api/resend-webhook` | none: webhooks refused |

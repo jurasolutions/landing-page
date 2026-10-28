@@ -93,7 +93,7 @@ export async function remaining(db, { day, visitorHash, ipHash, key, config, unl
 }
 
 /** Increments a visitor counter while it is under `limit`; null at the limit. */
-function takeFrom(db, { day, hash, key, limit }) {
+export function takeFrom(db, { day, hash, key, limit }) {
   return db
     .prepare(
       `INSERT INTO app_tries (day, visitor_hash, tool, count) VALUES (?1, ?2, ?3, 1)

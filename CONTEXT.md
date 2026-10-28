@@ -17,6 +17,7 @@ The words this repo uses, so code, specs and tickets mean the same thing.
 - **Prices exclude GST**: the default. The visitor types prices before GST and the builder adds GST on top of the discounted subtotal.
 - **Prices include GST**: the visitor types prices that already contain GST. The builder works out how much of the discounted total is GST and shows it, but the total does not change.
 - **Total before GST**: the amount after discount when prices exclude GST, and the amount after discount minus the GST in it when prices include GST. In both modes, before GST plus GST equals the total to the cent.
+- **Access code**: a random 16-character code Ting Yu hands to chosen people. Typed into the quiet "Access code" button at the foot of `/apps`, it makes that browser's AI tries unlimited for 90 days. The daily budget still applies.
 
 ## Product photo studio (APP-004)
 

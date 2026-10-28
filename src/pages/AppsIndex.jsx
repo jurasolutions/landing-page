@@ -3,6 +3,7 @@ import { Card, Badge, Button, Icon, Tag } from "../ds.js";
 import { TOOLBOX } from "../content.js";
 import { REGISTRY, appsForIndustries, industryLabel, liveApps, liveIndustries, parseIndustries } from "../apps/registry.js";
 import { usePageHeading } from "../lib/router.js";
+import { AccessCode } from "../apps/_shared/AccessCode.jsx";
 import "../styles/toolbox.css";
 
 /** The industries in this page's address, for a link such as /apps?industry=general,retail. */
@@ -148,6 +149,8 @@ export function AppsIndex({ registry = REGISTRY }) {
               )}
             </>
           )}
+
+          <AccessCode />
         </div>
       </section>
     </main>

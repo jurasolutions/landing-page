@@ -10,7 +10,7 @@ export const showsTalkCard = (limit, siteKey) => Boolean(limit?.ready && siteKey
 
 /**
  * GET /api/apps/limit for an AI tool: the visitor's tries left today.
- * Resolves to { ready, triesLeft, capReached }, or { ready: false } when the
+ * Resolves to { ready, triesLeft, capReached, unlimited }, or { ready: false } when the
  * Functions are not there (the plain Vite dev server) or the call failed.
  */
 export async function fetchLimit(tool) {
@@ -22,6 +22,7 @@ export async function fetchLimit(tool) {
       ready: body.ready === true,
       triesLeft: Number(body.triesLeft) || 0,
       capReached: body.capReached === true,
+      unlimited: body.unlimited === true,
     };
   } catch {
     return { ready: false };

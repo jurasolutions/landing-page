@@ -1,7 +1,7 @@
 /**
  * GET /api/apps/limit?tool=<slug>
  *
- *   200 { triesLeft, triesPerDay, capReached, ready }
+ *   200 { triesLeft, triesPerDay, capReached, ready, unlimited? }
  *   400 { error: "unknown_tool" }   not an AI tool in the registry
  *   404 { error: "not_found" }      a draft AI tool, unless AI_ALLOW_DRAFTS=1
  *
@@ -31,7 +31,8 @@ export async function handleLimit({ request, env, registry, now }) {
     // A tool closed on its own (server/limit.js closeToolForToday) reports
     // its cap reached; the others, and the health check, are unaffected.
     if (tool !== null && (await toolClosed(ctx.db, { tool, now }))) left.capReached = true;
-    return reply(ctx, { ...left, triesPerDay: ctx.config.triesPerDay, ready: true });
+    // `unlimited` appears only for an access code holder, so the page can say so.
+    return reply(ctx, { ...left, triesPerDay: ctx.config.triesPerDay, ready: true, ...(ctx.promo ? { unlimited: true } : {}) });
   } catch (error) {
     console.error(JSON.stringify({ at: "limit", ok: false, error: String(error?.name ?? "error") }));
     return json({ triesLeft: 0, triesPerDay: 0, capReached: false, ready: false }, 503);

@@ -5,6 +5,7 @@
  */
 import { json, sgtDay } from "./http.js";
 import { hashIp, identifyVisitor, isUnlimitedNetwork } from "./visitor.js";
+import { hasPromo } from "./promo.js";
 import { limitConfig, limitKey } from "./limit.js";
 import { findEntry } from "./registry.js";
 import { isServed } from "./drafts.js";
@@ -41,6 +42,9 @@ export function isServedAiTool(slug, env, registry) {
 export async function visitorContext(request, env, tool, now) {
   const config = limitConfig(env);
   const visitor = await identifyVisitor(request, env.VISITOR_SALT);
+  // An access code (server/promo.js) lifts the try count the way the owner's
+  // network does; the site's budget still holds for everyone.
+  const promo = await hasPromo(request, env);
   return {
     db: env.DB,
     day: sgtDay(now),
@@ -49,7 +53,8 @@ export async function visitorContext(request, env, tool, now) {
     setCookie: visitor.setCookie,
     key: limitKey(config, tool),
     config,
-    unlimited: isUnlimitedNetwork(request, env.AI_UNLIMITED_NETWORKS),
+    promo,
+    unlimited: promo || isUnlimitedNetwork(request, env.AI_UNLIMITED_NETWORKS),
   };
 }
 
