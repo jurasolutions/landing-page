@@ -1,7 +1,7 @@
 /**
  * "Remember my business details on this device" (decision D11).
  *
- * Kept in localStorage under the invoice builder's own key, through the
+ * Kept on this device under the invoice builder's own key, through the
  * shared storage helpers, which never throw: blocked storage only means
  * nothing is remembered. What is kept is the business's own: the "Your
  * business" section with its logo, the GST setting, the payment details and
