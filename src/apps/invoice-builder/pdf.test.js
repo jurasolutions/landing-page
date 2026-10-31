@@ -17,6 +17,7 @@ import { invoiceOf, item, sampleInvoice } from "./fixtures.js";
 
 const [PAGE_WIDTH, PAGE_HEIGHT] = A4;
 const MONEY = /^-?\d{1,3}(,\d{3})*\.\d{2}$/;
+const SIZE_BODY = 9.5;
 
 const gstOff = (lines, overrides = {}) => {
   const invoice = sampleInvoice(lines, overrides);
@@ -283,6 +284,64 @@ describe("the invoice PDF's pages", () => {
     expect(pageCount).toBeGreaterThan(1);
     for (const op of ops.filter((o) => o.kind !== "footer")) expect(op.y).toBeGreaterThanOrEqual(64 - 0.01);
     expect(ops.filter((o) => o.text.startsWith("Line ")).length).toBe(120);
+  });
+
+  it.each([[false], [true]])("carries very long business and customer addresses onto new pages (GST on: %s)", async (on) => {
+    const invoice = sampleInvoice(3);
+    invoice.gst.on = on;
+    // 200 short lines each: 400 characters, the most the address fields take.
+    invoice.business.address = Array.from({ length: 200 }, () => "B").join("\n");
+    invoice.customer.address = Array.from({ length: 200 }, () => "C").join("\n");
+    expect(invoice.business.address.length).toBeLessThanOrEqual(400);
+    const { ops, pageCount } = await build(invoice, { logo: { bytes: solidPng(1200, 300), kind: "png" } });
+    expect(pageCount).toBeGreaterThan(2);
+    for (const op of ops.filter((o) => o.kind !== "footer")) {
+      expect(op.y, `${op.text} on page ${op.page}`).toBeGreaterThanOrEqual(64 - 0.01);
+      expect(op.y + (op.size ?? op.height), `${op.text} on page ${op.page}`).toBeLessThanOrEqual(PAGE_HEIGHT - 48 + 0.01);
+    }
+    expect(ops.filter((o) => o.text === "B")).toHaveLength(200);
+    expect(ops.filter((o) => o.text === "C")).toHaveLength(200);
+    // Everything after the business keeps its order: business, then bill to, then items, then totals.
+    const order = (o) => o.page * 10000 - o.y;
+    const lastB = ops.filter((o) => o.text === "B").at(-1);
+    const billTo = ops.find((o) => o.text === "Bill to");
+    const lastC = ops.filter((o) => o.text === "C").at(-1);
+    const firstCell = ops.find((o) => o.kind === "cell");
+    expect(order(billTo)).toBeGreaterThan(order(lastB));
+    expect(order(firstCell)).toBeGreaterThan(order(lastC));
+    // The title, number and dates stay at the top of page 1.
+    for (const text of [COPY.pdf.title(on), "INV-20261031-01", "31 Oct 2026"]) expect(ops.find((o) => o.text === text).page).toBe(1);
+    if (on) expect(ops.find((o) => o.text === "GST reg. no. M90312345A")).toBeDefined();
+  });
+
+  it("keeps a long invoice number clear of its label", async () => {
+    const invoice = gstOff(2);
+    invoice.details.number = "INV-2026-10-31-WEST-REGION-SITE-0000123"; // 40 characters
+    const { ops } = await build(invoice);
+    const details = ops.filter((o) => o.kind === "detail");
+    const label = details.find((o) => o.text === "Invoice no.");
+    const dateLabel = details.find((o) => o.text === "Date");
+    const number = details.slice(details.indexOf(label) + 1, details.indexOf(dateLabel));
+    expect(number.map((o) => o.text).join("")).toBe("INV-2026-10-31-WEST-REGION-SITE-0000123");
+    // Nothing on the right-hand side overlaps another piece of it.
+    for (const a of details) {
+      for (const b of details) {
+        if (a === b || Math.abs(a.y - b.y) >= SIZE_BODY) continue;
+        const apart = a.x + a.width <= b.x || b.x + b.width <= a.x;
+        expect(apart, `${a.text} / ${b.text}`).toBe(true);
+      }
+    }
+    // The date still sits below the whole number.
+    expect(dateLabel.y).toBeLessThan(Math.min(...number.map((o) => o.y)));
+    for (const op of ops.filter((o) => o.kind !== "footer")) expect(op.x + op.width).toBeLessThanOrEqual(PAGE_WIDTH - 48 + 0.01);
+  });
+
+  it("keeps an ordinary number on one line beside its label", async () => {
+    const { ops } = await build(gstOff(2));
+    const label = ops.find((o) => o.text === "Invoice no.");
+    const number = ops.find((o) => o.text === "INV-20261031-01");
+    expect(number.y).toBe(label.y);
+    expect(number.x + number.width).toBeCloseTo(PAGE_WIDTH - 48, 5);
   });
 
   it("flows long payment details and notes onto a new page instead of off the bottom", async () => {

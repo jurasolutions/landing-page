@@ -101,18 +101,46 @@ export async function buildInvoicePdf(invoice, totals, copy, { logo = null } = {
   };
 
   const room = (needed) => y - needed >= BOTTOM;
+  // Moves down one line of `step`, onto a new page first if the line would
+  // reach the footer. The header and "Bill to" use it, so a very long address
+  // carries on to the next page instead of running off this one.
+  const flow = (step) => {
+    if (!room(step)) addPage();
+    y -= step;
+  };
 
   addPage();
 
-  // ---- Header: logo and business on the left, title and details on the right ----
+  // ---- Header: title and details on the right of page 1 ----
 
-  let leftY = y;
+  let rightY = y - SIZE.title;
+  text(title, right, rightY, { size: SIZE.title, font: bold, align: "right", kind: "title" });
+  rightY -= 10;
+  const details = [
+    [P.number, invoice.details.number],
+    [P.date, displayDate(invoice.details.date, P.months)],
+    [P.dueDate, displayDate(invoice.details.dueDate, P.months)],
+  ].filter(([, value]) => value);
+  const detailX = right - 150;
+  for (const [label, value] of details) {
+    rightY -= LEADING + 1;
+    text(label, detailX, rightY, { color: MUTED, kind: "detail" });
+    // A value too wide for the space beside its label wraps below, right-aligned.
+    const beside = right - (detailX + regular.widthOfTextAtSize(toPrintable(label), SIZE.body) + 8);
+    wrapText(value, bold, SIZE.body, beside).forEach((line, i) => {
+      if (i > 0) rightY -= LEADING;
+      text(line, right, rightY, { font: bold, align: "right", kind: "detail" });
+    });
+  }
+
+  // ---- Header: logo and business on the left ----
+
   if (logo) {
     const image = logo.kind === "png" ? await doc.embedPng(logo.bytes) : await doc.embedJpg(logo.bytes);
     const size = fitLogo(image.width, image.height);
-    page.drawImage(image, { x: left, y: leftY - size.height, width: size.width, height: size.height });
-    ops.push({ page: 1, kind: "logo", x: left, y: leftY - size.height, width: size.width, height: size.height });
-    leftY -= size.height + 14;
+    page.drawImage(image, { x: left, y: y - size.height, width: size.width, height: size.height });
+    ops.push({ page: 1, kind: "logo", x: left, y: y - size.height, width: size.width, height: size.height });
+    y -= size.height + 14;
   }
 
   const b = invoice.business;
@@ -120,9 +148,9 @@ export async function buildInvoicePdf(invoice, totals, copy, { logo = null } = {
   // An empty name prints nothing (decision D2): never a placeholder.
   if (b.name.trim()) {
     for (const line of wrapText(b.name, bold, SIZE.name, leftWidth)) {
-      leftY -= SIZE.name;
-      text(line, left, leftY, { size: SIZE.name, font: bold });
-      leftY -= 3;
+      flow(SIZE.name);
+      text(line, left, y, { size: SIZE.name, font: bold });
+      y -= 3;
     }
   }
   const businessLines = [
@@ -134,25 +162,12 @@ export async function buildInvoicePdf(invoice, totals, copy, { logo = null } = {
     b.email ? `${P.email} ${b.email}` : "",
   ].filter((line) => line !== "");
   for (const line of businessLines) {
-    leftY -= LEADING;
-    text(line, left, leftY, { color: MUTED });
+    flow(LEADING);
+    text(line, left, y, { color: MUTED });
   }
 
-  let rightY = y - SIZE.title;
-  text(title, right, rightY, { size: SIZE.title, font: bold, align: "right", kind: "title" });
-  rightY -= 10;
-  const details = [
-    [P.number, invoice.details.number],
-    [P.date, displayDate(invoice.details.date, P.months)],
-    [P.dueDate, displayDate(invoice.details.dueDate, P.months)],
-  ].filter(([, value]) => value);
-  for (const [label, value] of details) {
-    rightY -= LEADING + 1;
-    text(value, right, rightY, { font: bold, align: "right" });
-    text(label, right - 150, rightY, { color: MUTED });
-  }
-
-  y = Math.min(leftY, rightY) - 26;
+  if (pages.length === 1) y = Math.min(y, rightY);
+  y -= 26;
 
   // ---- Bill to ----
 
@@ -163,16 +178,21 @@ export async function buildInvoicePdf(invoice, totals, copy, { logo = null } = {
     ...(c.email ? [c.email] : []),
   ].filter((line) => line !== "");
   if (c.company || customerLines.length) {
+    // The label moves with at least the first line under it.
+    if (!room(SIZE.label + 4 + SIZE.total + 3)) {
+      addPage();
+      y -= SIZE.label;
+    }
     text(P.billTo, left, y, { size: SIZE.label, font: bold, color: MUTED });
     y -= 4;
     if (c.company) {
       for (const line of wrapText(c.company, bold, SIZE.total, leftWidth)) {
-        y -= SIZE.total + 3;
+        flow(SIZE.total + 3);
         text(line, left, y, { size: SIZE.total, font: bold });
       }
     }
     for (const line of customerLines) {
-      y -= LEADING;
+      flow(LEADING);
       text(line, left, y);
     }
     y -= 26;
