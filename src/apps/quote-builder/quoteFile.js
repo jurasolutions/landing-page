@@ -35,9 +35,10 @@ function stripIds(quote) {
   return { ...quote, items: quote.items.map(({ id, ...rest }) => rest) };
 }
 
-class BadFile extends Error {}
+/** Thrown by the readers below for anything a file must not contain. */
+export class BadFile extends Error {}
 
-function text(value, max, { required = false } = {}) {
+export function text(value, max, { required = false } = {}) {
   if (value == null) {
     if (required) throw new BadFile("missing");
     return "";
@@ -52,7 +53,7 @@ function oneOf(value, options, fallback) {
   return value;
 }
 
-function date(value) {
+export function date(value) {
   const v = text(value, 10);
   if (v && !DATE.test(v)) throw new BadFile("date");
   return v;
@@ -76,51 +77,76 @@ function logo(value) {
   return { dataUrl, width, height };
 }
 
+/*
+ * The section readers. Each takes the raw section from a file (undefined when
+ * the file has none), checks every field, and throws BadFile on anything bad.
+ * The invoice builder reads its own file with them, under the same limits.
+ */
+
+export function readBusinessFields(raw) {
+  const b = raw ?? {};
+  return {
+    name: text(b.name, LIMITS.short),
+    address: text(b.address, LIMITS.address),
+    uen: text(b.uen, LIMITS.short),
+    phone: text(b.phone, LIMITS.short),
+    email: text(b.email, LIMITS.email),
+    logo: logo(b.logo),
+  };
+}
+
+export function readCustomer(raw) {
+  const c = raw ?? {};
+  return {
+    company: text(c.company, LIMITS.short),
+    contact: text(c.contact, LIMITS.short),
+    address: text(c.address, LIMITS.address),
+    email: text(c.email, LIMITS.email),
+  };
+}
+
+/** The items, each with a new id. An empty list opens with one blank item. */
+export function readItems(raw) {
+  if (!Array.isArray(raw) || raw.length > LIMITS.items) throw new BadFile("items");
+  return (raw.length ? raw : [emptyItem()]).map((item) => {
+    if (!item || typeof item !== "object") throw new BadFile("item");
+    return {
+      id: newItemId(),
+      description: text(item.description, LIMITS.description),
+      quantity: text(item.quantity, LIMITS.amount),
+      unit: text(item.unit, LIMITS.unit),
+      unitPrice: text(item.unitPrice, LIMITS.amount),
+      discountType: oneOf(item.discountType, DISCOUNT_TYPES, "none"),
+      discountValue: text(item.discountValue, LIMITS.amount),
+    };
+  });
+}
+
+export function readOverallDiscount(raw) {
+  const o = raw ?? {};
+  return {
+    type: oneOf(o.type, DISCOUNT_TYPES, "none"),
+    value: text(o.value, LIMITS.amount),
+  };
+}
+
 function readQuote(raw) {
   if (!raw || typeof raw !== "object") throw new BadFile("quote");
-  const b = raw.business ?? {};
-  const c = raw.customer ?? {};
   const d = raw.details ?? {};
   const g = raw.gst ?? {};
-  const o = raw.overallDiscount ?? {};
-  if (!Array.isArray(raw.items) || raw.items.length > LIMITS.items) throw new BadFile("items");
+  // The items are checked first, as they always have been.
+  const items = readItems(raw.items);
 
   return {
-    business: {
-      name: text(b.name, LIMITS.short),
-      address: text(b.address, LIMITS.address),
-      uen: text(b.uen, LIMITS.short),
-      phone: text(b.phone, LIMITS.short),
-      email: text(b.email, LIMITS.email),
-      logo: logo(b.logo),
-    },
-    customer: {
-      company: text(c.company, LIMITS.short),
-      contact: text(c.contact, LIMITS.short),
-      address: text(c.address, LIMITS.address),
-      email: text(c.email, LIMITS.email),
-    },
+    business: readBusinessFields(raw.business),
+    customer: readCustomer(raw.customer),
     details: {
       number: text(d.number, LIMITS.number),
       date: date(d.date),
       validUntil: date(d.validUntil),
     },
-    items: (raw.items.length ? raw.items : [emptyItem()]).map((item) => {
-      if (!item || typeof item !== "object") throw new BadFile("item");
-      return {
-        id: newItemId(),
-        description: text(item.description, LIMITS.description),
-        quantity: text(item.quantity, LIMITS.amount),
-        unit: text(item.unit, LIMITS.unit),
-        unitPrice: text(item.unitPrice, LIMITS.amount),
-        discountType: oneOf(item.discountType, DISCOUNT_TYPES, "none"),
-        discountValue: text(item.discountValue, LIMITS.amount),
-      };
-    }),
-    overallDiscount: {
-      type: oneOf(o.type, DISCOUNT_TYPES, "none"),
-      value: text(o.value, LIMITS.amount),
-    },
+    items,
+    overallDiscount: readOverallDiscount(raw.overallDiscount),
     gst: {
       on: g.on === true,
       rate: text(g.rate, LIMITS.amount),
@@ -148,7 +174,7 @@ export function parseQuoteFile(contents) {
 /** The business details alone, for "Remember my business details". */
 export function readBusiness(raw) {
   try {
-    return readQuote({ business: raw, items: [] }).business;
+    return readBusinessFields(raw);
   } catch {
     return null;
   }
