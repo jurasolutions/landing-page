@@ -257,3 +257,29 @@ artifacts: .scratch/invoice-builder/reviews/code-review-05.md
 decisions: approve; nits: a second bad file in a row isn't read out again by the live region; no single test runs inclusive quote -> bad file -> good file
 evidence:  reverting either fix turns its tests red; quote-builder and design-system untouched
 ```
+
+## 2026-10-31 qa-lead, gate (appended by the conductor)
+
+```
+status:    needs-human
+persona:   qa-lead
+ticket:    -
+artifacts: .scratch/invoice-builder/reviews/quality-gate.md
+decisions: no-go until G4: exit criteria 3-7 met (suite, build, PDF fixtures, lazy pdf-lib, no critical or major defects, all reviews approve); 1, 2 and 8 need Ting Yu (manual checks, the defect 03 waiver)
+questions: waive the R1 case for defect 03 at G4? recommended yes (same as the live quote builder, outside A-0002)
+questions: run or waive manual checks M1-M8, and set registry "added" to the deploy date; recommended run them all
+evidence:  npx vitest run (x2) -> 59 files, 1128 passed, 2 expected fail; npm run build -> exit 0; entry chunk has no pdf-lib
+```
+
+## 2026-10-31 conductor: delivery complete, G4 left to Ting Yu
+
+```
+status:    done
+persona:   conductor
+ticket:    -
+artifacts: tickets 01-05 merged into claude/T-0001-invoice-builde; reviews 01-05, final, qa-01, quality-gate
+decisions: the crew's work is finished. The gate's no-go stands only on items that belong to G4 (manual checks M1-M8, the defect 03 waiver, the registry "added" date), which is Ting Yu's through the app-release card. No release step was run
+decisions: release-manager not dispatched: G4 is Ting Yu's on this run, and the card has no changelog or tags to prepare
+decisions: developer worktrees under the main repo's .claude/worktrees/ couldn't be removed from this sandbox (Operation not permitted); Dispatch removes them when the task ends. Every ticket branch is merged
+evidence:  npx vitest run -> 59 files, 1128 passed, 2 expected fail (defect 03); npm run build -> exit 0
+```
