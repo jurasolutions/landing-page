@@ -6,12 +6,12 @@
  * request is the shared, anonymous usage counter, and pdf-lib is fetched only
  * when a PDF is wanted.
  *
- * Seams for the tickets that build on this one:
- *   - GstFields.jsx (ticket 03): the GST switch, rate and registration number.
- *   - `missingFields` in `downloadPdf` and the `messages` block in `actions`
- *     (ticket 03): the required-field check and its linked summary.
- *   - `fileActions` and `openInvoice` (ticket 04): Save and Open buttons, and
- *     replacing the whole invoice with one opened from a file.
+ * The parts:
+ *   - GstFields.jsx: the GST switch, rate and registration number.
+ *   - `missingFields` (required.js) in `downloadPdf`, shown by MissingSummary:
+ *     with GST on, the required-field check and its linked list.
+ *   - FileActions.jsx and `openInvoice`: Save and Open, and replacing the whole
+ *     invoice with one opened from a file.
  */
 import React from "react";
 import { Alert, Button, Dialog, Icon, Toast } from "../../ds.js";
@@ -30,6 +30,7 @@ import { missingFields } from "./required.js";
 import { MissingSummary } from "./MissingSummary.jsx";
 import { InvoiceForm } from "./InvoiceForm.jsx";
 import { InvoicePreview } from "./InvoicePreview.jsx";
+import { useInvoiceFiles } from "./FileActions.jsx";
 import "../quote-builder/quote-builder.css";
 
 // pdf-lib is only fetched when a PDF is wanted, and warmed up once the page
@@ -174,11 +175,13 @@ export default function InvoiceBuilder({ app, copy }) {
   };
 
   /**
-   * Replaces the whole invoice, for a file opened by ticket 04. Clears what
-   * belonged to the invoice before, and returns the phone to the form.
+   * Replaces the whole invoice with one from a file. Clears what belonged to
+   * the invoice before, and returns the phone to the form. An opened
+   * invoice's number is the visitor's, so a new date does not renumber it.
    */
-  const openInvoice = (next) => {
+  const openInvoice = ({ invoice: next, previousNumber }) => {
     setInvoice(next);
+    if (previousNumber !== undefined) setLastNumber(previousNumber);
     setLogoError("");
     setPdfState("idle");
     setView("edit");
@@ -191,6 +194,7 @@ export default function InvoiceBuilder({ app, copy }) {
     setConfirmNew(false);
     setPdfState("idle");
     setLogoError("");
+    files.clear();
     setView("edit");
     requestAnimationFrame(() => document.getElementById("ib-customer-company")?.focus());
   };
@@ -200,9 +204,9 @@ export default function InvoiceBuilder({ app, copy }) {
     requestAnimationFrame(() => newRef.current?.querySelector("button")?.focus());
   };
 
-  // Ticket 04: { key, icon, label, onClick } entries for Save invoice file,
-  // Open invoice file and Open quote file.
-  const fileActions = [];
+  // Save invoice file, Open invoice file and Open quote file, their picker and message.
+  const files = useInvoiceFiles({ invoice, copy, onOpen: openInvoice, setToast });
+  const fileActions = files.actions;
 
   // `actions` renders in two places, beside the preview and under the form on
   // a phone. CSS shows one at a time, and a hidden live region is silent, so
@@ -226,7 +230,7 @@ export default function InvoiceBuilder({ app, copy }) {
           </Alert>
         )}
         <MissingSummary missing={missing} copy={copy} onFollow={followMissing} />
-        {/* messages: ticket 04's file messages go here. */}
+        {files.notice}
       </div>
       <ExportButtons
         label={copy.sections.output}
@@ -252,6 +256,8 @@ export default function InvoiceBuilder({ app, copy }) {
 
   return (
     <div className="qb">
+      {files.picker}
+
       {/* Two toggle buttons rather than Tabs: both views stay in the page
           (side by side on a wide screen), so there is no tab panel. */}
       <div className="qb-switch">
