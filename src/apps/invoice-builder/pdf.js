@@ -21,12 +21,12 @@
  * D3): the quote's PDF is live, and both are pinned by their own tests.
  */
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { formatCents, formatPercent, formatQuantity, parseCents, parsePercent, parseQuantity } from "../quote-builder/calc.js";
+import { formatCents, formatQuantity, parseCents, parseQuantity } from "../quote-builder/calc.js";
 import { displayDate } from "../quote-builder/model.js";
 import { toPrintable } from "../quote-builder/winansi.js";
 import { A4, fitLogo } from "../quote-builder/pdf-geometry.js";
 import { wrapText } from "../quote-builder/pdf-text.js";
-import { invoiceTotalsRows } from "./totals-rows.js";
+import { discountCell, invoiceTotalsRows } from "./totals-rows.js";
 
 const MARGIN = 48;
 const BOTTOM = 64; // keep body text above the footer
@@ -39,12 +39,6 @@ const RULE = rgb(0.85, 0.87, 0.86);
 const SIZE = { body: 9.5, small: 8, label: 8.5, name: 12, title: 20, total: 11, footer: 7.5 };
 const LEADING = 12.5;
 const TOTAL_STEP = LEADING + 3;
-
-function discountLabel(item, line) {
-  if (line.discount <= 0n) return "";
-  if (item.discountType === "percent") return `${formatPercent(parsePercent(item.discountValue).value ?? 0n)}%`;
-  return formatCents(line.discount);
-}
 
 /**
  * invoice: the form state (model.js). totals: quoteTotals(invoice).
@@ -245,7 +239,7 @@ export async function buildInvoicePdf(invoice, totals, copy, { logo = null } = {
         quantity: formatQuantity(parseQuantity(item.quantity).value ?? 0n),
         unit: item.unit,
         unitPrice: formatCents(parseCents(item.unitPrice).value ?? 0n),
-        discount: discountLabel(item, line),
+        discount: discountCell(item, line),
         amount: formatCents(line.total),
       };
       let descriptionLines = wrapText(item.description, regular, SIZE.body, descriptionWidth);
