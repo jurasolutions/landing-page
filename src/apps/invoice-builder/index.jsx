@@ -26,6 +26,8 @@ import { unprintableIn } from "../quote-builder/winansi.js";
 import { newInvoice, nextInvoice } from "./model.js";
 import { forgetBusiness, loadBusiness, saveBusiness } from "./remember.js";
 import { downloadInvoice, hasFigureErrors } from "./download.js";
+import { missingFields } from "./required.js";
+import { MissingSummary } from "./MissingSummary.jsx";
 import { InvoiceForm } from "./InvoiceForm.jsx";
 import { InvoicePreview } from "./InvoicePreview.jsx";
 import "../quote-builder/quote-builder.css";
@@ -77,7 +79,9 @@ export default function InvoiceBuilder({ app, copy }) {
   const [rememberBlocked, setRememberBlocked] = React.useState(false);
   const [view, setView] = React.useState("edit");
   const [logoError, setLogoError] = React.useState("");
-  const [pdfState, setPdfState] = React.useState("idle"); // idle | working | failed | figures
+  const [pdfState, setPdfState] = React.useState("idle"); // idle | working | failed | figures | missing
+  // Counts the downloads that found fields missing, to focus the list's heading each time.
+  const [missingAsked, setMissingAsked] = React.useState(0);
   const [toast, setToast] = useToast();
   const [confirmNew, setConfirmNew] = React.useState(false);
   const newRef = React.useRef(null);
@@ -86,6 +90,24 @@ export default function InvoiceBuilder({ app, copy }) {
 
   const totals = React.useMemo(() => quoteTotals(invoice), [invoice]);
   const unsupported = React.useMemo(() => unprintableIn(allText(invoice)), [invoice]);
+
+  // With GST on, the missing-fields list follows the form as it is filled in,
+  // and goes once nothing is missing or GST is off (missingFields is empty then).
+  const missing = React.useMemo(() => (pdfState === "missing" ? missingFields(invoice, totals) : []), [pdfState, invoice, totals]);
+  React.useEffect(() => {
+    if (pdfState === "missing" && missing.length === 0) setPdfState("idle");
+  }, [pdfState, missing]);
+  // `actions` renders twice with one copy hidden by CSS: focus the visible heading.
+  React.useEffect(() => {
+    if (!missingAsked) return;
+    const headings = [...document.querySelectorAll("[data-missing-heading]")];
+    headings.find((heading) => heading.getClientRects().length > 0)?.focus();
+  }, [missingAsked]);
+  // A link in the list: back to the form on a phone, then to the input.
+  const followMissing = (target) => {
+    setView("edit");
+    requestAnimationFrame(() => document.getElementById(target)?.focus());
+  };
 
   React.useEffect(() => {
     const warm = () => loadPdf().catch(() => {});
@@ -132,9 +154,13 @@ export default function InvoiceBuilder({ app, copy }) {
         build: (shown, figures) => buildPdf(shown, figures, copy),
         save: saveBlob,
         track: (event) => trackUsage(app.slug, event),
-        // Ticket 03: missingFields from required.js goes here, and
-        // `result.missing` feeds the summary in `messages` below.
+        missingFields,
       });
+      if (result.missing) {
+        setPdfState("missing");
+        setMissingAsked((count) => count + 1);
+        return;
+      }
       if (result.figuresToFix) {
         setPdfState("figures");
         return;
@@ -199,7 +225,8 @@ export default function InvoiceBuilder({ app, copy }) {
             {copy.unsupported(unsupported.join(" "))}
           </Alert>
         )}
-        {/* messages: ticket 03's missing-fields summary and ticket 04's file messages go here. */}
+        <MissingSummary missing={missing} copy={copy} onFollow={followMissing} />
+        {/* messages: ticket 04's file messages go here. */}
       </div>
       <ExportButtons
         label={copy.sections.output}

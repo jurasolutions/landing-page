@@ -1,7 +1,7 @@
 import React from "react";
-import { formatCents, formatPercent, formatQuantity, parseCents, parsePercent, parseQuantity } from "../quote-builder/calc.js";
+import { formatCents, formatQuantity, parseCents, parseQuantity } from "../quote-builder/calc.js";
 import { displayDate } from "../quote-builder/model.js";
-import { invoiceTotalsRows } from "./totals-rows.js";
+import { discountCell, invoiceTotalsRows } from "./totals-rows.js";
 
 /**
  * A live, readable picture of the invoice PDF: the same title, rows and
@@ -19,12 +19,6 @@ export function InvoicePreview({ invoice, totals, copy }) {
     .filter(({ line }) => line.included);
   const showUnit = rows.some(({ item }) => item.unit.trim());
   const showDiscount = rows.some(({ line }) => line.discount > 0n);
-
-  const discountCell = (item, line) => {
-    if (line.discount <= 0n) return "";
-    if (item.discountType === "percent") return `${formatPercent(parsePercent(item.discountValue).value ?? 0n)}%`;
-    return formatCents(line.discount);
-  };
 
   const businessLines = [
     b.address,
@@ -61,8 +55,9 @@ export function InvoicePreview({ invoice, totals, copy }) {
             />
           )}
           {b.name.trim() && <p className="qb-paper-name">{b.name}</p>}
-          {businessLines.map((line) => (
-            <p key={line} className="qb-paper-muted qb-pre">
+          {businessLines.map((line, index) => (
+            // Two lines can carry the same text, so the key is the position.
+            <p key={index} className="qb-paper-muted qb-pre">
               {line}
             </p>
           ))}
@@ -84,8 +79,8 @@ export function InvoicePreview({ invoice, totals, copy }) {
         <section className="qb-paper-to">
           <p className="qb-paper-label">{P.billTo}</p>
           {c.company && <p className="qb-paper-name">{c.company}</p>}
-          {[c.contact, c.address, c.email].filter(Boolean).map((line) => (
-            <p key={line} className="qb-pre">
+          {[c.contact, c.address, c.email].filter(Boolean).map((line, index) => (
+            <p key={index} className="qb-pre">
               {line}
             </p>
           ))}

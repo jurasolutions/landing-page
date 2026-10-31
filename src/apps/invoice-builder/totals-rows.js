@@ -17,7 +17,21 @@
  *
  * Pure: no React, no pdf-lib.
  */
-import { formatCents, formatPercent } from "../quote-builder/calc.js";
+import { formatCents, formatPercent, parsePercent } from "../quote-builder/calc.js";
+
+/**
+ * One line's discount cell in the items table: the rate for a percentage
+ * ("12.5%"), the money taken off for an amount ("5.00"), or "" with no
+ * discount. The preview and the PDF both use it.
+ *
+ * @param {object} item the line as typed
+ * @param {object} line its figures, `quoteTotals(invoice).lines[i]`
+ */
+export function discountCell(item, line) {
+  if (line.discount <= 0n) return "";
+  if (item.discountType === "percent") return `${formatPercent(parsePercent(item.discountValue).value ?? 0n)}%`;
+  return formatCents(line.discount);
+}
 
 /**
  * @param {object} invoice the invoice (reads `gst.on`)

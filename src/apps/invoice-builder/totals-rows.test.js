@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { quoteTotals } from "../quote-builder/calc.js";
+import { lineFigures, quoteTotals } from "../quote-builder/calc.js";
 import COPY from "./copy.js";
 import { invoiceOf, item } from "./fixtures.js";
-import { invoiceTotalsRows } from "./totals-rows.js";
+import { discountCell, invoiceTotalsRows } from "./totals-rows.js";
 
 /** One line of 100.00, with GST and a 1.00 overall discount as asked. */
 const rowsFor = ({ gst, discount = false, rate = "9" }) => {
@@ -62,5 +62,21 @@ describe("invoiceTotalsRows (decision D5)", () => {
       const { rows, final } = rowsFor({ gst: false, discount });
       expect(JSON.stringify([rows, final])).not.toMatch(/GST/i);
     }
+  });
+});
+
+describe("discountCell, shared by the preview and the PDF", () => {
+  const cell = (line) => discountCell(line, lineFigures(line));
+
+  it("is empty for a line with no discount, or a discount of nothing", () => {
+    expect(cell(item("2", "50"))).toBe("");
+    expect(cell(item("2", "50", "percent", "0"))).toBe("");
+    expect(cell(item("2", "50", "amount", ""))).toBe("");
+  });
+
+  it("shows a percentage discount as the rate, and an amount discount as the money taken off", () => {
+    expect(cell(item("2", "50", "percent", "12.5"))).toBe("12.5%");
+    expect(cell(item("2", "50", "amount", "5"))).toBe("5.00");
+    expect(cell(item("1", "10", "amount", "1234"))).toBe("10.00");
   });
 });
