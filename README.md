@@ -594,6 +594,68 @@ stays in the tab's `sessionStorage`, so a reload after switching apps keeps it.
 - **The browser's pure pieces**: `compose.js` (crop geometry and file names),
   `post-state.js` (blockers and messages), `session.js` (the kept result).
 
+### APP-005 Invoice builder (`src/apps/invoice-builder/`)
+
+Browser tier: the invoice never leaves the visitor's browser. The only
+requests are the anonymous open and completion counts. It is built from the
+quote builder's parts, so it looks and adds up the same way, and it prints
+the visitor's name only, never Jura's.
+
+| File | Does |
+| --- | --- |
+| `model.js` | the invoice's shape, `newInvoice` and "New invoice", the suggested number `INV-YYYYMMDD-01`, the GST default and `INVOICE_LIMITS` |
+| `totals-rows.js` | which totals rows show and the final line ("Total", or "Amount with GST" with GST on); the preview and the PDF both draw from it |
+| `required.js` | `missingFields`: what a tax invoice still needs, in form order, each linked to its input |
+| `download.js` | the "Download PDF" step: no file while a field is missing or a figure shows an error, otherwise build, save and count one completion |
+| `invoiceFile.js` | the saved invoice file, `{ format: "jura-invoice-builder", version: 1, invoice }` (ADR 0005), and `invoiceFromQuote` for starting from a quote file |
+| `remember.js` | "Remember", through `_shared/storage.js` |
+| `pdf.js` | the A4 PDF, with pdf-lib, loaded only when a PDF is wanted |
+| `InvoiceForm.jsx`, `GstFields.jsx`, `InvoicePreview.jsx`, `FileActions.jsx`, `index.jsx` | the page |
+| `copy.js` | every word, including the PDF's |
+| `fixtures.js` | test invoices and storage stubs, used only by the tests |
+
+- **It depends on the quote builder.** It imports `calc.js` (the money),
+  `model.js` (limits, dates, item ids, `readGst`), `quoteFile.js` (the field
+  readers and `parseQuoteFile`), `logo.js`, `winansi.js`, `pdf-geometry.js`,
+  `pdf-text.js` (`wrapText`), `form-parts.jsx`, `quote-builder.css`, and
+  `copy.js` for the quote's default note, which is left behind when a quote
+  file is opened. A change to any of those changes the invoice too, so run the
+  invoice's tests with the quote's. It never imports the quote's `pdf.js`,
+  `totals-rows.js` or `effectiveQuote`, and the "Jura Solutions" placeholder
+  is used only to keep it out of an invoice opened from a quote saved without
+  a business name.
+- **Money** is the quote builder's: integer cents, rounded half up once at
+  each line total and once at GST, on the amount after discounts. The invoice
+  has no prices-include-GST mode, so GST is always added on top.
+- **GST** is off by default; the rate defaults to 9% (the IRAS URLs and the
+  date checked are beside `DEFAULT_GST_RATE` in `model.js`) and stays
+  editable. With GST off the document is titled "Invoice" and shows no
+  registration number, rate or GST line. With GST on it is titled "Tax
+  invoice", the form asks for the GST registration number and rate, and the
+  totals end with "Amount before GST", "GST (9%)" and "Amount with GST".
+  "Download PDF" then makes no file until every required field is filled,
+  and lists each missing one as a link to its input. Nothing on the page or
+  the PDF says the document meets IRAS rules.
+- **The number** starts as `INV-YYYYMMDD-01` from the invoice date, typed into
+  the field as real text. It follows the date until the visitor edits it;
+  "New invoice" on the same day suggests `-02`. A number opened from a file is
+  the visitor's and does not follow the date.
+- **The PDF** uses Helvetica like the quote's, with the same pagination: rows
+  move to the next page whole, headings repeat, and the totals stay together.
+  It has no "Made with" line, and its metadata does not name Jura.
+- **Remember** (`jura.invoice-builder.business.v1`) keeps the business
+  details with the logo, the GST setting, the payment details and the last
+  number, only while ticked. Never the customer, items, dates or notes.
+- **Files.** "Save invoice file" writes `<number>.invoice.json`. "Open invoice
+  file" and "Open quote file" share one picker and accept both kinds of file.
+  A quote file brings in the customer, items, discounts, notes and GST
+  setting; the page keeps its number, dates and payment details, and only
+  its empty business fields (and a missing logo) are filled from the quote.
+  A quote saved with prices that include GST opens with the prices as typed
+  and a warning to change them to the amount before GST. Anything else,
+  including a file over 3 MB or a newer version, shows the bad-file message
+  and changes nothing.
+
 ## Unsubscribe and bounces (scout PRD §5.5, §5.9)
 
 The growth CLI (`repos/growth`) sends the outreach emails; this site holds the
@@ -722,6 +784,11 @@ built on sql.js with the real migrations.
 | `src/apps/receipt-reader/receipts.test.js` | the add-up check, CSV/XLSX/TSV exports, resize rules |
 | `src/apps/receipt-reader/read-state.test.js` | out of tries, why Read receipts is off, when the tool shows its own talk-to-us card, and the sentence for each failed read (refused, rejected, bad output, busy, offline, and when the try wasn't counted) |
 | `src/apps/_shared/pdfjs.test.js` | opening a PDF with the shared pdf.js loader, cleaning up a failed load, JPEG encoding |
+| `src/apps/invoice-builder/totals.test.js`, `totals-rows.test.js`, `required.test.js` | every money case in APP-005 with the quote's `calc`, the totals rows with GST on and off, and each required field of a tax invoice |
+| `src/apps/invoice-builder/pdf.test.js` | the invoice and tax invoice PDFs: titles, every printed item, pagination at 40 lines, totals kept together, no Jura name |
+| `src/apps/invoice-builder/invoiceFile.test.js` | invoice file round trip (same invoice, totals and PDF text), quote files version 1 and 2, the quote with prices that include GST, every refused file leaving the invoice unchanged |
+| `src/apps/invoice-builder/model.test.js`, `download.test.js`, `remember.test.js`, `copy.test.js`, `offline.test.js`, `page.test.js` | the suggested number, "New invoice", the download step and its count, Remember, the PRD's words, no requests or copied maths, the registry entry and talk-to-us card |
+| `tests/invoice-builder-ui.test.js`, `tests/invoice-builder-files-ui.test.js` | the invoice page: labels, linked hints, live regions, tap targets, the GST-off preview, Remember, the file buttons and the bad-file message |
 | `src/apps/pdf-merge-and-split/ranges.test.js`, `order.test.js` | the page range parser and its messages; reordering by buttons and drag |
 | `src/apps/pdf-merge-and-split/pdf.test.js` | merging the three fixture page sizes, kept pages, split ZIPs, metadata, password, damaged and non-PDF files |
 | `src/apps/pdf-merge-and-split/files.test.js`, `names.test.js` | the 20-file and 50 MB limits before reading, per-file messages, output names |
@@ -855,6 +922,7 @@ Copy lives in content files so it can be read end to end against those rules
 - `src/apps/quote-builder/copy.js`: the quote builder, including its PDF
 - `src/apps/receipt-reader/copy.js`: the receipt reader, including its exports
 - `src/apps/pdf-merge-and-split/copy.js`: PDF merge and split
+- `src/apps/invoice-builder/copy.js`: the invoice builder, including its PDF
 
 The Functions return codes, never wording; the pages own every word.
 
