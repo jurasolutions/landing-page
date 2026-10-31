@@ -1,6 +1,6 @@
 # 02 Invoice to PDF, GST off
 
-Status: ready-for-agent
+Status: done
 Blocked by: 01
 Branch: crew/invoice-builder-02-invoice-pdf
 

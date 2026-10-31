@@ -115,3 +115,33 @@ evidence:  npx vitest run -> 43 files, 772 passed; diffs of moved code -> only e
 ## 2026-10-31 conductor: resume after the session ended
 
 The session ended with the ticket 02 developer still running. When Dispatch cleaned up, it removed that developer's worktree and its branch, so none of ticket 02's work survived. Ting Yu asked to continue from the log, with every agent in the foreground. Ticket 02 was re-cut from the feature branch at d1de5e5 and started again from the beginning. Ticket 01's worktree is gone too, so nothing is left to clean up from it.
+
+## 2026-10-31 developer, ticket 02 (appended by the conductor)
+
+```
+status:    done
+persona:   developer
+ticket:    02
+artifacts: src/apps/invoice-builder/ (copy, model, totals-rows, remember, download, pdf, fixtures, InvoiceForm, InvoicePreview, GstFields, index, tests); tests/invoice-builder-ui.test.js; registry.json (head 21f80c6)
+decisions: no invoice-builder.css: reuses quote-builder.css, and a test bans colour literals
+decisions: GstFields.jsx is the seam for ticket 03; downloadInvoice checks missingFields before figure errors; fileActions/openInvoice seams for 04
+decisions: INVOICE_LIMITS.payment = 1000 (technical §4)
+evidence:  npm test -> 53 files, 981 passed; npm run build -> ok, pdf-lib only in lazy chunks
+```
+
+## 2026-10-31 reviewer, ticket 02 (appended by the conductor)
+
+```
+status:    done
+persona:   reviewer
+ticket:    02
+artifacts: .scratch/invoice-builder/reviews/code-review-02.md
+decisions: approved; nothing blocks; copy.js has every §5.2 string word for word
+decisions: should fix: the header and "Bill to" block never break to a new page, so a very long address runs off the page (inherited from the quote PDF). Carried into ticket 03, which owns the PDF header
+decisions: nits carried to 03 and 04 where they touch their files
+evidence:  vitest @21f80c6 -> 53 files, 981 passed; build ok; probe with 200-line addresses -> ops below the margin
+```
+
+## 2026-10-31 conductor: ticket 02 merged
+
+Merged 21f80c6 as 0f744ab. `npx vitest run` on the feature branch -> 53 files, 981 passed. Tickets 03 and 04 are cut from 0f744ab and run side by side as foreground dispatches.

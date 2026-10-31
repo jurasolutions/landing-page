@@ -17,3 +17,7 @@ Per `../spec.md`, `../reviews/decisions.md` (D6, D7, D8, D9) and `../reviews/tec
 
 - PRD §2 criteria 6 and 7, with `invoiceFile.test.js`: a round trip deep-equal with ids aside, equal totals and equal PDF text; quote v1 and v2 mapping; the inclusive quote with `totals.inclusive === false`; every refusal leaving the invoice unchanged. The UI test checks the bad-file message.
 - `npm test` and `npm run build` pass.
+
+## Comments
+
+- Conductor, after the ticket 02 review: see the `openInvoice` numbering nit in `../reviews/code-review-02.md`, and keep `autocomplete` on the customer fields in mind if you touch them.

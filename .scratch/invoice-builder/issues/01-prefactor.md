@@ -1,6 +1,6 @@
 # 01 Share the quote builder's file readers, text wrapping and form fields
 
-Status: ready-for-agent
+Status: done
 Blocked by: none
 Branch: crew/invoice-builder-01-prefactor
 
