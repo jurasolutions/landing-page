@@ -1,6 +1,6 @@
 # 03 Tax invoice with GST on, and the required-field check
 
-Status: ready-for-agent
+Status: done
 Blocked by: 02
 Branch: crew/invoice-builder-03-tax-invoice
 

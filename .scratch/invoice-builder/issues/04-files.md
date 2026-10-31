@@ -1,6 +1,6 @@
 # 04 Save and open invoice files, and start an invoice from a quote file
 
-Status: ready-for-agent
+Status: done
 Blocked by: 02
 Branch: crew/invoice-builder-04-files
 

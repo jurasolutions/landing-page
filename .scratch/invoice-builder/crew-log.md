@@ -145,3 +145,63 @@ evidence:  vitest @21f80c6 -> 53 files, 981 passed; build ok; probe with 200-lin
 ## 2026-10-31 conductor: ticket 02 merged
 
 Merged 21f80c6 as 0f744ab. `npx vitest run` on the feature branch -> 53 files, 981 passed. Tickets 03 and 04 are cut from 0f744ab and run side by side as foreground dispatches.
+
+## 2026-10-31 developer, ticket 03 (appended by the conductor)
+
+```
+status:    done
+persona:   developer
+ticket:    03
+artifacts: required.js, required.test.js, MissingSummary.jsx; GstFields.jsx, InvoiceForm.jsx, index.jsx, pdf.js, InvoicePreview.jsx, totals-rows.js and tests (head 16746eb)
+decisions: D4 list in form order; with no counted item, the link goes to Add item (or to item 1's description or quantity)
+decisions: the missing list is a pdfState "missing": it updates live and clears when empty or GST is off
+decisions: header and Bill to now flow onto new pages; a long number wraps below its label (code-review-02 should-fix)
+evidence:  npm test -> 54 files, 1035 passed; npm run build -> ok
+```
+
+## 2026-10-31 developer, ticket 04 (appended by the conductor)
+
+```
+status:    done
+persona:   developer
+ticket:    04
+artifacts: invoiceFile.js, invoiceFile.test.js, FileActions.jsx, tests/invoice-builder-files-ui.test.js, docs/adr/0005, README.md, index.jsx (head 377d813)
+decisions: an opened invoice keeps its own number (previousNumber); both Open buttons share one picker; a quote's "Jura Solutions" placeholder name is never copied (D2)
+decisions: the D6 warning shows only when the quote had GST on with prices including it
+evidence:  npm test -> 55 files, 1031 passed; npm run build -> ok, pdf-lib lazy
+```
+
+## 2026-10-31 reviewer, ticket 03 (appended by the conductor)
+
+```
+status:    done
+persona:   reviewer
+ticket:    03
+artifacts: .scratch/invoice-builder/reviews/code-review-03.md
+decisions: approve; no should-fix; 5 nits (Alert wraps h2/ul in a span, stale seam comment, summary flicker on a second download)
+evidence:  vitest @16746eb -> 54 files, 1035 passed; 12 layouts with very long fields -> nothing off the page; trial merge with 04 -> 1085 passed
+```
+
+## 2026-10-31 reviewer, ticket 04 (appended by the conductor)
+
+```
+status:    done
+persona:   reviewer
+ticket:    04
+artifacts: .scratch/invoice-builder/reviews/code-review-04.md
+decisions: approve; should fix: ADR 0005 claimed quote v3 is refused (it relied on parseQuoteFile); no test of the useInvoiceFiles wiring; README described 03's parts before they were merged
+evidence:  vitest @377d813 -> 55 files, 1031 passed; __proto__ and SVG-with-script probes -> safe
+```
+
+## 2026-10-31 conductor: tickets 03 and 04 merged
+
+```
+status:    done
+persona:   conductor
+ticket:    03, 04
+artifacts: merges 58c3a0b and 34e8c5d; follow-up b781147
+decisions: the one index.jsx conflict was resolved as both reviewers advised: MissingSummary, then the file notice, and the seam comments were replaced with a description of the parts
+decisions: code-review-04's should-fixes: an explicit QUOTE_VERSION_KNOWN = 2 check with a tripwire test, ADR 0005 and README corrected, and MissingSummary named in the README. The useInvoiceFiles wiring test goes to QA
+decisions: the GST rate comment no longer says it was re-checked on build day (it wasn't: no web access, D16)
+evidence:  npx vitest run -> 56 files, 1087 passed; npm run build -> exit 0
+```
