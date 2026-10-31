@@ -18,8 +18,9 @@ import { displayDate } from "./model.js";
 import { totalsRows } from "./totals-rows.js";
 import { toPrintable } from "./winansi.js";
 import { A4, fitLogo } from "./pdf-geometry.js";
+import { wrapText } from "./pdf-text.js";
 
-export { A4, fitLogo };
+export { A4, fitLogo, wrapText };
 const MARGIN = 48;
 const BOTTOM = 64; // keep body text above the footer
 const FOOTER_Y = 30;
@@ -30,34 +31,6 @@ const RULE = rgb(0.85, 0.87, 0.86);
 
 const SIZE = { body: 9.5, small: 8, label: 8.5, name: 12, title: 20, total: 11, footer: 7.5 };
 const LEADING = 12.5;
-
-/** Splits text into lines no wider than maxWidth, breaking long words if it must. */
-export function wrapText(text, font, size, maxWidth) {
-  const lines = [];
-  for (const paragraph of toPrintable(text).split("\n")) {
-    const words = paragraph.split(/ +/);
-    let line = "";
-    for (const word of words) {
-      const candidate = line ? `${line} ${word}` : word;
-      if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
-        line = candidate;
-        continue;
-      }
-      if (line) lines.push(line);
-      // A single word wider than the column is broken by character.
-      let rest = word;
-      while (font.widthOfTextAtSize(rest, size) > maxWidth) {
-        let cut = rest.length - 1;
-        while (cut > 1 && font.widthOfTextAtSize(rest.slice(0, cut), size) > maxWidth) cut -= 1;
-        lines.push(rest.slice(0, cut));
-        rest = rest.slice(cut);
-      }
-      line = rest;
-    }
-    lines.push(line);
-  }
-  return lines;
-}
 
 function discountLabel(item, line) {
   if (line.discount <= 0n) return "";
