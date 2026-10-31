@@ -3,7 +3,7 @@
  * 6 and 7; decisions D6 to D9; test-strategy.md C6 and C7). Quote files are
  * written by the quote builder's real serialiseQuote, never copied by hand.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { quoteTotals } from "../quote-builder/calc.js";
 import { newQuote, DEFAULT_BUSINESS_NAME } from "../quote-builder/model.js";
@@ -299,5 +299,18 @@ describe("opening any file", () => {
     invoice.details.number = "INV-20261031-01";
     const { invoice: opened, previousNumber } = openAnyFile(serialiseInvoice(invoice), pageInvoice());
     expect(setInvoiceDate(opened, "2026-11-02", previousNumber).details.number).toBe("INV-20261031-01");
+  });
+});
+
+describe("files stay on the device", () => {
+  it("saves and opens both kinds of file without a single request", async () => {
+    const fetchSpy = vi.fn(async () => {
+      throw new Error("no requests");
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+    openAnyFile(serialiseInvoice(fullInvoice()), pageInvoice());
+    openAnyFile(serialiseQuote(sampleQuote()), pageInvoice());
+    await openPickedFile({ size: 10, text: async () => "hello" }, pageInvoice());
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
