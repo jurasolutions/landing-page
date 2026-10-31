@@ -132,6 +132,86 @@ describe("the invoice PDF with GST off", () => {
   });
 });
 
+describe("the tax invoice PDF (GST on)", () => {
+  const money = (text) => BigInt(text.replace(/[,.]/g, ""));
+
+  it("is titled Tax invoice in the largest type on page 1, above the items", async () => {
+    const { ops, bytes } = await build(sampleInvoice(5));
+    const title = ops.find((op) => op.kind === "title");
+    expect(title.text).toBe("Tax invoice");
+    expect(title.page).toBe(1);
+    expect(title.size).toBe(Math.max(...ops.map((op) => op.size)));
+    expect(ops.filter((op) => op.size === title.size)).toEqual([title]);
+    expect(title.y).toBeGreaterThan(ops.find((op) => op.kind === "cell").y);
+    const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+    expect(doc.getTitle()).toBe("Tax invoice INV-20261031-01");
+  });
+
+  it.each([
+    ["no discount", {}],
+    ["an overall discount", { overallDiscount: { type: "percent", value: "5" } }],
+  ])("carries every item of the IRAS list in PRD §4, with %s", async (_, overrides) => {
+    const invoice = sampleInvoice(5, overrides);
+    const { ops, pageCount } = await build(invoice);
+    expect(pageCount).toBe(1);
+    const texts = textsOf(ops);
+    for (const expected of [
+      "Tax invoice",
+      "Tan Brothers Aircon Pte Ltd",
+      "10 Ubi Crescent",
+      "#05-12 Ubi Techpark",
+      "Singapore 408564",
+      "GST reg. no. M90312345A",
+      "Invoice no.",
+      "INV-20261031-01",
+      "31 Oct 2026",
+      "Harbourfront Dental",
+      "1 Maritime Square, Singapore 099253",
+      ...invoice.items.map((line) => line.description).filter((d) => !d.startsWith("Chemical")),
+      "Amount before GST",
+      "GST (9%)",
+      "Amount with GST",
+    ]) {
+      expect(texts, expected).toContain(expected);
+    }
+    expect(texts.join(" ")).toContain("Chemical overhaul of a ceiling cassette unit");
+    expect(texts).not.toContain("Total");
+  });
+
+  it("prints amounts before GST and GST that add up to the amount with GST (decision D5)", async () => {
+    for (const rate of ["9", "8.5", "7"]) {
+      for (const overall of [{ type: "none", value: "" }, { type: "percent", value: "2.5" }, { type: "amount", value: "0.05" }]) {
+        const invoice = invoiceOf([item("3", "19.99"), item("1", "0.05"), item("2.5", "33.33", "percent", "10")], { gst: true, rate, overall, regNo: "M90312345A" });
+        invoice.business.name = "Tan Brothers";
+        const { ops } = await build(invoice);
+        const totals = ops.filter((op) => op.kind === "total");
+        const after = (label) => money(totals[totals.findIndex((op) => op.text === label) + 1].text);
+        const gstLabel = `GST (${rate}%)`;
+        expect(totals.map((op) => op.text), gstLabel).toContain(gstLabel);
+        expect(after("Amount before GST") + after(gstLabel), `${rate} ${overall.type}`).toBe(after("Amount with GST"));
+        expect(totals.at(-1).text).toMatch(MONEY);
+        expect(totals.at(-2).text).toBe("Amount with GST");
+      }
+    }
+  });
+
+  it("prints the rate as typed, such as 8.5%", async () => {
+    const invoice = sampleInvoice(2);
+    invoice.gst.rate = "8.5";
+    expect(textsOf((await build(invoice)).ops)).toContain("GST (8.5%)");
+  });
+
+  it("is read by pdf.js with Tax invoice on page 1 and Amount with GST on the last page", async () => {
+    const { bytes, pageCount } = await build(sampleInvoice(40));
+    expect(pageCount).toBe(2);
+    const pdf = await pdfjs.getDocument({ data: bytes.slice(), isEvalSupported: false, disableFontFace: true }).promise;
+    const textOn = async (n) => (await (await pdf.getPage(n)).getTextContent()).items.map((i) => i.str).join(" ");
+    expect(await textOn(1)).toContain("Tax invoice");
+    expect(await textOn(1)).toContain("GST reg. no. M90312345A");
+    expect(await textOn(pdf.numPages)).toContain("Amount with GST");
+  });
+});
+
 describe("the invoice PDF names nobody but the visitor", () => {
   it("has no Jura name, Made with line or claim about IRAS rules, in the text or the metadata", async () => {
     for (const on of [false, true]) {

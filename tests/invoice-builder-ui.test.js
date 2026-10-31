@@ -252,6 +252,30 @@ describe("the GST fields", () => {
   });
 });
 
+describe("the invoice preview with GST on", () => {
+  const preview = (invoice) => decode(html(h(InvoicePreview, { invoice, totals: quoteTotals(invoice), copy: COPY })));
+
+  it("is titled Tax invoice and shows the registration number line", () => {
+    const markup = preview(sampleInvoice(5));
+    expect(markup).toContain('<p class="qb-paper-title">Tax invoice</p>');
+    expect(markup).toContain(">GST reg. no. M90312345A<");
+  });
+
+  it("shows the same title and totals rows as the PDF, with and without a discount", async () => {
+    for (const overall of [{ type: "none", value: "" }, { type: "amount", value: "36.50" }]) {
+      const invoice = invoiceOf([item("3", "45.50"), item("2.5", "80")], { overall, gst: true, regNo: "M90312345A" });
+      invoice.business.name = "Tan Brothers";
+      const totals = quoteTotals(invoice);
+      const { ops } = await buildInvoicePdf(invoice, totals, COPY);
+      const pdfTotals = ops.filter((o) => o.kind === "total").map((o) => o.text);
+      expect(pdfTotals).toEqual(expect.arrayContaining(["Amount before GST", "GST (9%)", "Amount with GST"]));
+      const dl = preview(invoice).match(/<dl class="qb-paper-totals">(.*?)<\/dl>/s)?.[1] ?? "";
+      expect([...dl.matchAll(/<d[td][^>]*>([^<]*)</g)].map((m) => m[1])).toEqual(pdfTotals);
+      expect(preview(invoice)).toContain(`>${ops.find((o) => o.kind === "title").text}<`);
+    }
+  });
+});
+
 describe("the invoice preview with GST off", () => {
   const preview = (invoice) => decode(html(h(InvoicePreview, { invoice, totals: quoteTotals(invoice), copy: COPY })));
 
