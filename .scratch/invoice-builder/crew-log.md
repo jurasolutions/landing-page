@@ -28,3 +28,59 @@ decisions: jura-growth check is unavailable; copy is checked by hand against src
 evidence:  awk between the BEGIN/END lines of spec.md | shasum -a 256 -> e97afb61...293fb10de, matches A-0002
 evidence:  git status -> clean on claude/T-0001-invoice-builde at 858281e
 ```
+
+## 2026-10-31 tech-lead (technical review of the spec, appended by the conductor)
+
+```
+status:    needs-human
+persona:   tech-lead
+ticket:    -
+artifacts: .scratch/invoice-builder/reviews/technical.md
+decisions: import calc, model helpers, parseQuoteFile/readBusiness, logo, winansi, pdf-geometry from quote-builder as they are; no move to _shared
+decisions: prefactors P1-P3 (section readers, pdf-text.js, form-parts.jsx), no quote behaviour change
+decisions: invoice PDF is its own module; no "Jura Solutions" fallback; invoice file jura-invoice-builder v1; both Open buttons take both files
+decisions: three tickets with a fallback split of 02
+questions: Q1 inclusive quote file; recommended: open as typed, GST on, warning line
+evidence:  npx vitest run (quote-builder, shell, ui, usage) -> 9 files, 210 passed
+```
+
+## 2026-10-31 functional-lead (appended by the conductor)
+
+```
+status:    done
+persona:   functional-lead
+ticket:    -
+artifacts: .scratch/invoice-builder/reviews/functional.md; reviews/uat.md
+decisions: B1 no Jura name fallback; B2 amount before GST always on a tax invoice; B3 suggested number typed as real text; B4 rate and descriptions in the required check; B5 inclusive quote opens with a warning
+decisions: half-cent tie 150.50 at 9% -> GST 13.55, total 164.05; UAT 5-line invoice GST on 693.52, off 636.26
+questions: five, each with a recommendation; all taken in reviews/decisions.md
+evidence:  figures worked by hand twice with calc.js rules (the reviewer had no shell)
+```
+
+## 2026-10-31 qa-lead, strategy (appended by the conductor)
+
+```
+status:    done
+persona:   qa-lead
+ticket:    -
+artifacts: .scratch/invoice-builder/reviews/test-strategy.md
+decisions: C1-C14 mapped to levels and files; seams download.js and remember.js; complete counts on a saved PDF only
+decisions: manual rows (viewers, 360 px, keyboard, jura-growth, IRAS build-day check) go to Ting Yu at the §5.4 done-check
+questions: Q1 inclusive quote file; recommended: open with GST on top and a notice
+evidence:  npx vitest run @a087f61 -> 42 files, 763 tests passed (baseline); npm run build -> ok
+```
+
+## 2026-10-31 conductor: review decisions and G3
+
+```
+status:    done
+persona:   conductor
+ticket:    -
+artifacts: reviews/decisions.md; issues/01-04; CONTEXT.md (required fields, quote file, suggested number, payment details)
+decisions: every open point takes a reviewer's recommendation (decisions.md D1-D19). Where reviews differed: suggested number typed as real text (functional B3 over tech), rate and per-line description added to the required check (functional B4), no question before opening a file (quote builder behaviour)
+decisions: Q1 (inclusive quote file) settled as D6: open as typed with GST on and a one-line warning; all three reviews recommended it
+decisions: G3 approved on the crew's recommendation: four tickets, 01 prefactor -> 02 invoice PDF (GST off) -> 03 tax invoice and 04 files in parallel. Tech §12's fallback split was taken up front because 02 as a whole is too large for one developer run
+decisions: tech-lead ticket review skipped: route M has none, and the tickets follow technical.md §12 directly
+decisions: the design system's README is not vendored in this repo (the sync skips docs), so copy is checked by hand against the voice rules quoted in docs/agents/crew.md and README.md
+evidence:  git status -> only .scratch/invoice-builder and CONTEXT.md changed
+```

@@ -35,9 +35,10 @@ The words this repo uses, so code, specs and tickets mean the same thing.
 
 - **Invoice**: the document the visitor issues to bill a customer. Titled "Invoice" while GST is off and "Tax invoice" while GST is on, never anything else.
 - **Tax invoice**: an invoice with GST on. It prints the GST registration number, the GST rate, the amount before GST, the GST and the amount with GST.
-- **Required fields**: what a tax invoice must carry before "Download PDF" makes a file: business name, business address, GST registration number, invoice number, invoice date, customer name, customer address, and at least one item with a description and a quantity. Checked only while GST is on.
+- **Required fields**: what a tax invoice must carry before "Download PDF" makes a file: business name, business address, GST registration number, customer name, customer address, invoice number, invoice date, a GST rate from 0 to 100, at least one counted item, and a description on every counted item. Checked only while GST is on. A counted item has a quantity above zero; items with no quantity are left off the invoice.
 - **Amount before GST**: the invoice's amount after discount (line totals added up, minus the overall discount). GST is worked out on it once, rounded half up to the cent.
 - **Amount with GST**: amount before GST plus GST, to the cent. It is also the invoice's total while GST is on.
 - **Invoice file**: the JSON file "Save invoice file" writes and "Open invoice file" reads. It holds everything on the invoice, including the logo, and re-opens to an identical invoice.
-- **Quote file**: a file saved from the quote builder. "Open quote file" starts an invoice from it: customer, items, discounts, notes and GST setting. The business details on the page are kept.
-- **Suggested number**: `INV-YYYYMMDD-01` from the invoice date, shown until the visitor types their own number.
+- **Quote file**: a file saved from the quote builder. "Open quote file" starts an invoice from it: customer, items, discounts, notes and GST setting. The business details on the page are kept, and only empty ones are filled from the quote. A quote saved with prices that include GST opens with GST added on top and a warning to change the prices.
+- **Suggested number**: `INV-YYYYMMDD-01` from the invoice date, typed into the invoice number field and following the date until the visitor edits it. "New invoice" on the same date suggests `-02`.
+- **Payment details**: free text telling the customer how to pay (bank, account, PayNow UEN or mobile). Printed after the totals. Never a QR code.
