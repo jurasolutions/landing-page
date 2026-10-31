@@ -111,3 +111,7 @@ decisions: approve, no blocking findings; quote builder unchanged (file reading,
 decisions: two nits: a half-true comment at quoteFile.js:137, and a test name at shared-parts.test.js:87
 evidence:  npx vitest run -> 43 files, 772 passed; diffs of moved code -> only exports differ
 ```
+
+## 2026-10-31 conductor: resume after the session ended
+
+The session ended with the ticket 02 developer still running. When Dispatch cleaned up, it removed that developer's worktree and its branch, so none of ticket 02's work survived. Ting Yu asked to continue from the log, with every agent in the foreground. Ticket 02 was re-cut from the feature branch at d1de5e5 and started again from the beginning. Ticket 01's worktree is gone too, so nothing is left to clean up from it.
