@@ -15,6 +15,7 @@ import COPY from "../src/apps/invoice-builder/copy.js";
 import { newInvoice } from "../src/apps/invoice-builder/model.js";
 import { invoiceTotalsRows } from "../src/apps/invoice-builder/totals-rows.js";
 import { buildInvoicePdf } from "../src/apps/invoice-builder/pdf.js";
+import { missingFields } from "../src/apps/invoice-builder/required.js";
 import { REMEMBER_KEY } from "../src/apps/invoice-builder/remember.js";
 import { blockedStorage, invoiceOf, item, memoryStorage, sampleInvoice } from "../src/apps/invoice-builder/fixtures.js";
 import { quoteTotals } from "../src/apps/quote-builder/calc.js";
@@ -173,9 +174,80 @@ describe("the invoice form", () => {
     expect(textOf(blocked, why)).toBe(COPY.rememberBlocked);
   });
 
-  it("leaves the GST fields to ticket 03: nothing of GST shows with GST off", () => {
+});
+
+describe("the GST fields", () => {
+  const gstOn = () => {
+    const invoice = newInvoice({ today: "2026-10-31" });
+    invoice.gst = { on: true, rate: "9", regNo: "" };
+    return invoice;
+  };
+  const switchTag = (markup) => markup.match(/<input[^>]*role="switch"[^>]*>/)?.[0] ?? "";
+
+  it("offers the Charge GST switch, off by default, with its helper linked", () => {
+    const markup = form();
+    const toggle = switchTag(markup);
+    expect(toggle).toContain('id="ib-gst-on"');
+    expect(toggle).not.toContain('checked=""');
+    expect(markup).toMatch(/<label[^>]*>(?:(?!<\/label>).)*role="switch"(?:(?!<\/label>).)*Charge GST<\/span><\/label>/s);
+    expect(textOf(markup, describedBy(markup, "ib-gst-on"))).toBe(COPY.gst.helper);
+  });
+
+  it("hides the rate and the registration number while GST is off, even with them filled in", () => {
+    const invoice = newInvoice({ today: "2026-10-31" });
+    invoice.gst = { on: false, rate: "9", regNo: "M90312345A" };
+    const markup = form(invoice);
+    expect(tagWithId(markup, "ib-gst-rate")).toBe("");
+    expect(tagWithId(markup, "ib-gst-reg")).toBe("");
     expect(markup).not.toContain("GST registration number");
     expect(markup).not.toContain("GST rate (%)");
+  });
+
+  it("shows the rate, with its helper, and the registration number while GST is on", () => {
+    const markup = form(gstOn());
+    expect(switchTag(markup)).toContain('checked=""');
+    expect(labelFor(markup, "ib-gst-rate")).toBe("GST rate (%)");
+    expect(tagWithId(markup, "ib-gst-rate")).toContain('value="9"');
+    expect(tagWithId(markup, "ib-gst-rate")).toContain('inputMode="decimal"');
+    expect(textOf(markup, describedBy(markup, "ib-gst-rate"))).toBe(COPY.gst.rateHelper);
+    expect(labelFor(markup, "ib-gst-reg")).toBe("GST registration number");
+    expect(unlabelled(markup)).toEqual([]);
+  });
+
+  it("puts the registration number under the business email and the rate under the dates (decision D4)", () => {
+    const markup = form(gstOn());
+    const at = (id) => markup.indexOf(`id="${id}"`);
+    expect(at("ib-business-email")).toBeLessThan(at("ib-gst-reg"));
+    expect(at("ib-gst-reg")).toBeLessThan(at("ib-customer-company"));
+    expect(at("ib-due")).toBeLessThan(at("ib-gst-on"));
+    expect(at("ib-gst-on")).toBeLessThan(at("ib-gst-rate"));
+    expect(at("ib-gst-rate")).toBeLessThan(markup.indexOf("Items</legend>"));
+  });
+
+  it("shows an inline error on a rate that is not a rate from 0 to 100", () => {
+    for (const [rate, message] of [["abc", COPY.errors.invalidNumber], ["120", COPY.errors.percent], ["", COPY.errors.invalidNumber]]) {
+      const invoice = gstOn();
+      invoice.gst.rate = rate;
+      const markup = form(invoice);
+      expect(tagWithId(markup, "ib-gst-rate"), rate).toContain('aria-invalid="true"');
+      expect(textOf(markup, describedBy(markup, "ib-gst-rate")), rate).toBe(message);
+    }
+  });
+
+  it("links every missing field to an input that is in the form (technical.md §5)", () => {
+    const empty = gstOn();
+    empty.gst.rate = "";
+    empty.details.number = "";
+    empty.details.date = "";
+    const cases = [empty, { ...empty, items: [] }, sampleInvoice(3, { items: sampleInvoice(3).items.map((line) => ({ ...line, description: "" })) })];
+    cases[2].business.name = "";
+    for (const invoice of cases) {
+      const missing = missingFields(invoice, quoteTotals(invoice));
+      expect(missing.length).toBeGreaterThan(0);
+      const markup = form(invoice);
+      for (const { target } of missing) expect(tagWithId(markup, target), target).not.toBe("");
+    }
+    expect(missingFields(empty, quoteTotals(empty))).toHaveLength(9);
   });
 });
 

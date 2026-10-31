@@ -197,6 +197,7 @@ export function InvoiceForm({
         )}
         <span ref={addRef}>
           <Button
+            id="ib-add-item"
             type="button"
             variant="secondary"
             size="lg"
