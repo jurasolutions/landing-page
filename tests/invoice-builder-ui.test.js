@@ -16,6 +16,7 @@ import { newInvoice } from "../src/apps/invoice-builder/model.js";
 import { invoiceTotalsRows } from "../src/apps/invoice-builder/totals-rows.js";
 import { buildInvoicePdf } from "../src/apps/invoice-builder/pdf.js";
 import { missingFields } from "../src/apps/invoice-builder/required.js";
+import { MissingSummary } from "../src/apps/invoice-builder/MissingSummary.jsx";
 import { REMEMBER_KEY } from "../src/apps/invoice-builder/remember.js";
 import { blockedStorage, invoiceOf, item, memoryStorage, sampleInvoice } from "../src/apps/invoice-builder/fixtures.js";
 import { quoteTotals } from "../src/apps/quote-builder/calc.js";
@@ -371,8 +372,64 @@ describe("the invoice builder page", () => {
     for (const name of [...own.map((n) => new URL(n, folder)), new URL("../src/apps/quote-builder/quote-builder.css", import.meta.url)]) {
       expect(fs.readFileSync(name, "utf8"), String(name)).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
     }
-    for (const name of ["InvoiceForm.jsx", "InvoicePreview.jsx", "index.jsx"]) {
+    for (const name of ["InvoiceForm.jsx", "InvoicePreview.jsx", "index.jsx", "GstFields.jsx", "MissingSummary.jsx"]) {
       expect(fs.readFileSync(new URL(name, folder), "utf8"), name).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
     }
+  });
+});
+
+describe("the missing-fields summary (PRD §2 criterion 5)", () => {
+  const missing = [
+    { key: "businessName", label: "Business name", target: "ib-business-name" },
+    { key: "item-a-description", label: "Description for item 2", target: "qb-item-a-description" },
+  ];
+  const summary = (entries, onFollow = () => {}) => html(h(MissingSummary, { missing: entries, copy: COPY, onFollow }));
+
+  it("renders nothing when nothing is missing, so its live region starts empty", () => {
+    expect(summary([])).toBe("");
+  });
+
+  it("has the PRD's heading, focusable so focus can move to it", () => {
+    const markup = decode(summary(missing));
+    const heading = markup.match(/<h2[^>]*>([^<]*)<\/h2>/);
+    expect(heading?.[1]).toBe("A few details are still needed for a tax invoice");
+    expect(heading?.[0]).toContain('tabindex="-1"');
+    expect(heading?.[0]).toContain("data-missing-heading");
+  });
+
+  it("links one Please add line per field to its input, each a full tap target", () => {
+    const markup = decode(summary(missing));
+    const links = [...markup.matchAll(/<a[^>]*href="#([^"]+)"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[2]]);
+    expect(links).toEqual([
+      ["ib-business-name", "Please add: Business name"],
+      ["qb-item-a-description", "Please add: Description for item 2"],
+    ]);
+    for (const link of markup.match(/<a[^>]*>/g)) expect(link).toContain("min-height:var(--tap-min)");
+  });
+
+  it("hands the input's id to the page when a link is followed, so a phone can switch to Edit first", () => {
+    const onFollow = vi.fn();
+    const links = [];
+    const walk = (node) => {
+      if (!node || typeof node !== "object") return;
+      if (Array.isArray(node)) return node.forEach(walk);
+      if (node.type === "a") links.push(node);
+      walk(node.props?.children);
+    };
+    walk(MissingSummary({ missing, copy: COPY, onFollow }));
+    expect(links).toHaveLength(2);
+    const preventDefault = vi.fn();
+    links[1].props.onClick({ preventDefault });
+    expect(preventDefault).toHaveBeenCalled();
+    expect(onFollow).toHaveBeenCalledWith("qb-item-a-description");
+  });
+
+  it("shows on the page only after Download PDF, so the live region is empty on load", () => {
+    const storage = memoryStorage();
+    storage.setItem(REMEMBER_KEY, JSON.stringify({ business: { name: "" }, gst: { on: true, rate: "9", regNo: "" }, payment: "", lastNumber: "" }));
+    const markup = page(storage);
+    expect(markup).toContain('id="ib-gst-reg"');
+    expect(markup).not.toContain(COPY.missing.heading);
+    expect(markup).toMatch(/<div class="tb-live[^"]*" aria-live="polite"><\/div>/);
   });
 });
