@@ -30,3 +30,14 @@ The words this repo uses, so code, specs and tickets mean the same thing.
 - **Frame**: the results card styled like a social media post (header, picture, action row, caption), with no Instagram branding.
 - **Closed for today**: a per-tool marker set by a Workers AI quota error, cleared at the UTC day's turn when the free allowance resets.
 - **Picture**: the AI-generated image, 1024 x 1280 from the model, composed in the browser to 1080 x 1350 (portrait) or 1080 x 1080 (square).
+
+## Invoice builder (APP-005)
+
+- **Invoice**: the document the visitor issues to bill a customer. Titled "Invoice" while GST is off and "Tax invoice" while GST is on, never anything else.
+- **Tax invoice**: an invoice with GST on. It prints the GST registration number, the GST rate, the amount before GST, the GST and the amount with GST.
+- **Required fields**: what a tax invoice must carry before "Download PDF" makes a file: business name, business address, GST registration number, invoice number, invoice date, customer name, customer address, and at least one item with a description and a quantity. Checked only while GST is on.
+- **Amount before GST**: the invoice's amount after discount (line totals added up, minus the overall discount). GST is worked out on it once, rounded half up to the cent.
+- **Amount with GST**: amount before GST plus GST, to the cent. It is also the invoice's total while GST is on.
+- **Invoice file**: the JSON file "Save invoice file" writes and "Open invoice file" reads. It holds everything on the invoice, including the logo, and re-opens to an identical invoice.
+- **Quote file**: a file saved from the quote builder. "Open quote file" starts an invoice from it: customer, items, discounts, notes and GST setting. The business details on the page are kept.
+- **Suggested number**: `INV-YYYYMMDD-01` from the invoice date, shown until the visitor types their own number.
