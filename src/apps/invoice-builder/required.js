@@ -5,7 +5,8 @@
  *
  * In the order of the form: business name, address, GST registration number,
  * customer name, customer address, invoice number, invoice date, GST rate,
- * then the items. Whitespace-only counts as missing. "Counted" items follow
+ * then the items. Whitespace-only counts as missing, and so does text that
+ * prints as nothing (characters the PDF's font can't print). "Counted" items follow
  * calc.js: a line counts when it has a quantity above zero and a description
  * or a price.
  *
@@ -15,10 +16,15 @@
  *
  * Pure: no React.
  */
+import { toPrintable } from "../quote-builder/winansi.js";
 import COPY from "./copy.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const blank = (value) => !String(value ?? "").trim();
+// Blank as it prints: pdf.js prints `toPrintable(value)`, so a field typed
+// only in characters the PDF's font can't print (Chinese, for example) would
+// leave the IRAS item off the invoice. The page's "Some characters can't go
+// into the PDF" warning already says why (QA defect 02).
+const blank = (value) => !toPrintable(String(value ?? "")).trim();
 const itemId = (item, field) => `qb-item-${item.id}-${field}`;
 
 /**

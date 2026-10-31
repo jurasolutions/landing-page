@@ -264,11 +264,9 @@ describe("opening a file on the page (useInvoiceFiles wiring)", () => {
   });
 
   // Defect 01 (reviews/qa-01.md). A bad file "changes nothing" (PRD §2
-  // criterion 6), but today it removes the D6 warning while the GST-inclusive
-  // prices it warns about are still on the invoice. `it.fails` keeps the
-  // suite green while the defect is open; when it is fixed this test starts
-  // failing, and `it.fails` becomes `it`.
-  it.fails("DEFECT 01: keeps the D6 warning when a bad file is picked after an inclusive quote", async () => {
+  // criterion 6), so it must not remove the D6 warning while the GST-inclusive
+  // prices it warns about are still on the invoice. Fixed in ticket 05.
+  it("DEFECT 01: keeps the D6 warning when a bad file is picked after an inclusive quote", async () => {
     const page = mountPage();
     await page.pick(fileOf(savedQuote({ inclusive: true })));
     const before = page.invoice;

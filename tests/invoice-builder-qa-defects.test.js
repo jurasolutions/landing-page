@@ -11,7 +11,6 @@ import { describe, expect, it } from "vitest";
 
 import { quoteTotals } from "../src/apps/quote-builder/calc.js";
 import COPY from "../src/apps/invoice-builder/copy.js";
-import { buildInvoicePdf } from "../src/apps/invoice-builder/pdf.js";
 import { missingFields } from "../src/apps/invoice-builder/required.js";
 import { downloadInvoice, hasFigureErrors } from "../src/apps/invoice-builder/download.js";
 import { invoiceOf, item, sampleInvoice } from "../src/apps/invoice-builder/fixtures.js";
@@ -19,29 +18,39 @@ import { invoiceOf, item, sampleInvoice } from "../src/apps/invoice-builder/fixt
 const keys = (invoice) => missingFields(invoice, quoteTotals(invoice)).map((m) => m.key);
 
 /**
- * Defect 02 (major). With GST on, a required field typed only in characters
- * the PDF's font cannot print (Chinese, for example) passes the required
- * check, and "Download PDF" makes a tax invoice with that IRAS item left out.
- * The page shows "Some characters can't go into the PDF", but nothing stops
- * the file.
+ * Defect 02 (major, fixed). With GST on, a required field typed only in
+ * characters the PDF's font cannot print (Chinese, for example) passed the
+ * required check, and "Download PDF" made a tax invoice with that IRAS item
+ * left out. required.js now checks each field as it prints (`toPrintable`),
+ * so such a field is listed as missing, as an empty one is.
  */
 describe("DEFECT 02: a required field that prints as nothing on a tax invoice", () => {
-  it("is the defect as it stands: a Chinese-only customer name passes and prints no name", async () => {
+  it("lists a Chinese-only customer name and address as missing, and makes no file", async () => {
     const invoice = sampleInvoice(2);
     invoice.customer = { ...invoice.customer, company: "陈氏贸易", address: "新加坡" };
     const totals = quoteTotals(invoice);
-    expect(missingFields(invoice, totals)).toEqual([]);
-    const { ops } = await buildInvoicePdf(invoice, totals, COPY);
-    const billTo = ops.findIndex((op) => op.text === COPY.pdf.billTo);
-    // Under "Bill to" the first line is the contact, not the customer's name.
-    expect(ops[billTo + 1].text).toBe("Dr Lim");
+    expect(missingFields(invoice, totals)).toEqual([
+      { key: "customerName", label: COPY.customer.company, target: "ib-customer-company" },
+      { key: "customerAddress", label: COPY.customer.address, target: "ib-customer-address" },
+    ]);
+    let built = false;
     const result = await downloadInvoice(invoice, totals, {
-      build: async () => ({ bytes: new Uint8Array() }),
+      build: async () => {
+        built = true;
+        return { bytes: new Uint8Array() };
+      },
       save: () => {},
       track: () => {},
       missingFields,
     });
-    expect(result).toEqual({ ok: true });
+    expect(result.missing.map((m) => m.key)).toEqual(["customerName", "customerAddress"]);
+    expect(built).toBe(false);
+  });
+
+  it("still passes a field with some printable text", () => {
+    const invoice = sampleInvoice(2);
+    invoice.customer = { ...invoice.customer, company: "陈氏贸易 Tan Trading", address: "新加坡 Singapore 123456" };
+    expect(keys(invoice)).toEqual([]);
   });
 
   const cases = [
@@ -49,9 +58,11 @@ describe("DEFECT 02: a required field that prints as nothing on a tax invoice", 
     ["customerAddress", (inv) => (inv.customer.address = "新加坡")],
     ["businessName", (inv) => (inv.business.name = "陈氏空调")],
     ["businessAddress", (inv) => (inv.business.address = "新加坡")],
+    ["gstRegNo", (inv) => (inv.gst.regNo = "二〇一九")],
+    ["number", (inv) => (inv.details.number = "发票一")],
     ["item-item-0-description", (inv) => (inv.items[0].description = "空调保养")],
   ];
-  it.fails.each(cases)("lists %s as missing when it prints as nothing", (key, change) => {
+  it.each(cases)("lists %s as missing when it prints as nothing", (key, change) => {
     const invoice = sampleInvoice(2);
     change(invoice);
     expect(keys(invoice)).toContain(key);

@@ -36,7 +36,10 @@ export function FileNotice({ notice, copy }) {
  * message. `onOpen(result)` receives a good file's result from openAnyFile.
  */
 export function useInvoiceFiles({ invoice, copy, onOpen, setToast }) {
-  const [notice, setNotice] = React.useState(null);
+  // Two messages, kept apart: a refused file changes nothing (PRD §2
+  // criterion 6), so the bad-file message must not clear the D6 warning.
+  const [badFile, setBadFile] = React.useState(false);
+  const [inclusive, setInclusive] = React.useState(false);
   const pickerRef = React.useRef(null);
 
   const save = () => {
@@ -48,14 +51,14 @@ export function useInvoiceFiles({ invoice, copy, onOpen, setToast }) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    setNotice(null);
     const result = await openPickedFile(file, invoice);
     if (!result.ok) {
-      setNotice("bad");
+      setBadFile(true);
       return;
     }
     onOpen(result);
-    if (result.pricesIncludedGst) setNotice("inclusive");
+    setBadFile(false);
+    setInclusive(Boolean(result.pricesIncludedGst));
     setToast(result.kind === "quote" ? copy.quoteOpened : copy.opened);
   };
 
@@ -78,7 +81,15 @@ export function useInvoiceFiles({ invoice, copy, onOpen, setToast }) {
         onChange={open}
       />
     ),
-    notice: <FileNotice notice={notice} copy={copy} />,
-    clear: () => setNotice(null),
+    notice: (
+      <>
+        <FileNotice notice={badFile ? "bad" : null} copy={copy} />
+        <FileNotice notice={inclusive ? "inclusive" : null} copy={copy} />
+      </>
+    ),
+    clear: () => {
+      setBadFile(false);
+      setInclusive(false);
+    },
   };
 }
