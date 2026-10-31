@@ -100,10 +100,10 @@ export function InvoiceForm({
         <TextField id="ib-business-name" label={B.name} value={invoice.business.name} onChange={business("name")} autoComplete="organization" maxLength={LIMITS.short} />
         <TextField id="ib-business-address" label={B.address} value={invoice.business.address} onChange={business("address")} multiline maxLength={LIMITS.address} />
         <div className="qb-row qb-row--2">
-          <TextField id="ib-business-uen" label={B.uen} value={invoice.business.uen} onChange={business("uen")} maxLength={LIMITS.short} />
+          <TextField id="ib-business-uen" label={B.uen} value={invoice.business.uen} onChange={business("uen")} maxLength={LIMITS.short} spellCheck={false} />
           <TextField id="ib-business-phone" label={B.phone} type="tel" value={invoice.business.phone} onChange={business("phone")} autoComplete="tel" maxLength={LIMITS.short} />
         </div>
-        <TextField id="ib-business-email" label={B.email} type="email" value={invoice.business.email} onChange={business("email")} autoComplete="email" maxLength={LIMITS.email} />
+        <TextField id="ib-business-email" label={B.email} type="email" value={invoice.business.email} onChange={business("email")} autoComplete="email" maxLength={LIMITS.email} spellCheck={false} />
         <GstFields part="business" {...gstProps} />
 
         <div className="qb-logo">
@@ -112,7 +112,7 @@ export function InvoiceForm({
           </span>
           {invoice.business.logo ? (
             <div className="qb-logo-current">
-              <img src={invoice.business.logo.dataUrl} alt={B.logoAlt} className="qb-logo-img" />
+              <img src={invoice.business.logo.dataUrl} alt={B.logoAlt} width={invoice.business.logo.width} height={invoice.business.logo.height} className="qb-logo-img" />
               <Button
                 type="button"
                 variant="secondary"
@@ -161,11 +161,11 @@ export function InvoiceForm({
         <TextField id="ib-customer-company" label={C.company} value={invoice.customer.company} onChange={customer("company")} maxLength={LIMITS.short} />
         <TextField id="ib-customer-contact" label={C.contact} value={invoice.customer.contact} onChange={customer("contact")} maxLength={LIMITS.short} />
         <TextField id="ib-customer-address" label={C.address} value={invoice.customer.address} onChange={customer("address")} multiline maxLength={LIMITS.address} />
-        <TextField id="ib-customer-email" label={C.email} type="email" value={invoice.customer.email} onChange={customer("email")} maxLength={LIMITS.email} />
+        <TextField id="ib-customer-email" label={C.email} type="email" value={invoice.customer.email} onChange={customer("email")} maxLength={LIMITS.email} spellCheck={false} />
       </Fieldset>
 
       <Fieldset legend={copy.sections.details}>
-        <TextField id="ib-number" label={D.number} value={invoice.details.number} onChange={detail("number")} maxLength={LIMITS.number} />
+        <TextField id="ib-number" label={D.number} value={invoice.details.number} onChange={detail("number")} maxLength={LIMITS.number} spellCheck={false} />
         <div className="qb-row qb-row--2">
           <TextField id="ib-date" label={D.date} type="date" value={date} onChange={setDate} />
           <TextField id="ib-due" label={D.dueDate} type="date" value={dueDate} onChange={detail("dueDate")} hint={dueEarly ? D.dueBeforeDate : undefined} />

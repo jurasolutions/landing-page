@@ -156,7 +156,7 @@ export default {
     newInvoice: "New invoice",
   },
 
-  working: "Making your PDF",
+  working: "Making your PDF…",
   pdfFailed: "The PDF could not be made. Try again, or refresh the page.",
   // Ticket 04: the files.
   opened: "Invoice opened",

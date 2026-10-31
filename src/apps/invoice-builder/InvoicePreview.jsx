@@ -54,6 +54,8 @@ export function InvoicePreview({ invoice, totals, copy }) {
             <img
               src={b.logo.dataUrl}
               alt={copy.business.logoAlt}
+              width={b.logo.width}
+              height={b.logo.height}
               className="qb-paper-logo"
               style={{ aspectRatio: `${b.logo.width} / ${b.logo.height}` }}
             />

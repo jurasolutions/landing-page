@@ -171,29 +171,30 @@ describe("the invoice PDF's pages", () => {
     expect(indexes).toEqual(Array.from({ length: 40 }, (_, i) => i + 1));
   });
 
-  it("keeps the totals together on one page, for 28 to 52 two-line rows, GST on and off, with and without a discount", async () => {
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+    [true, true],
+  ])("keeps the totals together on one page for 28 to 52 two-line rows (GST on: %s, discount: %s)", async (on, discount) => {
     const logo = { bytes: solidPng(1200, 300), kind: "png" };
     for (let lines = 28; lines <= 52; lines += 1) {
-      for (const on of [false, true]) {
-        for (const discount of [false, true]) {
-          const invoice = sampleInvoice(lines, discount ? { overallDiscount: { type: "percent", value: "5" } } : {});
-          invoice.gst.on = on;
-          invoice.items.forEach((it, i) => {
-            it.description = `Aircon general servicing of a wall-mounted fan coil unit, number ${i + 1}`;
-          });
-          const { ops } = await build(invoice, { logo });
-          const totals = ops.filter((o) => o.kind === "total");
-          const label = `${lines} lines, GST ${on ? "on" : "off"}, ${discount ? "" : "no "}discount`;
-          expect(totals.length, label).toBe((discount ? 2 : 0) * 2 + (on ? 4 : 0) + 2);
-          expect(new Set(totals.map((o) => o.page)).size, label).toBe(1);
-          for (let row = 0; row < lines; row += 1) {
-            expect(new Set(ops.filter((o) => o.row === row).map((o) => o.page)).size, `${label}, row ${row + 1}`).toBe(1);
-          }
-          for (const op of ops.filter((o) => o.kind !== "footer")) expect(op.y, label).toBeGreaterThanOrEqual(64 - 0.01);
-        }
+      const invoice = sampleInvoice(lines, discount ? { overallDiscount: { type: "percent", value: "5" } } : {});
+      invoice.gst.on = on;
+      invoice.items.forEach((it, i) => {
+        it.description = `Aircon general servicing of a wall-mounted fan coil unit, number ${i + 1}`;
+      });
+      const { ops } = await build(invoice, { logo });
+      const totals = ops.filter((o) => o.kind === "total");
+      const label = `${lines} lines`;
+      expect(totals.length, label).toBe((discount ? 2 : 0) * 2 + (on ? 4 : 0) + 2);
+      expect(new Set(totals.map((o) => o.page)).size, label).toBe(1);
+      for (let row = 0; row < lines; row += 1) {
+        expect(new Set(ops.filter((o) => o.row === row).map((o) => o.page)).size, `${label}, row ${row + 1}`).toBe(1);
       }
+      for (const op of ops.filter((o) => o.kind !== "footer")) expect(op.y, label).toBeGreaterThanOrEqual(64 - 0.01);
     }
-  });
+  }, 20000);
 
   it("carries a very long description across pages without running off the bottom", async () => {
     const invoice = gstOff(1);
