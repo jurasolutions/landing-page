@@ -84,3 +84,30 @@ decisions: tech-lead ticket review skipped: route M has none, and the tickets fo
 decisions: the design system's README is not vendored in this repo (the sync skips docs), so copy is checked by hand against the voice rules quoted in docs/agents/crew.md and README.md
 evidence:  git status -> only .scratch/invoice-builder and CONTEXT.md changed
 ```
+
+## 2026-10-31 developer, ticket 01 (appended by the conductor)
+
+```
+status:    done
+persona:   developer
+ticket:    01
+artifacts: quoteFile.js, pdf.js, QuoteForm.jsx; new pdf-text.js, form-parts.jsx, shared-parts.test.js (commit e15fabb on crew/invoice-builder-01-prefactor)
+decisions: section readers take their raw section and treat undefined as empty; readBusiness calls readBusinessFields directly (same result)
+evidence:  npm test -> 43 files, 772 passed, no existing test edited; npm run build -> ok; pdf-lib only in lazy chunks
+```
+
+## 2026-10-31 conductor: ticket 01 merged before its review
+
+Merged e15fabb into the feature branch as 1461c72 straight away so ticket 02 could start, with the review running in parallel and any findings to be fixed in a follow-up commit. It was a move-only diff with green tests, so the risk was low.
+
+## 2026-10-31 reviewer, ticket 01 (appended by the conductor)
+
+```
+status:    done
+persona:   reviewer
+ticket:    01
+artifacts: .scratch/invoice-builder/reviews/code-review-01.md
+decisions: approve, no blocking findings; quote builder unchanged (file reading, wrapText, form markup)
+decisions: two nits: a half-true comment at quoteFile.js:137, and a test name at shared-parts.test.js:87
+evidence:  npx vitest run -> 43 files, 772 passed; diffs of moved code -> only exports differ
+```
