@@ -1,6 +1,6 @@
 # 05 Fix QA defects 01 and 02
 
-Status: ready-for-agent
+Status: done
 Blocked by: none
 Branch: crew/invoice-builder-05-qa-fixes
 

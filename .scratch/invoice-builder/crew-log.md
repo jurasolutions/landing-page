@@ -205,3 +205,55 @@ decisions: code-review-04's should-fixes: an explicit QUOTE_VERSION_KNOWN = 2 ch
 decisions: the GST rate comment no longer says it was re-checked on build day (it wasn't: no web access, D16)
 evidence:  npx vitest run -> 56 files, 1087 passed; npm run build -> exit 0
 ```
+
+## 2026-10-31 reviewer, final (appended by the conductor)
+
+```
+status:    done
+persona:   reviewer
+ticket:    final
+artifacts: .scratch/invoice-builder/reviews/code-review-final.md
+decisions: approve; no blocking or should-fix findings; 4 nits (customer autoComplete, duplicated blank helper, a file without gst.rate opens with an empty rate, hidden picker label)
+decisions: reviewed against 858281e; local main (612ed9b) is one merge behind origin/main, so the release diff should use origin/main
+evidence:  npx vitest run -> 56 files, 1087 passed; npm run build -> exit 0; blocked-path grep -> none; only network call is trackUsage; no Jura on the PDF
+```
+
+## 2026-10-31 qa-engineer, run 01 (appended by the conductor)
+
+```
+status:    done
+persona:   qa-engineer
+ticket:    -
+artifacts: reviews/qa-01.md; tests/invoice-builder-files-wiring.test.js, invoice-builder-uat.test.js, invoice-builder-qa-defects.test.js (125828f, merged as 09c6acf)
+decisions: defects recorded as it.fails tests; the useInvoiceFiles wiring test added (code-review-04's should-fix)
+evidence:  UAT through the real code -> 693.52 / 636.26 / 13.55 and 164.05, all as worked by hand
+evidence:  real PDFs read back with pdf.js -> 1, 1 and 2 A4 pages, titles right, IRAS rows present, totals on one page
+evidence:  npx vitest run -> 59 files, 1119 passed, 8 expected fail; npm run dev -> port bind refused by the sandbox
+defects:   02 major (a required field that prints as nothing passes); 01 minor (a bad file clears the D6 warning); 03 minor (an amount discount over the subtotal is clamped silently, shared calc.js); 04 minor flake in a quote-builder test from main
+```
+
+## 2026-10-31 conductor: defect triage
+
+Defects 02 and 01 went back through the build as ticket 05. For defect 01, D6 is read as QA recommended: a refused file changes nothing, so the warning stays. Defect 03 is the shared `calc.js` and behaves the same in the live quote builder. Changing it would change the quote builder, which is outside this PRD, so it goes to Ting Yu as a follow-up and its `it.fails` tests stay. Defect 04 is a flake in a test from `main` that this feature doesn't touch; it is left as a follow-up.
+
+## 2026-10-31 developer, ticket 05 (appended by the conductor)
+
+```
+status:    done
+persona:   developer
+ticket:    05
+artifacts: required.js, FileActions.jsx, tests/invoice-builder-qa-defects.test.js, tests/invoice-builder-files-wiring.test.js, CONTEXT.md (head 7e3ef19)
+decisions: a field counts as missing when toPrintable(value).trim() is empty, for every D4 field and each item description; the bad-file message and the D6 warning are now separate states
+evidence:  red first: 6 failed after it.fails -> it; npm test -> 59 files, 1128 passed, 2 expected fail (defect 03); npm run build -> exit 0
+```
+
+## 2026-10-31 reviewer, ticket 05 (appended by the conductor)
+
+```
+status:    done
+persona:   reviewer
+ticket:    05
+artifacts: .scratch/invoice-builder/reviews/code-review-05.md
+decisions: approve; nits: a second bad file in a row isn't read out again by the live region; no single test runs inclusive quote -> bad file -> good file
+evidence:  reverting either fix turns its tests red; quote-builder and design-system untouched
+```
