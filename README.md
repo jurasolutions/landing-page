@@ -610,7 +610,7 @@ the visitor's name only, never Jura's.
 | `invoiceFile.js` | the saved invoice file, `{ format: "jura-invoice-builder", version: 1, invoice }` (ADR 0005), and `invoiceFromQuote` for starting from a quote file |
 | `remember.js` | "Remember", through `_shared/storage.js` |
 | `pdf.js` | the A4 PDF, with pdf-lib, loaded only when a PDF is wanted |
-| `InvoiceForm.jsx`, `GstFields.jsx`, `InvoicePreview.jsx`, `FileActions.jsx`, `index.jsx` | the page |
+| `InvoiceForm.jsx`, `GstFields.jsx`, `InvoicePreview.jsx`, `FileActions.jsx`, `MissingSummary.jsx` (the linked list of missing fields), `index.jsx` | the page |
 | `copy.js` | every word, including the PDF's |
 | `fixtures.js` | test invoices and storage stubs, used only by the tests |
 
@@ -653,7 +653,8 @@ the visitor's name only, never Jura's.
   its empty business fields (and a missing logo) are filled from the quote.
   A quote saved with prices that include GST opens with the prices as typed
   and a warning to change them to the amount before GST. Anything else,
-  including a file over 3 MB or a newer version, shows the bad-file message
+  including a file over 3 MB, a newer invoice file or a quote file newer than
+  version 2 (`QUOTE_VERSION_KNOWN`), shows the bad-file message
   and changes nothing.
 
 ## Unsubscribe and bounces (scout PRD §5.5, §5.9)

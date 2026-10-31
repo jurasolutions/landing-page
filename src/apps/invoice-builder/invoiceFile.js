@@ -28,6 +28,9 @@ export const FILE_FORMAT = "jura-invoice-builder";
 export const FILE_VERSION = 1;
 // Files over this are refused before they are read, as the quote builder does.
 export const FILE_MAX_BYTES = 3 * 1024 * 1024;
+// The newest quote file `invoiceFromQuote` knows how to map. A newer quote file is
+// refused until this builder is taught its new fields (ADR 0005).
+export const QUOTE_VERSION_KNOWN = 2;
 
 export function serialiseInvoice(invoice, now = new Date()) {
   const items = invoice.items.map(({ id, ...rest }) => rest);
@@ -134,9 +137,19 @@ export function openAnyFile(contents, current) {
   if (saved.ok) {
     return { ok: true, kind: "invoice", invoice: saved.invoice, pricesIncludedGst: false, previousNumber: saved.invoice.details.number };
   }
+  if (quoteVersion(contents) > QUOTE_VERSION_KNOWN) return { ok: false };
   const quote = parseQuoteFile(contents);
   if (!quote.ok) return { ok: false };
   return { ok: true, kind: "quote", ...invoiceFromQuote(quote.quote, current) };
+}
+
+function quoteVersion(contents) {
+  try {
+    const data = JSON.parse(contents);
+    return data && typeof data === "object" ? Number(data.version) || 0 : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /** A file the visitor picked. One over 3 MB is refused before it is read. */

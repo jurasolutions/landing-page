@@ -22,7 +22,7 @@
 import { LIMITS, emptyBusiness, emptyItem, isoDate, nextNumber } from "../quote-builder/model.js";
 
 /**
- * GST standard rate default, re-checked for the invoice builder.
+ * GST standard rate default.
  * Sources (PRD A-0002 §4):
  *   https://www.iras.gov.sg/taxes/goods-services-tax-(gst)/basics-of-gst/current-gst-rates
  *   "The current GST rate in Singapore is 9%."

@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { quoteTotals } from "../quote-builder/calc.js";
 import { newQuote, DEFAULT_BUSINESS_NAME } from "../quote-builder/model.js";
 import QUOTE_COPY from "../quote-builder/copy.js";
-import { serialiseQuote, FILE_FORMAT as QUOTE_FORMAT } from "../quote-builder/quoteFile.js";
+import { serialiseQuote, FILE_FORMAT as QUOTE_FORMAT, FILE_VERSION as QUOTE_VERSION } from "../quote-builder/quoteFile.js";
 import { solidPng } from "../../../tests/helpers/png.js";
 import COPY from "./copy.js";
 import { buildInvoicePdf } from "./pdf.js";
@@ -18,6 +18,7 @@ import {
   FILE_FORMAT,
   FILE_MAX_BYTES,
   FILE_VERSION,
+  QUOTE_VERSION_KNOWN,
   invoiceFromQuote,
   openAnyFile,
   openPickedFile,
@@ -312,5 +313,17 @@ describe("files stay on the device", () => {
     openAnyFile(serialiseQuote(sampleQuote()), pageInvoice());
     await openPickedFile({ size: 10, text: async () => "hello" }, pageInvoice());
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("quote file versions", () => {
+  it("knows the quote builder's current version, so a new one has to be mapped here first", () => {
+    expect(QUOTE_VERSION_KNOWN).toBe(QUOTE_VERSION);
+  });
+
+  it("refuses a quote file newer than the one it knows, even when it would otherwise read", () => {
+    const quote = JSON.parse(serialiseQuote(sampleQuote()));
+    const newer = JSON.stringify({ ...quote, version: QUOTE_VERSION_KNOWN + 1 });
+    expect(openAnyFile(newer, pageInvoice())).toEqual({ ok: false });
   });
 });

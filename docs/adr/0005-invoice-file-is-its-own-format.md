@@ -34,7 +34,8 @@ and read by `src/apps/invoice-builder/invoiceFile.js`.
 - A change to the quote's field readers changes the invoice's too. The invoice's round-trip and
   refusal tests in `invoiceFile.test.js` catch it.
 - A quote file version 3 must update `invoiceFromQuote`. Until it does, the invoice builder
-  refuses version 3 quotes, because it reads them with `parseQuoteFile`.
+  refuses quote files newer than `QUOTE_VERSION_KNOWN` (2) itself, and a test fails the moment
+  the quote builder's `FILE_VERSION` moves past it.
 
 ## Rejected
 
